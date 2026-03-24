@@ -6,7 +6,8 @@
 
 :root {
   --bg: #1e1e2e;
-  --sidebar-bg: #181825;
+  --surface: #181825;
+  --sidebar-bg: #11111b;
   --tab-bg: #313244;
   --tab-active-bg: #45475a;
   --tab-hover-bg: #585b70;
@@ -15,6 +16,8 @@
   --accent: #89b4fa;
   --red: #f38ba8;
   --green: #a6e3a1;
+  --yellow: #f9e2af;
+  --mauve: #cba6f7;
   --titlebar-bg: #11111b;
   --border: #313244;
 }
@@ -27,7 +30,7 @@ html, body {
   color: var(--text);
 }
 
-/* Title bar */
+/* ===== Title Bar ===== */
 #titlebar {
   display: flex;
   align-items: center;
@@ -50,6 +53,8 @@ html, body {
 .titlebar-title {
   font-size: 12px;
   color: var(--text-muted);
+  font-weight: 600;
+  letter-spacing: 0.5px;
 }
 
 .titlebar-controls {
@@ -78,20 +83,16 @@ html, body {
   color: #1e1e2e;
 }
 
-.titlebar-btn-new {
-  font-size: 16px;
-}
-
-/* App layout */
+/* ===== App Layout ===== */
 #app {
   display: flex;
   height: calc(100vh - 32px);
 }
 
-/* Sidebar */
+/* ===== Sidebar ===== */
 #sidebar {
-  width: 200px;
-  min-width: 200px;
+  width: 220px;
+  min-width: 220px;
   background: var(--sidebar-bg);
   border-right: 1px solid var(--border);
   display: flex;
@@ -99,23 +100,24 @@ html, body {
   overflow: hidden;
 }
 
-#tab-list {
+#sidebar-section-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted);
+  padding: 12px 12px 6px;
+  letter-spacing: 1px;
+}
+
+.sidebar-spacer {
   flex: 1;
-  overflow-y: auto;
-  padding: 8px;
 }
 
-#tab-list::-webkit-scrollbar {
-  width: 4px;
+/* Workspace tabs */
+#workspace-tabs {
+  padding: 0 8px;
 }
 
-#tab-list::-webkit-scrollbar-thumb {
-  background: var(--tab-bg);
-  border-radius: 2px;
-}
-
-/* Tabs */
-.tab {
+.workspace-tab {
   display: flex;
   align-items: center;
   padding: 8px 10px;
@@ -127,15 +129,15 @@ html, body {
   user-select: none;
 }
 
-.tab:hover {
+.workspace-tab:hover {
   background: var(--tab-hover-bg);
 }
 
-.tab.active {
+.workspace-tab.active {
   background: var(--tab-active-bg);
 }
 
-.tab.active::before {
+.workspace-tab.active::before {
   content: '';
   position: absolute;
   left: 0;
@@ -146,18 +148,15 @@ html, body {
   border-radius: 0 3px 3px 0;
 }
 
-.tab-icon {
-  width: 16px;
-  height: 16px;
-  margin-right: 8px;
-  color: var(--accent);
-  font-size: 14px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+.workspace-tab-color {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  margin-right: 10px;
+  flex-shrink: 0;
 }
 
-.tab-label {
+.workspace-tab-label {
   flex: 1;
   font-size: 13px;
   color: var(--text);
@@ -166,7 +165,7 @@ html, body {
   text-overflow: ellipsis;
 }
 
-.tab-label input {
+.workspace-tab-label input {
   background: var(--bg);
   border: 1px solid var(--accent);
   color: var(--text);
@@ -177,7 +176,7 @@ html, body {
   outline: none;
 }
 
-.tab-close {
+.workspace-tab-close {
   width: 20px;
   height: 20px;
   border: none;
@@ -193,71 +192,111 @@ html, body {
   transition: all 0.15s;
 }
 
-.tab:hover .tab-close {
+.workspace-tab:hover .workspace-tab-close {
   opacity: 1;
 }
 
-.tab-close:hover {
+.workspace-tab-close:hover {
   background: var(--red);
   color: #1e1e2e;
 }
 
-/* New tab button */
-#new-tab-btn {
-  margin: 8px;
-  padding: 8px;
-  border: 1px dashed var(--border);
+/* Action buttons */
+#action-buttons {
+  padding: 0 8px;
+}
+
+.action-btn {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  padding: 7px 10px;
+  margin-bottom: 2px;
+  border: none;
   border-radius: 6px;
   background: transparent;
   color: var(--text-muted);
-  font-size: 18px;
+  font-size: 13px;
   cursor: pointer;
   transition: all 0.15s;
+  text-align: left;
 }
 
-#new-tab-btn:hover {
+.action-btn:hover {
   background: var(--tab-bg);
-  color: var(--accent);
-  border-color: var(--accent);
+  color: var(--text);
 }
 
-/* Terminal container */
-#terminal-container {
+.action-icon {
+  width: 20px;
+  margin-right: 8px;
+  text-align: center;
+  font-size: 14px;
+}
+
+.action-btn[data-action="claude"] .action-icon { color: var(--mauve); }
+.action-btn[data-action="git-sync"] .action-icon { color: var(--green); }
+.action-btn[data-action="build"] .action-icon { color: var(--yellow); }
+
+/* ===== Main Content ===== */
+#main-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* Editor area (webviews) */
+#editor-area {
   flex: 1;
   position: relative;
   overflow: hidden;
 }
 
-.terminal-wrapper {
+#editor-placeholder {
   position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  padding: 4px;
+  top: 0; left: 0; right: 0; bottom: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg);
+}
+
+.placeholder-content {
+  text-align: center;
+  color: var(--text-muted);
+}
+
+.placeholder-content h2 {
+  font-size: 2rem;
+  color: var(--text);
+  margin-bottom: 0.5rem;
+  opacity: 0.3;
+}
+
+.placeholder-content p {
+  margin: 0.3rem 0;
+  font-size: 0.9rem;
+}
+
+.placeholder-hint {
+  font-size: 0.8rem !important;
+  opacity: 0.6;
+}
+
+.workspace-webview {
+  position: absolute;
+  top: -35px; left: 0; right: 0; bottom: 0;
+  height: calc(100% + 35px);
+  border: none;
   display: none;
 }
 
-.terminal-wrapper.active {
-  display: block;
+.workspace-webview.active {
+  display: flex;
 }
 
-/* xterm overrides */
-.terminal-wrapper .xterm {
-  height: 100%;
-  padding: 8px;
-}
-
-.terminal-wrapper .xterm-viewport::-webkit-scrollbar {
-  width: 8px;
-}
-
-.terminal-wrapper .xterm-viewport::-webkit-scrollbar-thumb {
-  background: var(--tab-bg);
-  border-radius: 4px;
-}
-
-/* Context menu */
+/* ===== Context Menu ===== */
 .context-menu {
   position: fixed;
   background: var(--sidebar-bg);
@@ -287,7 +326,81 @@ html, body {
   margin: 4px 0;
 }
 
+/* ===== Folder Dialog ===== */
+.dialog-overlay {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2000;
+}
+
+.dialog {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 24px;
+  min-width: 400px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+}
+
+.dialog h3 {
+  margin-bottom: 16px;
+  font-size: 1rem;
+}
+
+.dialog input[type="text"] {
+  width: 100%;
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg);
+  color: var(--text);
+  font-size: 14px;
+  outline: none;
+  margin-bottom: 16px;
+}
+
+.dialog input[type="text"]:focus {
+  border-color: var(--accent);
+}
+
+.dialog-buttons {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.dialog-btn {
+  padding: 6px 16px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text);
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.dialog-btn:hover {
+  background: var(--tab-bg);
+}
+
+.dialog-btn-primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #1e1e2e;
+  font-weight: 600;
+}
+
+.dialog-btn-primary:hover {
+  opacity: 0.9;
+  background: var(--accent);
+}
+
 /* Drag and drop */
-.tab.dragging {
+.workspace-tab.dragging {
   opacity: 0.5;
 }

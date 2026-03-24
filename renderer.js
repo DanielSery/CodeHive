@@ -1,185 +1,162 @@
-// xterm is loaded via script tags in index.html
-// Terminal and FitAddon are available as globals
+// ===== State =====
+const workspaces = new Map();
+let activeWorkspaceId = null;
+let workspaceCounter = 0;
 
-const tabs = new Map();
-let activeTabId = null;
-let tabCounter = 0;
+// Workspace colors for visual distinction
+const WORKSPACE_COLORS = [
+  '#89b4fa', '#a6e3a1', '#f9e2af', '#f38ba8',
+  '#cba6f7', '#94e2d5', '#fab387', '#f5c2e7'
+];
 
-const tabList = document.getElementById('tab-list');
-const terminalContainer = document.getElementById('terminal-container');
-const newTabBtn = document.getElementById('new-tab-btn');
+// DOM refs
+const workspaceTabsEl = document.getElementById('workspace-tabs');
+const editorArea = document.getElementById('editor-area');
+const placeholder = document.getElementById('editor-placeholder');
 
-// Catppuccin Mocha theme
-const termTheme = {
-  background: '#1e1e2e',
-  foreground: '#cdd6f4',
-  cursor: '#f5e0dc',
-  cursorAccent: '#1e1e2e',
-  selectionBackground: '#585b7066',
-  black: '#45475a',
-  red: '#f38ba8',
-  green: '#a6e3a1',
-  yellow: '#f9e2af',
-  blue: '#89b4fa',
-  magenta: '#f5c2e7',
-  cyan: '#94e2d5',
-  white: '#bac2de',
-  brightBlack: '#585b70',
-  brightRed: '#f38ba8',
-  brightGreen: '#a6e3a1',
-  brightYellow: '#f9e2af',
-  brightBlue: '#89b4fa',
-  brightMagenta: '#f5c2e7',
-  brightCyan: '#94e2d5',
-  brightWhite: '#a6adc8'
-};
+// ===== Workspaces =====
 
-async function createTab(name) {
-  const localId = ++tabCounter;
-  const ptyId = await window.terminalAPI.createTerminal();
+async function addWorkspace(folderPath, name) {
+  const id = ++workspaceCounter;
+  const color = WORKSPACE_COLORS[(id - 1) % WORKSPACE_COLORS.length];
+  const displayName = name || folderPath.split(/[/\\]/).pop() || `Workspace ${id}`;
 
-  const term = new Terminal({
-    theme: termTheme,
-    fontFamily: "'Cascadia Code', 'Fira Code', 'JetBrains Mono', 'Consolas', monospace",
-    fontSize: 14,
-    lineHeight: 1.2,
-    cursorBlink: true,
-    cursorStyle: 'bar',
-    scrollback: 10000
+  const url = await window.codeServerAPI.openFolder(folderPath);
+
+  // Create webview
+  const webview = document.createElement('webview');
+  webview.className = 'workspace-webview';
+  webview.id = `workspace-${id}`;
+  webview.setAttribute('src', url);
+  webview.setAttribute('allowpopups', 'true');
+  webview.setAttribute('disableblinkfeatures', 'Auxclick');
+  editorArea.appendChild(webview);
+
+  // Customize VS Code: show only Explorer, Source Control, Search, Extensions, Claude
+  webview.addEventListener('did-finish-load', () => {
+    webview.insertCSS(`
+      .activitybar .actions-container .action-item {
+        display: none !important;
+      }
+      .activitybar .actions-container .action-item:has(a[aria-label*="Explorer"]),
+      .activitybar .actions-container .action-item:has(a[aria-label*="Source Control"]),
+      .activitybar .actions-container .action-item:has(a[aria-label*="Search"]),
+      .activitybar .actions-container .action-item:has(a[aria-label*="Extensions"]),
+      .activitybar .actions-container .action-item:has(a[aria-label*="Claude"]) {
+        display: flex !important;
+      }
+      [id="workbench.panel.chat"],
+      [id="workbench.panel.chatEditing"] {
+        display: none !important;
+      }
+    `).catch(() => {});
+
+
   });
 
-  const fitAddon = new FitAddon.FitAddon();
-  term.loadAddon(fitAddon);
-  term.loadAddon(new WebLinksAddon.WebLinksAddon());
-
-  // Create terminal DOM
-  const wrapper = document.createElement('div');
-  wrapper.className = 'terminal-wrapper';
-  wrapper.id = `term-${localId}`;
-  terminalContainer.appendChild(wrapper);
-
-  term.open(wrapper);
-
-  requestAnimationFrame(() => {
-    fitAddon.fit();
-    window.terminalAPI.resize(ptyId, term.cols, term.rows);
-  });
-
-  // Input -> pty
-  term.onData((data) => {
-    window.terminalAPI.sendInput(ptyId, data);
-  });
-
-  // Create tab element
+  // Create sidebar tab
   const tabEl = document.createElement('div');
-  tabEl.className = 'tab';
-  tabEl.dataset.id = localId;
+  tabEl.className = 'workspace-tab';
+  tabEl.dataset.id = id;
   tabEl.innerHTML = `
-    <span class="tab-icon">&gt;_</span>
-    <span class="tab-label">${name || `Terminal ${localId}`}</span>
-    <button class="tab-close" title="Close">&times;</button>
+    <span class="workspace-tab-color" style="background: ${color}"></span>
+    <span class="workspace-tab-label">${displayName}</span>
+    <button class="workspace-tab-close" title="Close">&times;</button>
   `;
 
   tabEl.addEventListener('click', (e) => {
-    if (!e.target.classList.contains('tab-close')) {
-      switchTab(localId);
+    if (!e.target.classList.contains('workspace-tab-close')) {
+      switchWorkspace(id);
     }
   });
 
-  tabEl.querySelector('.tab-close').addEventListener('click', (e) => {
+  tabEl.querySelector('.workspace-tab-close').addEventListener('click', (e) => {
     e.stopPropagation();
-    closeTab(localId);
+    closeWorkspace(id);
   });
 
-  tabEl.addEventListener('dblclick', () => renameTab(localId));
+  tabEl.addEventListener('dblclick', () => renameWorkspace(id));
   tabEl.addEventListener('contextmenu', (e) => {
     e.preventDefault();
-    showContextMenu(e, localId);
+    showContextMenu(e, [
+      { label: 'Rename', action: () => renameWorkspace(id) },
+      { separator: true },
+      { label: 'Close', action: () => closeWorkspace(id) }
+    ]);
   });
 
-  // Drag & drop reorder
+  // Drag & drop
   tabEl.draggable = true;
   tabEl.addEventListener('dragstart', (e) => {
-    e.dataTransfer.setData('text/plain', localId.toString());
+    e.dataTransfer.setData('text/plain', id.toString());
     tabEl.classList.add('dragging');
   });
   tabEl.addEventListener('dragend', () => tabEl.classList.remove('dragging'));
   tabEl.addEventListener('dragover', (e) => {
     e.preventDefault();
-    const dragging = tabList.querySelector('.dragging');
+    const dragging = workspaceTabsEl.querySelector('.dragging');
     if (dragging && dragging !== tabEl) {
       const rect = tabEl.getBoundingClientRect();
       const mid = rect.top + rect.height / 2;
-      if (e.clientY < mid) {
-        tabList.insertBefore(dragging, tabEl);
-      } else {
-        tabList.insertBefore(dragging, tabEl.nextSibling);
-      }
+      if (e.clientY < mid) workspaceTabsEl.insertBefore(dragging, tabEl);
+      else workspaceTabsEl.insertBefore(dragging, tabEl.nextSibling);
     }
   });
 
-  tabList.appendChild(tabEl);
+  workspaceTabsEl.appendChild(tabEl);
 
-  tabs.set(localId, { ptyId, term, fitAddon, wrapper, tabEl, name: name || `Terminal ${localId}` });
-
-  switchTab(localId);
-  return localId;
+  workspaces.set(id, { folderPath, name: displayName, color, webview, tabEl });
+  switchWorkspace(id);
 }
 
-function switchTab(id) {
-  if (activeTabId === id) return;
+function switchWorkspace(id) {
+  if (activeWorkspaceId === id) return;
 
-  if (activeTabId !== null) {
-    const prev = tabs.get(activeTabId);
+  // Deactivate current
+  if (activeWorkspaceId !== null) {
+    const prev = workspaces.get(activeWorkspaceId);
     if (prev) {
-      prev.wrapper.classList.remove('active');
+      prev.webview.classList.remove('active');
       prev.tabEl.classList.remove('active');
     }
   }
 
-  const tab = tabs.get(id);
-  if (tab) {
-    tab.wrapper.classList.add('active');
-    tab.tabEl.classList.add('active');
-    activeTabId = id;
-
-    requestAnimationFrame(() => {
-      tab.fitAddon.fit();
-      window.terminalAPI.resize(tab.ptyId, tab.term.cols, tab.term.rows);
-      tab.term.focus();
-    });
-
-    document.querySelector('.titlebar-title').textContent = tab.name;
+  const ws = workspaces.get(id);
+  if (ws) {
+    ws.webview.classList.add('active');
+    ws.tabEl.classList.add('active');
+    activeWorkspaceId = id;
+    placeholder.style.display = 'none';
+    document.querySelector('.titlebar-title').textContent = `DevShell — ${ws.name}`;
   }
 }
 
-function closeTab(id) {
-  const tab = tabs.get(id);
-  if (!tab) return;
+function closeWorkspace(id) {
+  const ws = workspaces.get(id);
+  if (!ws) return;
 
-  window.terminalAPI.kill(tab.ptyId);
-  tab.term.dispose();
-  tab.wrapper.remove();
-  tab.tabEl.remove();
-  tabs.delete(id);
+  ws.webview.remove();
+  ws.tabEl.remove();
+  workspaces.delete(id);
 
-  if (activeTabId === id) {
-    activeTabId = null;
-    const remaining = Array.from(tabs.keys());
+  if (activeWorkspaceId === id) {
+    activeWorkspaceId = null;
+    const remaining = Array.from(workspaces.keys());
     if (remaining.length > 0) {
-      switchTab(remaining[remaining.length - 1]);
+      switchWorkspace(remaining[remaining.length - 1]);
     } else {
-      createTab();
+      placeholder.style.display = 'flex';
+      document.querySelector('.titlebar-title').textContent = 'DevShell';
     }
   }
 }
 
-function renameTab(id) {
-  const tab = tabs.get(id);
-  if (!tab) return;
+function renameWorkspace(id) {
+  const ws = workspaces.get(id);
+  if (!ws) return;
 
-  const labelEl = tab.tabEl.querySelector('.tab-label');
-  const currentName = tab.name;
+  const labelEl = ws.tabEl.querySelector('.workspace-tab-label');
+  const currentName = ws.name;
 
   const input = document.createElement('input');
   input.value = currentName;
@@ -188,23 +165,68 @@ function renameTab(id) {
   input.focus();
   input.select();
 
-  const finishRename = () => {
+  const finish = () => {
     const newName = input.value.trim() || currentName;
-    tab.name = newName;
+    ws.name = newName;
     labelEl.textContent = newName;
-    if (activeTabId === id) {
-      document.querySelector('.titlebar-title').textContent = newName;
+    if (activeWorkspaceId === id) {
+      document.querySelector('.titlebar-title').textContent = `DevShell — ${newName}`;
     }
   };
 
-  input.addEventListener('blur', finishRename);
+  input.addEventListener('blur', finish);
   input.addEventListener('keydown', (e) => {
     if (e.key === 'Enter') input.blur();
     else if (e.key === 'Escape') { input.value = currentName; input.blur(); }
   });
 }
 
-function showContextMenu(event, tabId) {
+// ===== Add Workspace Dialog =====
+
+function showAddWorkspaceDialog() {
+  const overlay = document.createElement('div');
+  overlay.className = 'dialog-overlay';
+  overlay.innerHTML = `
+    <div class="dialog">
+      <h3>Add Workspace</h3>
+      <input type="text" id="folder-input" placeholder="Enter folder path (e.g., C:\\Repos\\my-project)" autofocus>
+      <div class="dialog-buttons">
+        <button class="dialog-btn" id="dialog-cancel">Cancel</button>
+        <button class="dialog-btn dialog-btn-primary" id="dialog-ok">Open</button>
+      </div>
+    </div>
+  `;
+
+  document.body.appendChild(overlay);
+
+  const input = overlay.querySelector('#folder-input');
+  const cancel = overlay.querySelector('#dialog-cancel');
+  const ok = overlay.querySelector('#dialog-ok');
+
+  const close = () => overlay.remove();
+
+  const submit = () => {
+    const path = input.value.trim();
+    if (path) {
+      addWorkspace(path);
+      close();
+    }
+  };
+
+  cancel.addEventListener('click', close);
+  ok.addEventListener('click', submit);
+  overlay.addEventListener('click', (e) => { if (e.target === overlay) close(); });
+  input.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') submit();
+    if (e.key === 'Escape') close();
+  });
+
+  input.focus();
+}
+
+// ===== Context Menu =====
+
+function showContextMenu(event, items) {
   const existing = document.querySelector('.context-menu');
   if (existing) existing.remove();
 
@@ -212,14 +234,6 @@ function showContextMenu(event, tabId) {
   menu.className = 'context-menu';
   menu.style.left = event.clientX + 'px';
   menu.style.top = event.clientY + 'px';
-
-  const items = [
-    { label: 'Rename', action: () => renameTab(tabId) },
-    { label: 'Duplicate', action: () => createTab(tabs.get(tabId)?.name + ' (copy)') },
-    { separator: true },
-    { label: 'Close', action: () => closeTab(tabId) },
-    { label: 'Close Others', action: () => closeOtherTabs(tabId) }
-  ];
 
   items.forEach(item => {
     if (item.separator) {
@@ -245,70 +259,48 @@ function showContextMenu(event, tabId) {
   setTimeout(() => document.addEventListener('click', closeMenu), 0);
 }
 
-function closeOtherTabs(keepId) {
-  Array.from(tabs.keys()).filter(id => id !== keepId).forEach(id => closeTab(id));
-}
+// ===== Action Buttons =====
 
-// Receive pty data
-window.terminalAPI.onData((ptyId, data) => {
-  for (const [id, tab] of tabs) {
-    if (tab.ptyId === ptyId) {
-      tab.term.write(data);
-      break;
+document.querySelectorAll('.action-btn').forEach(btn => {
+  btn.addEventListener('click', async () => {
+    const action = btn.dataset.action;
+    const ws = activeWorkspaceId ? workspaces.get(activeWorkspaceId) : null;
+
+    switch (action) {
+      case 'claude': {
+        // TODO: trigger Claude in the active workspace's VS Code
+        break;
+      }
+      case 'git-sync': {
+        // TODO: trigger git sync in the active workspace's VS Code terminal
+        break;
+      }
+      case 'build': {
+        // TODO: trigger build in the active workspace's VS Code terminal
+        break;
+      }
     }
-  }
+  });
 });
 
-// Handle exit
-window.terminalAPI.onExit((ptyId, exitCode) => {
-  for (const [id, tab] of tabs) {
-    if (tab.ptyId === ptyId) {
-      tab.term.writeln(`\r\n\x1b[90m[Process exited with code ${exitCode}]\x1b[0m`);
-      break;
-    }
-  }
-});
+// ===== Keyboard Shortcuts =====
 
-// Resize
-window.addEventListener('resize', () => {
-  if (activeTabId !== null) {
-    const tab = tabs.get(activeTabId);
-    if (tab) {
-      tab.fitAddon.fit();
-      window.terminalAPI.resize(tab.ptyId, tab.term.cols, tab.term.rows);
-    }
-  }
-});
-
-// Keyboard shortcuts
 document.addEventListener('keydown', (e) => {
-  if (e.ctrlKey && e.key === 't') { e.preventDefault(); createTab(); }
-  if (e.ctrlKey && e.key === 'w') { e.preventDefault(); if (activeTabId) closeTab(activeTabId); }
+  if (e.ctrlKey && e.key === 'n') { e.preventDefault(); showAddWorkspaceDialog(); }
   if (e.ctrlKey && e.key === 'Tab') {
     e.preventDefault();
-    const ids = Array.from(tabs.keys());
+    const ids = Array.from(workspaces.keys());
     if (ids.length > 1) {
-      const idx = ids.indexOf(activeTabId);
+      const idx = ids.indexOf(activeWorkspaceId);
       const next = e.shiftKey ? (idx - 1 + ids.length) % ids.length : (idx + 1) % ids.length;
-      switchTab(ids[next]);
+      switchWorkspace(ids[next]);
     }
-  }
-  if (e.ctrlKey && e.key >= '1' && e.key <= '9') {
-    e.preventDefault();
-    const ids = Array.from(tabs.keys());
-    const idx = parseInt(e.key) - 1;
-    if (idx < ids.length) switchTab(ids[idx]);
   }
 });
 
-// Title bar
-document.getElementById('btn-new-tab').addEventListener('click', () => createTab());
-document.getElementById('btn-minimize').addEventListener('click', () => window.terminalAPI.minimize());
-document.getElementById('btn-maximize').addEventListener('click', () => window.terminalAPI.maximize());
-document.getElementById('btn-close').addEventListener('click', () => window.terminalAPI.close());
+// ===== Title Bar =====
 
-// New tab
-newTabBtn.addEventListener('click', () => createTab());
-
-// Start
-createTab('PowerShell');
+document.getElementById('btn-new-workspace').addEventListener('click', showAddWorkspaceDialog);
+document.getElementById('btn-minimize').addEventListener('click', () => window.windowAPI.minimize());
+document.getElementById('btn-maximize').addEventListener('click', () => window.windowAPI.maximize());
+document.getElementById('btn-close').addEventListener('click', () => window.windowAPI.close());

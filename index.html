@@ -3,18 +3,17 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Terminal</title>
-  <link rel="stylesheet" href="node_modules/@xterm/xterm/css/xterm.css">
+  <title>DevShell</title>
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
   <!-- Custom title bar -->
   <div id="titlebar">
     <div class="titlebar-drag">
-      <span class="titlebar-title">Terminal</span>
+      <span class="titlebar-title">DevShell</span>
     </div>
     <div class="titlebar-controls">
-      <button class="titlebar-btn titlebar-btn-new" id="btn-new-tab" title="New Terminal (Ctrl+T)">+</button>
+      <button class="titlebar-btn" id="btn-new-workspace" title="Add Workspace">+</button>
       <button class="titlebar-btn" id="btn-minimize">&#x2013;</button>
       <button class="titlebar-btn" id="btn-maximize">&#x25A1;</button>
       <button class="titlebar-btn titlebar-btn-close" id="btn-close">&#x2715;</button>
@@ -22,19 +21,45 @@
   </div>
 
   <div id="app">
-    <!-- Vertical tab sidebar -->
+    <!-- Sidebar: workspace tabs + custom buttons -->
     <div id="sidebar">
-      <div id="tab-list"></div>
-      <button id="new-tab-btn" title="New Terminal (Ctrl+T)">+</button>
+      <div id="sidebar-section-label">WORKSPACES</div>
+      <div id="workspace-tabs"></div>
+
+      <div id="sidebar-section-label">ACTIONS</div>
+      <div id="action-buttons">
+        <button class="action-btn" data-action="claude" title="Run Claude Agent">
+          <span class="action-icon">&#x2728;</span>
+          <span class="action-label">Run Claude</span>
+        </button>
+        <button class="action-btn" data-action="git-sync" title="Git Sync">
+          <span class="action-icon">&#x21C4;</span>
+          <span class="action-label">Git Sync</span>
+        </button>
+        <button class="action-btn" data-action="build" title="Build Project">
+          <span class="action-icon">&#x2699;</span>
+          <span class="action-label">Build</span>
+        </button>
+      </div>
+
+      <div class="sidebar-spacer"></div>
     </div>
 
-    <!-- Terminal area -->
-    <div id="terminal-container"></div>
+    <!-- Main content area -->
+    <div id="main-content">
+      <!-- VS Code webviews area -->
+      <div id="editor-area">
+        <div id="editor-placeholder">
+          <div class="placeholder-content">
+            <h2>DevShell</h2>
+            <p>Click <strong>+</strong> to add a workspace</p>
+            <p class="placeholder-hint">Each workspace opens a full VS Code editor</p>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 
-  <script src="node_modules/@xterm/xterm/lib/xterm.js"></script>
-  <script src="node_modules/@xterm/addon-fit/lib/addon-fit.js"></script>
-  <script src="node_modules/@xterm/addon-web-links/lib/addon-web-links.js"></script>
   <script src="renderer.js"></script>
 </body>
 </html>

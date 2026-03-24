@@ -1,0 +1,31 @@
+{
+  "workbench.colorTheme": "Catppuccin Mocha",
+  "workbench.iconTheme": "catppuccin-mocha",
+  "workbench.startupEditor": "none",
+  "workbench.startupViewActivity": "claude-sidebar",
+  "chat.enabled": false,
+  "github.copilot.enable": false,
+  "workbench.sideBar.location": "left",
+  "workbench.activityBar.location": "top",
+  "window.titleBarStyle": "native",
+  "workbench.layoutControl.enabled": false,
+  "workbench.statusBar.visible": false,
+  "window.density.editorTabHeight": "compact",
+  "window.density.styles.activityBar": "compact",
+  "window.density.styles.sidebar": "compact",
+  "window.density.styles.panel": "compact",
+  "workbench.editor.tabSizing": "shrink",
+  "workbench.editor.labelFormat": "short",
+  "workbench.editor.customLabels.enabled": true,
+  "workbench.editor.customLabels.patterns": {
+    "**/*.css": "${filename}.${extname}",
+    "**/*.cs": "${filename}",
+    "**/*.xaml": "${filename}",
+    "**/*.json": "${filename}"
+  },
+  "workbench.tree.indent": 12,
+  "workbench.tree.renderIndentGuides": "always",
+  "workbench.list.openMode": "singleClick",
+  "window.density.styles.breadcrumbs": "compact",
+  "window.density.styles.tabs": "compact"
+}

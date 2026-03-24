@@ -1,17 +1,13 @@
 {
   "name": "electron-terminal",
   "version": "1.0.0",
-  "description": "Terminal app with vertical tabs",
+  "description": "DevShell - VS Code workspace manager",
   "main": "main.js",
   "scripts": {
     "start": "electron .",
     "dev": "electron . --dev"
   },
   "dependencies": {
-    "electron": "^33.0.0",
-    "@xterm/xterm": "^5.5.0",
-    "@xterm/addon-fit": "^0.10.0",
-    "@xterm/addon-web-links": "^0.11.0",
-    "node-pty": "^1.0.0"
+    "electron": "^33.0.0"
   }
 }

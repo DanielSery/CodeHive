@@ -3,3 +3,9 @@ dist/
 out/
 .env
 *.log
+vscode-data/*
+!vscode-data/data/
+vscode-data/data/*
+!vscode-data/data/Machine/
+vscode-data/data/Machine/*
+!vscode-data/data/Machine/settings.json
