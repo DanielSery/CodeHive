@@ -13,7 +13,6 @@
       <span class="titlebar-title">DevShell</span>
     </div>
     <div class="titlebar-controls">
-      <button class="titlebar-btn" id="btn-new-workspace" title="Add Workspace">+</button>
       <button class="titlebar-btn" id="btn-minimize">&#x2013;</button>
       <button class="titlebar-btn" id="btn-maximize">&#x25A1;</button>
       <button class="titlebar-btn titlebar-btn-close" id="btn-close">&#x2715;</button>
@@ -21,27 +20,13 @@
   </div>
 
   <div id="app">
-    <!-- Sidebar: workspace tabs + custom buttons -->
+    <!-- Sidebar: repo groups with worktree tabs -->
     <div id="sidebar">
-      <div id="sidebar-section-label">WORKSPACES</div>
-      <div id="workspace-tabs"></div>
-
-      <div id="sidebar-section-label">ACTIONS</div>
-      <div id="action-buttons">
-        <button class="action-btn" data-action="claude" title="Run Claude Agent">
-          <span class="action-icon">&#x2728;</span>
-          <span class="action-label">Run Claude</span>
-        </button>
-        <button class="action-btn" data-action="git-sync" title="Git Sync">
-          <span class="action-icon">&#x21C4;</span>
-          <span class="action-label">Git Sync</span>
-        </button>
-        <button class="action-btn" data-action="build" title="Build Project">
-          <span class="action-icon">&#x2699;</span>
-          <span class="action-label">Build</span>
-        </button>
+      <div id="sidebar-header">
+        <span id="sidebar-section-label">WORKSPACES</span>
+        <button id="btn-open-directory" title="Open Directory">Open</button>
       </div>
-
+      <div id="repo-groups"></div>
       <div class="sidebar-spacer"></div>
     </div>
 
@@ -52,8 +37,8 @@
         <div id="editor-placeholder">
           <div class="placeholder-content">
             <h2>DevShell</h2>
-            <p>Click <strong>+</strong> to add a workspace</p>
-            <p class="placeholder-hint">Each workspace opens a full VS Code editor</p>
+            <p>Click <strong>Open</strong> to scan a directory for repositories</p>
+            <p class="placeholder-hint">Bare repos with worktrees will appear in the sidebar</p>
           </div>
         </div>
       </div>

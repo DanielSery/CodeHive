@@ -6,7 +6,6 @@
 
 :root {
   --bg: #1e1e2e;
-  --surface: #181825;
   --sidebar-bg: #11111b;
   --tab-bg: #313244;
   --tab-active-bg: #45475a;
@@ -15,9 +14,6 @@
   --text-muted: #6c7086;
   --accent: #89b4fa;
   --red: #f38ba8;
-  --green: #a6e3a1;
-  --yellow: #f9e2af;
-  --mauve: #cba6f7;
   --titlebar-bg: #11111b;
   --border: #313244;
 }
@@ -97,25 +93,104 @@ html, body {
   border-right: 1px solid var(--border);
   display: flex;
   flex-direction: column;
-  overflow: hidden;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+#sidebar-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 12px 6px;
 }
 
 #sidebar-section-label {
   font-size: 11px;
   font-weight: 600;
   color: var(--text-muted);
-  padding: 12px 12px 6px;
   letter-spacing: 1px;
+}
+
+#btn-open-directory {
+  padding: 3px 10px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 11px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+#btn-open-directory:hover {
+  background: var(--tab-bg);
+  color: var(--text);
 }
 
 .sidebar-spacer {
   flex: 1;
 }
 
-/* Workspace tabs */
-#workspace-tabs {
+/* Repo groups */
+#repo-groups {
+  overflow-y: auto;
   padding: 0 8px;
 }
+
+.repo-group {
+  margin-bottom: 4px;
+}
+
+.repo-group-header {
+  display: flex;
+  align-items: center;
+  padding: 6px 8px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.15s;
+  user-select: none;
+}
+
+.repo-group-header:hover {
+  background: var(--tab-hover-bg);
+}
+
+.repo-group-chevron {
+  font-size: 9px;
+  color: var(--text-muted);
+  width: 16px;
+  flex-shrink: 0;
+}
+
+.repo-group-name {
+  flex: 1;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.repo-group-count {
+  font-size: 10px;
+  color: var(--text-muted);
+  background: var(--tab-bg);
+  padding: 1px 6px;
+  border-radius: 8px;
+  margin-left: 6px;
+}
+
+.repo-group-tabs {
+  display: none;
+  padding-left: 8px;
+}
+
+.repo-group-tabs.expanded {
+  display: block;
+}
+
+/* Workspace tabs */
 
 .workspace-tab {
   display: flex;
@@ -165,17 +240,6 @@ html, body {
   text-overflow: ellipsis;
 }
 
-.workspace-tab-label input {
-  background: var(--bg);
-  border: 1px solid var(--accent);
-  color: var(--text);
-  font-size: 13px;
-  padding: 1px 4px;
-  border-radius: 3px;
-  width: 100%;
-  outline: none;
-}
-
 .workspace-tab-close {
   width: 20px;
   height: 20px;
@@ -200,43 +264,6 @@ html, body {
   background: var(--red);
   color: #1e1e2e;
 }
-
-/* Action buttons */
-#action-buttons {
-  padding: 0 8px;
-}
-
-.action-btn {
-  display: flex;
-  align-items: center;
-  width: 100%;
-  padding: 7px 10px;
-  margin-bottom: 2px;
-  border: none;
-  border-radius: 6px;
-  background: transparent;
-  color: var(--text-muted);
-  font-size: 13px;
-  cursor: pointer;
-  transition: all 0.15s;
-  text-align: left;
-}
-
-.action-btn:hover {
-  background: var(--tab-bg);
-  color: var(--text);
-}
-
-.action-icon {
-  width: 20px;
-  margin-right: 8px;
-  text-align: center;
-  font-size: 14px;
-}
-
-.action-btn[data-action="claude"] .action-icon { color: var(--mauve); }
-.action-btn[data-action="git-sync"] .action-icon { color: var(--green); }
-.action-btn[data-action="build"] .action-icon { color: var(--yellow); }
 
 /* ===== Main Content ===== */
 #main-content {
@@ -296,111 +323,3 @@ html, body {
   display: flex;
 }
 
-/* ===== Context Menu ===== */
-.context-menu {
-  position: fixed;
-  background: var(--sidebar-bg);
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  padding: 4px;
-  min-width: 160px;
-  z-index: 1000;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
-}
-
-.context-menu-item {
-  padding: 6px 12px;
-  border-radius: 4px;
-  font-size: 13px;
-  cursor: pointer;
-  color: var(--text);
-}
-
-.context-menu-item:hover {
-  background: var(--tab-active-bg);
-}
-
-.context-menu-separator {
-  height: 1px;
-  background: var(--border);
-  margin: 4px 0;
-}
-
-/* ===== Folder Dialog ===== */
-.dialog-overlay {
-  position: fixed;
-  top: 0; left: 0; right: 0; bottom: 0;
-  background: rgba(0, 0, 0, 0.5);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 2000;
-}
-
-.dialog {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  padding: 24px;
-  min-width: 400px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
-}
-
-.dialog h3 {
-  margin-bottom: 16px;
-  font-size: 1rem;
-}
-
-.dialog input[type="text"] {
-  width: 100%;
-  padding: 8px 12px;
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  background: var(--bg);
-  color: var(--text);
-  font-size: 14px;
-  outline: none;
-  margin-bottom: 16px;
-}
-
-.dialog input[type="text"]:focus {
-  border-color: var(--accent);
-}
-
-.dialog-buttons {
-  display: flex;
-  gap: 8px;
-  justify-content: flex-end;
-}
-
-.dialog-btn {
-  padding: 6px 16px;
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  background: transparent;
-  color: var(--text);
-  font-size: 13px;
-  cursor: pointer;
-  transition: all 0.15s;
-}
-
-.dialog-btn:hover {
-  background: var(--tab-bg);
-}
-
-.dialog-btn-primary {
-  background: var(--accent);
-  border-color: var(--accent);
-  color: #1e1e2e;
-  font-weight: 600;
-}
-
-.dialog-btn-primary:hover {
-  opacity: 0.9;
-  background: var(--accent);
-}
-
-/* Drag and drop */
-.workspace-tab.dragging {
-  opacity: 0.5;
-}

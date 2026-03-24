@@ -1,128 +1,13 @@
-const { app, BrowserWindow, ipcMain } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog } = require('electron');
 const path = require('path');
-const os = require('os');
-const { spawn } = require('child_process');
-const net = require('net');
+const vscode = require('./vscode-server');
+const { scanDirectory } = require('./repo-scanner');
 
 let mainWindow;
-let vscodeServerProcess = null;
-let vscodeServerPort = 8590;
+let serverProcess = null;
+let serverPort = 8590;
 
-// Find an available port starting from the given one
-function findPort(startPort) {
-  return new Promise((resolve) => {
-    const server = net.createServer();
-    server.listen(startPort, '127.0.0.1', () => {
-      server.close(() => resolve(startPort));
-    });
-    server.on('error', () => {
-      resolve(findPort(startPort + 1));
-    });
-  });
-}
-
-const REQUIRED_EXTENSIONS = [
-  'Catppuccin.catppuccin-vsc',
-  'Catppuccin.catppuccin-vsc-icons',
-  'anthropic.claude-code'
-];
-
-function findCodeCmd() {
-  const { execSync } = require('child_process');
-  const isWin = os.platform() === 'win32';
-  if (isWin) {
-    try {
-      const result = execSync('where code.cmd', { encoding: 'utf8', shell: true }).split('\n')[0].trim();
-      if (result) return result;
-    } catch {}
-  }
-  return isWin ? 'code.cmd' : 'code';
-}
-
-function installExtensions() {
-  const { execSync } = require('child_process');
-  const cmd = findCodeCmd();
-  const serverDataDir = path.join(__dirname, 'vscode-data');
-
-  const env = { ...process.env };
-  delete env.ELECTRON_RUN_AS_NODE;
-  delete env.ELECTRON_NO_ASAR;
-  const extensionsDir = path.join(serverDataDir, 'extensions');
-
-  for (const ext of REQUIRED_EXTENSIONS) {
-    try {
-      console.log(`Installing extension: ${ext}`);
-      execSync(`"${cmd}" --install-extension ${ext} --extensions-dir "${extensionsDir}"`, {
-        stdio: 'pipe',
-        shell: true,
-        timeout: 60000,
-        env,
-        cwd: path.dirname(cmd)
-      });
-      console.log(`Extension installed: ${ext}`);
-    } catch (err) {
-      console.warn(`Extension install failed for ${ext}:`, err.message);
-    }
-  }
-}
-
-function startVSCodeServer(port) {
-  return new Promise((resolve, reject) => {
-    const cmd = findCodeCmd();
-
-    const serverDataDir = path.join(__dirname, 'vscode-data');
-    const args = [
-      'serve-web',
-      '--port', port.toString(),
-      '--host', '127.0.0.1',
-      '--without-connection-token',
-      '--accept-server-license-terms',
-      '--server-data-dir', serverDataDir
-    ];
-
-    const env = { ...process.env };
-    delete env.ELECTRON_RUN_AS_NODE;
-    delete env.ELECTRON_NO_ASAR;
-
-    vscodeServerProcess = spawn(`"${cmd}"`, args, {
-      env,
-      stdio: ['pipe', 'pipe', 'pipe'],
-      shell: true
-    });
-
-    let started = false;
-
-    const onData = (data) => {
-      const output = data.toString();
-      console.log('[vscode-server]', output);
-      if (!started && (output.includes('Web UI available') || output.includes(`http://127.0.0.1:${port}`) || output.includes('available at'))) {
-        started = true;
-        setTimeout(() => resolve(port), 1000);
-      }
-    };
-
-    vscodeServerProcess.stdout.on('data', onData);
-    vscodeServerProcess.stderr.on('data', onData);
-
-    vscodeServerProcess.on('error', (err) => {
-      console.error('Failed to start VS Code server:', err);
-      reject(err);
-    });
-
-    vscodeServerProcess.on('exit', (code) => {
-      console.log('VS Code server exited with code:', code);
-      vscodeServerProcess = null;
-    });
-
-    // Timeout after 30 seconds
-    setTimeout(() => {
-      if (!started) {
-        started = true;
-        resolve(port);
-      }
-    }, 30000);
-  });
-}
+// ===== Window =====
 
 function createWindow() {
   mainWindow = new BrowserWindow({
@@ -142,27 +27,30 @@ function createWindow() {
 
   mainWindow.loadFile('index.html');
 
-  // F5 to reload, F12 for dev tools
   mainWindow.webContents.on('before-input-event', (event, input) => {
-    if (input.key === 'F5') {
-      mainWindow.reload();
-      event.preventDefault();
-    }
-    if (input.key === 'F12') {
-      mainWindow.webContents.toggleDevTools();
-      event.preventDefault();
-    }
+    if (input.key === 'F5') { mainWindow.reload(); event.preventDefault(); }
+    if (input.key === 'F12') { mainWindow.webContents.toggleDevTools(); event.preventDefault(); }
   });
 }
 
-// VS Code server IPC
-ipcMain.handle('codeserver:getPort', () => vscodeServerPort);
+// ===== IPC Handlers =====
 
 ipcMain.handle('codeserver:openFolder', (event, folderPath) => {
-  return `http://127.0.0.1:${vscodeServerPort}/?folder=${encodeURIComponent(folderPath)}`;
+  return vscode.buildFolderUrl(serverPort, folderPath);
 });
 
-// Window controls
+ipcMain.handle('dialog:openDirectory', async () => {
+  const result = await dialog.showOpenDialog(mainWindow, {
+    properties: ['openDirectory']
+  });
+  if (result.canceled) return null;
+  return result.filePaths[0];
+});
+
+ipcMain.handle('repos:scanDirectory', (event, dirPath) => {
+  return scanDirectory(dirPath);
+});
+
 ipcMain.on('window:minimize', () => mainWindow.minimize());
 ipcMain.on('window:maximize', () => {
   if (mainWindow.isMaximized()) mainWindow.unmaximize();
@@ -170,26 +58,30 @@ ipcMain.on('window:maximize', () => {
 });
 ipcMain.on('window:close', () => mainWindow.close());
 
-// App lifecycle
+// ===== App Lifecycle =====
+
 app.whenReady().then(async () => {
   console.log('Installing VS Code extensions...');
-  installExtensions();
+  vscode.installExtensions();
+
   console.log('Starting VS Code server...');
   try {
-    const port = await findPort(vscodeServerPort);
-    vscodeServerPort = port;
-    await startVSCodeServer(port);
+    const port = await vscode.findPort(serverPort);
+    serverPort = port;
+    const result = await vscode.startServer(port);
+    serverProcess = result.proc;
     console.log(`VS Code server ready on port ${port}`);
   } catch (err) {
     console.error('VS Code server failed to start:', err);
   }
+
   createWindow();
 });
 
 app.on('window-all-closed', () => {
-  if (vscodeServerProcess) {
-    vscodeServerProcess.kill();
-    vscodeServerProcess = null;
+  if (serverProcess) {
+    serverProcess.kill();
+    serverProcess = null;
   }
   app.quit();
 });
