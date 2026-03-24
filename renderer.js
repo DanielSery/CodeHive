@@ -222,6 +222,12 @@ document.addEventListener('keydown', (e) => {
 // ===== Title Bar =====
 
 document.getElementById('btn-open-directory').addEventListener('click', openDirectory);
+document.getElementById('btn-collapse-sidebar').addEventListener('click', () => {
+  document.getElementById('sidebar').classList.add('collapsed');
+});
+document.getElementById('btn-expand-sidebar').addEventListener('click', () => {
+  document.getElementById('sidebar').classList.remove('collapsed');
+});
 document.getElementById('btn-minimize').addEventListener('click', () => window.windowAPI.minimize());
 document.getElementById('btn-maximize').addEventListener('click', () => window.windowAPI.maximize());
 document.getElementById('btn-close').addEventListener('click', () => window.windowAPI.close());

@@ -113,7 +113,11 @@ function startServer(port) {
 }
 
 function buildFolderUrl(port, folderPath) {
-  return `http://127.0.0.1:${port}/?folder=${encodeURIComponent(folderPath)}`;
+  let normalized = folderPath.replace(/\\/g, '/');
+  // Ensure drive letter path starts with / for URI format (e.g. /C:/Repos/...)
+  if (/^[A-Za-z]:/.test(normalized)) normalized = '/' + normalized;
+  const folderUri = `vscode-remote://localhost:${port}${normalized}`;
+  return `http://127.0.0.1:${port}/?folder=${encodeURIComponent(folderUri)}`;
 }
 
 module.exports = { findPort, installExtensions, startServer, buildFolderUrl };
