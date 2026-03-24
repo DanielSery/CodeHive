@@ -3,13 +3,14 @@ const workspaces = new Map(); // id -> { folderPath, name, webview, tabEl }
 let activeWorkspaceId = null;
 let workspaceCounter = 0;
 
-const WORKSPACE_COLORS = [
-  '#89b4fa', '#a6e3a1', '#f9e2af', '#f38ba8',
-  '#cba6f7', '#94e2d5', '#fab387', '#f5c2e7'
-];
+function setTabStatus(tabEl, status) {
+  tabEl.dataset.status = status;
+  if (tabEl._dotEl) tabEl._dotEl.dataset.status = status;
+}
 
 // DOM refs
 const repoGroupsEl = document.getElementById('repo-groups');
+const collapsedDotsEl = document.getElementById('collapsed-dots');
 const editorArea = document.getElementById('editor-area');
 const placeholder = document.getElementById('editor-placeholder');
 
@@ -60,11 +61,8 @@ function addRepoGroup(repo) {
     headerEl.querySelector('.repo-group-chevron').innerHTML = collapsed ? '&#x25B6;' : '&#x25BC;';
   });
 
-  // Add worktree tabs
-  const colorOffset = workspaceCounter;
-  repo.worktrees.forEach((wt, i) => {
-    const color = WORKSPACE_COLORS[(colorOffset + i) % WORKSPACE_COLORS.length];
-    const tabEl = createWorktreeTab(wt, color);
+  repo.worktrees.forEach((wt) => {
+    const tabEl = createWorktreeTab(wt);
     tabsEl.appendChild(tabEl);
   });
 
@@ -80,23 +78,35 @@ function addRepoGroup(repo) {
   }
 }
 
-function createWorktreeTab(wt, color) {
+function createWorktreeTab(wt) {
   const tabEl = document.createElement('div');
   tabEl.className = 'workspace-tab';
+  setTabStatus(tabEl, 'idle');
   tabEl.innerHTML = `
-    <span class="workspace-tab-color" style="background: ${color}"></span>
+    <span class="workspace-tab-status"></span>
     <span class="workspace-tab-label">${wt.branch}</span>
     <button class="workspace-tab-close" title="Close">&times;</button>
   `;
 
-  // Store worktree info on the element
   tabEl._wtPath = wt.path;
   tabEl._wtBranch = wt.branch;
-  tabEl._workspaceId = null; // assigned when opened
+  tabEl._workspaceId = null;
+  tabEl._pollTimer = null;
+  tabEl._wasWorking = false;
+
+  // Create matching collapsed dot button
+  const dotEl = document.createElement('button');
+  dotEl.className = 'collapsed-dot';
+  dotEl.dataset.status = 'idle';
+  dotEl.title = wt.branch;
+  dotEl.innerHTML = '<span class="collapsed-dot-indicator"></span>';
+  dotEl.addEventListener('click', () => openWorktree(tabEl, wt));
+  collapsedDotsEl.appendChild(dotEl);
+  tabEl._dotEl = dotEl;
 
   tabEl.addEventListener('click', (e) => {
     if (e.target.classList.contains('workspace-tab-close')) return;
-    openWorktree(tabEl, wt, color);
+    openWorktree(tabEl, wt);
   });
 
   tabEl.querySelector('.workspace-tab-close').addEventListener('click', (e) => {
@@ -111,7 +121,7 @@ function createWorktreeTab(wt, color) {
 
 // ===== Workspace Management =====
 
-async function openWorktree(tabEl, wt, color) {
+async function openWorktree(tabEl, wt) {
   // If already opened, just switch to it
   if (tabEl._workspaceId !== null && workspaces.has(tabEl._workspaceId)) {
     switchWorkspace(tabEl._workspaceId);
@@ -146,19 +156,23 @@ async function openWorktree(tabEl, wt, color) {
       [id="workbench.panel.chatEditing"] {
         display: none !important;
       }
+      .part.auxiliarybar {
+        display: none !important;
+      }
     `).catch(() => {});
   });
 
   tabEl._workspaceId = id;
+  setTabStatus(tabEl, 'open');
 
   workspaces.set(id, {
     folderPath: wt.path,
     name: wt.branch,
-    color,
     webview,
     tabEl
   });
 
+  startClaudePoll(id);
   switchWorkspace(id);
 }
 
@@ -170,6 +184,7 @@ function switchWorkspace(id) {
     if (prev) {
       prev.webview.classList.remove('active');
       prev.tabEl.classList.remove('active');
+      if (prev.tabEl._dotEl) prev.tabEl._dotEl.classList.remove('active');
     }
   }
 
@@ -177,6 +192,7 @@ function switchWorkspace(id) {
   if (ws) {
     ws.webview.classList.add('active');
     ws.tabEl.classList.add('active');
+    if (ws.tabEl._dotEl) ws.tabEl._dotEl.classList.add('active');
     activeWorkspaceId = id;
     placeholder.style.display = 'none';
     document.querySelector('.titlebar-title').textContent = `DevShell — ${ws.name}`;
@@ -187,9 +203,12 @@ function closeWorkspace(id) {
   const ws = workspaces.get(id);
   if (!ws) return;
 
+  stopClaudePoll(id);
   ws.webview.remove();
   ws.tabEl.classList.remove('active');
   ws.tabEl._workspaceId = null;
+  ws.tabEl._wasWorking = false;
+  setTabStatus(ws.tabEl, 'idle');
   workspaces.delete(id);
 
   if (activeWorkspaceId === id) {
@@ -201,6 +220,43 @@ function closeWorkspace(id) {
       placeholder.style.display = 'flex';
       document.querySelector('.titlebar-title').textContent = 'DevShell';
     }
+  }
+}
+
+// ===== Claude Status Polling =====
+
+const POLL_INTERVAL = 3000;
+
+function startClaudePoll(id) {
+  const ws = workspaces.get(id);
+  if (!ws) return;
+
+  ws.tabEl._pollTimer = setInterval(() => pollClaudeStatus(id), POLL_INTERVAL);
+}
+
+function stopClaudePoll(id) {
+  const ws = workspaces.get(id);
+  if (!ws || !ws.tabEl._pollTimer) return;
+  clearInterval(ws.tabEl._pollTimer);
+  ws.tabEl._pollTimer = null;
+}
+
+async function pollClaudeStatus(id) {
+  const ws = workspaces.get(id);
+  if (!ws || ws.tabEl._workspaceId === null || ws.tabEl.dataset.status === 'idle') return;
+
+  try {
+    const result = await window.reposAPI.checkClaudeActive(ws.folderPath);
+
+    if (result === 'working') {
+      setTabStatus(ws.tabEl, 'working');
+      ws.tabEl._wasWorking = true;
+    } else if (ws.tabEl._wasWorking && ws.tabEl.dataset.status === 'working') {
+      setTabStatus(ws.tabEl, 'done');
+    }
+    // Otherwise stay in current state (open or done)
+  } catch {
+    // Ignore errors
   }
 }
 
@@ -222,11 +278,12 @@ document.addEventListener('keydown', (e) => {
 // ===== Title Bar =====
 
 document.getElementById('btn-open-directory').addEventListener('click', openDirectory);
-document.getElementById('btn-collapse-sidebar').addEventListener('click', () => {
-  document.getElementById('sidebar').classList.add('collapsed');
-});
-document.getElementById('btn-expand-sidebar').addEventListener('click', () => {
-  document.getElementById('sidebar').classList.remove('collapsed');
+
+const toggleBtn = document.getElementById('btn-toggle-sidebar');
+const sidebar = document.getElementById('sidebar');
+toggleBtn.addEventListener('click', () => {
+  const collapsed = sidebar.classList.toggle('collapsed');
+  toggleBtn.innerHTML = collapsed ? '&#x00BB;' : '&#x00AB;';
 });
 document.getElementById('btn-minimize').addEventListener('click', () => window.windowAPI.minimize());
 document.getElementById('btn-maximize').addEventListener('click', () => window.windowAPI.maximize());

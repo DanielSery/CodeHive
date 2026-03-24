@@ -57,4 +57,28 @@ function listWorktrees(barePath) {
   return worktrees;
 }
 
-module.exports = { scanDirectory };
+function checkClaudeActive(wtPath) {
+  // Claude stores sessions in ~/.claude/projects/<encoded-path>/*.jsonl
+  // While Claude is working, it writes to the session file continuously.
+  const normalized = wtPath.replace(/\\/g, '/');
+  const encoded = normalized.replace(/^\//, '').replace(/[/:]/g, '-').replace(/\//g, '-');
+  const projectDir = path.join(
+    process.env.USERPROFILE || process.env.HOME || '',
+    '.claude', 'projects', encoded
+  );
+
+  try {
+    const files = fs.readdirSync(projectDir);
+    const now = Date.now();
+    for (const file of files) {
+      if (!file.endsWith('.jsonl')) continue;
+      const stat = fs.statSync(path.join(projectDir, file));
+      if (now - stat.mtimeMs < 5000) return 'working';
+    }
+  } catch {}
+
+  // Return null — let the renderer decide based on its own state tracking
+  return null;
+}
+
+module.exports = { scanDirectory, checkClaudeActive };

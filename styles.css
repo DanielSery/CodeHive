@@ -14,6 +14,8 @@
   --text-muted: #6c7086;
   --accent: #89b4fa;
   --red: #f38ba8;
+  --green: #a6e3a1;
+  --yellow: #f9e2af;
   --titlebar-bg: #11111b;
   --border: #313244;
 }
@@ -102,29 +104,30 @@ html, body {
   min-width: 40px;
 }
 
-#sidebar-header {
+#sidebar-top {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  padding: 10px 12px 6px;
+  padding: 8px 8px 6px;
+  gap: 8px;
   flex-shrink: 0;
 }
 
-#sidebar.collapsed #sidebar-header {
-  display: none;
-}
-
-#sidebar-header-actions {
-  display: flex;
-  align-items: center;
-  gap: 4px;
+#sidebar.collapsed #sidebar-top {
+  justify-content: center;
+  padding: 8px 4px 6px;
 }
 
 #sidebar-section-label {
+  flex: 1;
   font-size: 11px;
   font-weight: 600;
   color: var(--text-muted);
   letter-spacing: 1px;
+}
+
+#sidebar.collapsed #sidebar-section-label,
+#sidebar.collapsed #btn-open-directory {
+  display: none;
 }
 
 #sidebar-content {
@@ -139,51 +142,88 @@ html, body {
   display: none;
 }
 
-#btn-open-directory,
-#btn-collapse-sidebar {
-  padding: 3px 10px;
+#collapsed-dots {
+  display: none;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 2px;
+  padding: 4px;
+  flex: 1;
+  overflow-y: auto;
+}
+
+#sidebar.collapsed #collapsed-dots {
+  display: flex;
+}
+
+.collapsed-dot {
+  width: 100%;
+  height: 32px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s;
+  flex-shrink: 0;
+}
+
+.collapsed-dot:hover {
+  background: var(--tab-hover-bg);
+}
+
+.collapsed-dot.active {
+  background: var(--tab-active-bg);
+}
+
+.collapsed-dot-indicator {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--text-muted);
+  transition: background 0.3s, box-shadow 0.3s;
+}
+
+.collapsed-dot[data-status="open"] .collapsed-dot-indicator {
+  background: var(--accent);
+  box-shadow: 0 0 4px var(--accent);
+}
+
+.collapsed-dot[data-status="working"] .collapsed-dot-indicator {
+  background: var(--yellow);
+  box-shadow: 0 0 6px var(--yellow);
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+.collapsed-dot[data-status="done"] .collapsed-dot-indicator {
+  background: var(--green);
+  box-shadow: 0 0 4px var(--green);
+}
+
+#btn-toggle-sidebar,
+#btn-open-directory {
+  padding: 3px 8px;
   border: 1px solid var(--border);
   border-radius: 4px;
   background: transparent;
   color: var(--text-muted);
-  font-size: 11px;
-  cursor: pointer;
-  transition: all 0.15s;
-}
-
-#btn-open-directory:hover,
-#btn-collapse-sidebar:hover {
-  background: var(--tab-bg);
-  color: var(--text);
-}
-
-#btn-collapse-sidebar {
   font-size: 13px;
-  padding: 2px 6px;
-  line-height: 1;
-}
-
-#btn-expand-sidebar {
-  display: none;
-  width: 100%;
-  height: 40px;
-  border: none;
-  background: transparent;
-  color: var(--text-muted);
-  font-size: 16px;
   cursor: pointer;
   transition: all 0.15s;
+  line-height: 1;
+  flex-shrink: 0;
 }
 
-#btn-expand-sidebar:hover {
+#btn-open-directory {
+  font-size: 11px;
+}
+
+#btn-toggle-sidebar:hover,
+#btn-open-directory:hover {
   background: var(--tab-bg);
   color: var(--text);
-}
-
-#sidebar.collapsed #btn-expand-sidebar {
-  display: flex;
-  align-items: center;
-  justify-content: center;
 }
 
 .sidebar-spacer {
@@ -282,12 +322,35 @@ html, body {
   border-radius: 0 3px 3px 0;
 }
 
-.workspace-tab-color {
+.workspace-tab-status {
   width: 10px;
   height: 10px;
   border-radius: 50%;
   margin-right: 10px;
   flex-shrink: 0;
+  background: var(--text-muted);
+  transition: background 0.3s, box-shadow 0.3s;
+}
+
+.workspace-tab[data-status="open"] .workspace-tab-status {
+  background: var(--accent);
+  box-shadow: 0 0 4px var(--accent);
+}
+
+.workspace-tab[data-status="working"] .workspace-tab-status {
+  background: var(--yellow);
+  box-shadow: 0 0 6px var(--yellow);
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+.workspace-tab[data-status="done"] .workspace-tab-status {
+  background: var(--green);
+  box-shadow: 0 0 4px var(--green);
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; box-shadow: 0 0 6px var(--yellow); }
+  50% { opacity: 0.4; box-shadow: 0 0 2px var(--yellow); }
 }
 
 .workspace-tab-label {

@@ -22,18 +22,16 @@
   <div id="app">
     <!-- Sidebar: repo groups with worktree tabs -->
     <div id="sidebar">
-      <div id="sidebar-header">
+      <div id="sidebar-top">
         <span id="sidebar-section-label">WORKSPACES</span>
-        <div id="sidebar-header-actions">
-          <button id="btn-open-directory" title="Open Directory">Open</button>
-          <button id="btn-collapse-sidebar" title="Collapse sidebar">&#x00AB;</button>
-        </div>
+        <button id="btn-open-directory" title="Open Directory">Open</button>
+        <button id="btn-toggle-sidebar" title="Toggle sidebar">&#x00AB;</button>
       </div>
       <div id="sidebar-content">
         <div id="repo-groups"></div>
         <div class="sidebar-spacer"></div>
       </div>
-      <button id="btn-expand-sidebar" title="Expand sidebar">&#x00BB;</button>
+      <div id="collapsed-dots"></div>
     </div>
 
     <!-- Main content area -->

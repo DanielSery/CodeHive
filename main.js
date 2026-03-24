@@ -1,7 +1,7 @@
 const { app, BrowserWindow, ipcMain, dialog } = require('electron');
 const path = require('path');
 const vscode = require('./vscode-server');
-const { scanDirectory } = require('./repo-scanner');
+const { scanDirectory, checkClaudeActive } = require('./repo-scanner');
 
 let mainWindow;
 let serverProcess = null;
@@ -49,6 +49,10 @@ ipcMain.handle('dialog:openDirectory', async () => {
 
 ipcMain.handle('repos:scanDirectory', (event, dirPath) => {
   return scanDirectory(dirPath);
+});
+
+ipcMain.handle('repos:claudeActive', (event, wtPath) => {
+  return checkClaudeActive(wtPath);
 });
 
 ipcMain.on('window:minimize', () => mainWindow.minimize());

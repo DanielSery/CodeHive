@@ -6,7 +6,8 @@ contextBridge.exposeInMainWorld('codeServerAPI', {
 
 contextBridge.exposeInMainWorld('reposAPI', {
   openDirectoryDialog: () => ipcRenderer.invoke('dialog:openDirectory'),
-  scanDirectory: (dirPath) => ipcRenderer.invoke('repos:scanDirectory', dirPath)
+  scanDirectory: (dirPath) => ipcRenderer.invoke('repos:scanDirectory', dirPath),
+  checkClaudeActive: (wtPath) => ipcRenderer.invoke('repos:claudeActive', wtPath)
 });
 
 contextBridge.exposeInMainWorld('windowAPI', {
