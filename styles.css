@@ -90,18 +90,29 @@ html, body {
 /* ===== Sidebar ===== */
 #sidebar {
   width: 220px;
-  min-width: 220px;
+  flex-shrink: 0;
   background: var(--sidebar-bg);
   border-right: 1px solid var(--border);
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  transition: width 0.15s, min-width 0.15s;
 }
 
 #sidebar.collapsed {
   width: 40px;
-  min-width: 40px;
+}
+
+#sidebar-resize-handle {
+  width: 4px;
+  cursor: col-resize;
+  background: transparent;
+  flex-shrink: 0;
+  transition: background 0.15s;
+}
+
+#sidebar-resize-handle:hover,
+#sidebar-resize-handle.dragging {
+  background: var(--accent);
 }
 
 #sidebar-top {
@@ -113,8 +124,7 @@ html, body {
 }
 
 #sidebar.collapsed #sidebar-top {
-  justify-content: center;
-  padding: 8px 4px 6px;
+  display: none;
 }
 
 #sidebar-section-label {
@@ -154,6 +164,13 @@ html, body {
 
 #sidebar.collapsed #collapsed-dots {
   display: flex;
+}
+
+.collapsed-dots-separator {
+  border: none;
+  border-top: 1px solid var(--border);
+  margin: 4px 6px;
+  flex-shrink: 0;
 }
 
 .collapsed-dot {
@@ -202,25 +219,21 @@ html, body {
   box-shadow: 0 0 4px var(--green);
 }
 
-#btn-toggle-sidebar,
 #btn-open-directory {
-  padding: 3px 8px;
+  padding: 3px;
   border: 1px solid var(--border);
   border-radius: 4px;
   background: transparent;
   color: var(--text-muted);
-  font-size: 13px;
   cursor: pointer;
   transition: all 0.15s;
   line-height: 1;
   flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
-#btn-open-directory {
-  font-size: 11px;
-}
-
-#btn-toggle-sidebar:hover,
 #btn-open-directory:hover {
   background: var(--tab-bg);
   color: var(--text);
@@ -393,6 +406,7 @@ html, body {
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  min-width: 0;
 }
 
 /* Editor area (webviews) */

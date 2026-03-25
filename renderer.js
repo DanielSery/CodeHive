@@ -13,6 +13,8 @@ const repoGroupsEl = document.getElementById('repo-groups');
 const collapsedDotsEl = document.getElementById('collapsed-dots');
 const editorArea = document.getElementById('editor-area');
 const placeholder = document.getElementById('editor-placeholder');
+const sidebar = document.getElementById('sidebar');
+const resizeHandle = document.getElementById('sidebar-resize-handle');
 
 // ===== Open Directory =====
 
@@ -60,6 +62,13 @@ function addRepoGroup(repo) {
     tabsEl.classList.toggle('expanded', !collapsed);
     headerEl.querySelector('.repo-group-chevron').innerHTML = collapsed ? '&#x25B6;' : '&#x25BC;';
   });
+
+  // Add separator in collapsed dots if not the first group
+  if (collapsedDotsEl.children.length > 0) {
+    const sep = document.createElement('hr');
+    sep.className = 'collapsed-dots-separator';
+    collapsedDotsEl.appendChild(sep);
+  }
 
   repo.worktrees.forEach((wt) => {
     const tabEl = createWorktreeTab(wt);
@@ -154,9 +163,6 @@ async function openWorktree(tabEl, wt) {
       }
       [id="workbench.panel.chat"],
       [id="workbench.panel.chatEditing"] {
-        display: none !important;
-      }
-      .part.auxiliarybar {
         display: none !important;
       }
     `).catch(() => {});
@@ -260,6 +266,9 @@ async function pollClaudeStatus(id) {
   }
 }
 
+// ===== Webview Sizing =====
+// (handled by CSS: position absolute + right:0/bottom:0)
+
 // ===== Keyboard Shortcuts =====
 
 document.addEventListener('keydown', (e) => {
@@ -279,11 +288,77 @@ document.addEventListener('keydown', (e) => {
 
 document.getElementById('btn-open-directory').addEventListener('click', openDirectory);
 
-const toggleBtn = document.getElementById('btn-toggle-sidebar');
-const sidebar = document.getElementById('sidebar');
-toggleBtn.addEventListener('click', () => {
-  const collapsed = sidebar.classList.toggle('collapsed');
-  toggleBtn.innerHTML = collapsed ? '&#x00BB;' : '&#x00AB;';
+// ===== Sidebar Resize =====
+const COLLAPSE_THRESHOLD = 60;
+const MIN_WIDTH = 120;
+const DEFAULT_WIDTH = 220;
+let preCollapseWidth = DEFAULT_WIDTH;
+
+resizeHandle.addEventListener('mousedown', (e) => {
+  e.preventDefault();
+  const startX = e.clientX;
+  const startWidth = sidebar.getBoundingClientRect().width;
+  const wasCollapsed = sidebar.classList.contains('collapsed');
+  let rafId = null;
+  let lastX = startX;
+
+  resizeHandle.classList.add('dragging');
+  document.body.style.cursor = 'col-resize';
+  document.body.style.userSelect = 'none';
+
+  // Overlay prevents webview from capturing mouse events during drag
+  const overlay = document.createElement('div');
+  overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;z-index:9999;cursor:col-resize;';
+  document.body.appendChild(overlay);
+
+  function applyWidth() {
+    const delta = lastX - startX;
+    let newWidth = (wasCollapsed ? 40 : startWidth) + delta;
+
+    if (newWidth < COLLAPSE_THRESHOLD) {
+      sidebar.style.width = '40px';
+      sidebar.classList.add('collapsed');
+    } else {
+      if (newWidth < MIN_WIDTH) newWidth = MIN_WIDTH;
+      sidebar.style.width = newWidth + 'px';
+      sidebar.classList.remove('collapsed');
+    }
+    rafId = null;
+  }
+
+  function onMouseMove(e) {
+    lastX = e.clientX;
+    if (!rafId) rafId = requestAnimationFrame(applyWidth);
+  }
+
+  function onMouseUp() {
+    if (rafId) { cancelAnimationFrame(rafId); applyWidth(); }
+    overlay.remove();
+    resizeHandle.classList.remove('dragging');
+    document.body.style.cursor = '';
+    document.body.style.userSelect = '';
+    document.removeEventListener('mousemove', onMouseMove);
+    document.removeEventListener('mouseup', onMouseUp);
+
+    if (!sidebar.classList.contains('collapsed')) {
+      preCollapseWidth = sidebar.getBoundingClientRect().width;
+    }
+  }
+
+  document.addEventListener('mousemove', onMouseMove);
+  document.addEventListener('mouseup', onMouseUp);
+});
+
+// Double-click to toggle collapse/expand
+resizeHandle.addEventListener('dblclick', () => {
+  if (sidebar.classList.contains('collapsed')) {
+    sidebar.style.width = preCollapseWidth + 'px';
+    sidebar.classList.remove('collapsed');
+  } else {
+    preCollapseWidth = sidebar.getBoundingClientRect().width;
+    sidebar.style.width = '40px';
+    sidebar.classList.add('collapsed');
+  }
 });
 document.getElementById('btn-minimize').addEventListener('click', () => window.windowAPI.minimize());
 document.getElementById('btn-maximize').addEventListener('click', () => window.windowAPI.maximize());

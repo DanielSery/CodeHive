@@ -27,5 +27,6 @@
   "workbench.tree.renderIndentGuides": "always",
   "workbench.list.openMode": "singleClick",
   "window.density.styles.breadcrumbs": "compact",
-  "window.density.styles.tabs": "compact"
+  "window.density.styles.tabs": "compact",
+  "workbench.auxiliaryBar.visible": false
 }
