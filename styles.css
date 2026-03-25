@@ -367,7 +367,7 @@ html, body {
 
 .repo-group-add:hover {
   opacity: 1 !important;
-  background: var(--tab-bg);
+  background: #45475a;
   color: var(--text);
 }
 
@@ -494,6 +494,33 @@ html, body {
 }
 
 .workspace-tab:hover .workspace-tab-close:hover {
+  opacity: 1;
+  background: var(--red);
+  color: #1e1e2e;
+}
+
+.workspace-tab-remove {
+  width: 18px;
+  height: 18px;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  border-radius: 3px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: all 0.15s;
+  margin-left: 4px;
+  padding: 0;
+}
+
+.workspace-tab:hover .workspace-tab-remove {
+  opacity: 0.6;
+}
+
+.workspace-tab:hover .workspace-tab-remove:hover {
   opacity: 1;
   background: var(--red);
   color: #1e1e2e;

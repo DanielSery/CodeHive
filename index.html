@@ -94,6 +94,20 @@
     </div>
   </div>
 
+  <!-- Worktree remove confirmation dialog -->
+  <div id="wt-remove-dialog-overlay" class="dialog-overlay">
+    <div class="dialog-box">
+      <h3 class="dialog-title">Remove Worktree</h3>
+      <p class="dialog-desc">This will remove the worktree and delete its directory.</p>
+      <p id="wt-remove-dialog-path" class="dialog-preview" style="color: var(--red); margin-bottom: 8px;"></p>
+      <p class="dialog-desc" style="margin-bottom: 0;">Are you sure? This cannot be undone.</p>
+      <div class="dialog-buttons">
+        <button id="wt-remove-cancel-btn" class="dialog-btn dialog-btn-cancel">Cancel</button>
+        <button id="wt-remove-confirm-btn" class="dialog-btn dialog-btn-danger">Remove</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Delete confirmation dialog -->
   <div id="delete-dialog-overlay" class="dialog-overlay">
     <div class="dialog-box">

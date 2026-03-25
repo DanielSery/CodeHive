@@ -1,11 +1,12 @@
 const { ipcMain, dialog } = require('electron');
 const vscode = require('./vscode-server');
-const { scanDirectory, checkClaudeActive, listRemoteBranches, getGitUser } = require('./repo-scanner');
-const { createWorktreePty, createClonePty, createDeletePty } = require('./pty-manager');
+const { scanDirectory, checkClaudeActive, getCachedBranches, fetchAndListBranches, getGitUser } = require('./repo-scanner');
+const { createWorktreePty, createClonePty, createDeletePty, createWorktreeRemovePty } = require('./pty-manager');
 
 let worktreePty = null;
 let clonePty = null;
 let deletePty = null;
+let worktreeRemovePty = null;
 
 function register(mainWindow, getServerPort) {
   ipcMain.handle('codeserver:openFolder', (event, folderPath) => {
@@ -28,8 +29,12 @@ function register(mainWindow, getServerPort) {
     return checkClaudeActive(wtPath);
   });
 
-  ipcMain.handle('repos:remoteBranches', (event, barePath) => {
-    return listRemoteBranches(barePath);
+  ipcMain.handle('repos:cachedBranches', (event, barePath) => {
+    return getCachedBranches(barePath);
+  });
+
+  ipcMain.handle('repos:fetchBranches', (event, barePath) => {
+    return fetchAndListBranches(barePath);
   });
 
   ipcMain.handle('repos:gitUser', (event, barePath) => {
@@ -44,7 +49,7 @@ function register(mainWindow, getServerPort) {
   });
 
   ipcMain.on('worktree:resize', (event, { cols, rows }) => {
-    if (worktreePty) worktreePty.resize(cols, rows);
+    try { if (worktreePty) worktreePty.resize(cols, rows); } catch {}
   });
 
   // Clone PTY
@@ -55,7 +60,7 @@ function register(mainWindow, getServerPort) {
   });
 
   ipcMain.on('clone:resize', (event, { cols, rows }) => {
-    if (clonePty) clonePty.resize(cols, rows);
+    try { if (clonePty) clonePty.resize(cols, rows); } catch {}
   });
 
   // Delete PTY
@@ -66,7 +71,18 @@ function register(mainWindow, getServerPort) {
   });
 
   ipcMain.on('delete:resize', (event, { cols, rows }) => {
-    if (deletePty) deletePty.resize(cols, rows);
+    try { if (deletePty) deletePty.resize(cols, rows); } catch {}
+  });
+
+  // Worktree Remove PTY
+  ipcMain.handle('worktreeRemove:start', (event, opts) => {
+    const result = createWorktreeRemovePty(mainWindow, opts);
+    worktreeRemovePty = result.proc;
+    return {};
+  });
+
+  ipcMain.on('worktreeRemove:resize', (event, { cols, rows }) => {
+    try { if (worktreeRemovePty) worktreeRemovePty.resize(cols, rows); } catch {}
   });
 
   // Window controls

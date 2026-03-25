@@ -1,6 +1,14 @@
 import { getWorkspace, getActive, getActiveId, setActiveId, nextId, addWorkspace, removeWorkspace, getAllIds } from './state.js';
 import { setTabStatus, startClaudePoll, stopClaudePoll } from './claude-poll.js';
 
+let _showTabCloseButton = null;
+let _showTabRemoveButton = null;
+
+function registerTabButtonFns(showClose, showRemove) {
+  _showTabCloseButton = showClose;
+  _showTabRemoveButton = showRemove;
+}
+
 const editorArea = document.getElementById('editor-area');
 const placeholder = document.getElementById('editor-placeholder');
 
@@ -18,6 +26,7 @@ async function openWorktree(tabEl, wt) {
   webview.className = 'workspace-webview';
   webview.id = `workspace-${id}`;
   webview.setAttribute('src', url);
+  webview.setAttribute('partition', 'persist:codehive');
   webview.setAttribute('allowpopups', 'true');
   webview.setAttribute('disableblinkfeatures', 'Auxclick');
   editorArea.appendChild(webview);
@@ -43,6 +52,7 @@ async function openWorktree(tabEl, wt) {
 
   tabEl._workspaceId = id;
   setTabStatus(tabEl, 'open');
+  if (_showTabCloseButton) _showTabCloseButton(tabEl);
 
   addWorkspace(id, {
     folderPath: wt.path,
@@ -92,6 +102,7 @@ function closeWorkspace(id) {
   ws.tabEl._workspaceId = null;
   ws.tabEl._wasWorking = false;
   setTabStatus(ws.tabEl, 'idle');
+  if (_showTabRemoveButton) _showTabRemoveButton(ws.tabEl);
   removeWorkspace(id);
 
   if (getActiveId() === id) {
@@ -114,4 +125,4 @@ function cycleWorkspace(forward) {
   switchWorkspace(ids[next]);
 }
 
-export { openWorktree, switchWorkspace, closeWorkspace, cycleWorkspace };
+export { openWorktree, switchWorkspace, closeWorkspace, cycleWorkspace, registerTabButtonFns };

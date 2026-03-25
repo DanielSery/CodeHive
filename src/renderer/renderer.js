@@ -1,10 +1,12 @@
-import { addRepoGroup, createWorktreeTab, registerWorktreeDialog, registerDeleteDialog, removeRepoGroup } from './sidebar.js';
-import { showWorktreeDialog, showCloneDialog, showDeleteDialog, registerSidebarFns, registerRemoveRepoGroup } from './dialogs.js';
-import { cycleWorkspace } from './workspace-manager.js';
+import { addRepoGroup, createWorktreeTab, registerWorktreeDialog, registerDeleteDialog, registerWorktreeRemoveDialog, removeRepoGroup, showTabCloseButton, showTabRemoveButton } from './sidebar.js';
+import { showWorktreeDialog, showCloneDialog, showDeleteDialog, showWorktreeRemoveDialog, registerSidebarFns, registerRemoveRepoGroup } from './dialogs.js';
+import { cycleWorkspace, registerTabButtonFns } from './workspace-manager.js';
 
 // Wire cross-module dependencies (avoids circular imports)
 registerWorktreeDialog(showWorktreeDialog);
 registerDeleteDialog(showDeleteDialog);
+registerWorktreeRemoveDialog(showWorktreeRemoveDialog);
+registerTabButtonFns(showTabCloseButton, showTabRemoveButton);
 registerSidebarFns(addRepoGroup, createWorktreeTab);
 registerRemoveRepoGroup(removeRepoGroup);
 

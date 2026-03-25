@@ -18,7 +18,18 @@ function spawnPty(cmd, cwd) {
 function createWorktreePty(mainWindow, { barePath, repoDir, branchName, dirName, sourceBranch }) {
   const wtPath = path.join(repoDir, dirName).replace(/\\/g, '/');
   const startPoint = `refs/remotes/origin/${sourceBranch}`;
-  const cmd = `git worktree add ${wtPath} -b ${branchName} ${startPoint}`;
+
+  // Check if the branch already exists locally
+  let branchExists = false;
+  try {
+    const { execSync } = require('child_process');
+    execSync(`git rev-parse --verify refs/heads/${branchName}`, { cwd: barePath, encoding: 'utf8', stdio: 'pipe' });
+    branchExists = true;
+  } catch {}
+
+  const cmd = branchExists
+    ? `git worktree add ${wtPath} ${branchName}`
+    : `git worktree add ${wtPath} -b ${branchName} ${startPoint}`;
 
   const proc = spawnPty(cmd, barePath);
 
@@ -149,4 +160,59 @@ function createDeletePty(mainWindow, { repoDir }) {
   return { proc };
 }
 
-module.exports = { createWorktreePty, createClonePty, createDeletePty };
+function createWorktreeRemovePty(mainWindow, { barePath, wtPath }) {
+  const isWin = process.platform === 'win32';
+  const os = require('os');
+  const scriptExt = isWin ? '.cmd' : '.sh';
+  const scriptPath = path.join(os.tmpdir(), `codehive-wt-remove-${Date.now()}${scriptExt}`);
+
+  const wtForGit = wtPath.replace(/\\/g, '/');
+  const wtForFs = isWin ? wtPath.replace(/\//g, '\\') : wtPath;
+
+  const lines = [];
+  if (isWin) {
+    lines.push('@echo off');
+    lines.push(`echo Removing worktree: ${path.basename(wtPath)}`);
+    lines.push(`git worktree remove "${wtForGit}" --force 2>nul`);
+    lines.push(`if exist "${wtForFs}" (`);
+    lines.push(`  echo Cleaning up directory...`);
+    lines.push(`  rd /s /q "${wtForFs}"`);
+    lines.push(`)`);
+    lines.push(`git worktree prune 2>nul`);
+    lines.push('echo.');
+    lines.push('echo === REMOVE COMPLETE ===');
+  } else {
+    lines.push('#!/bin/sh');
+    lines.push(`echo "Removing worktree: ${path.basename(wtPath)}"`);
+    lines.push(`git worktree remove "${wtForGit}" --force 2>/dev/null`);
+    lines.push(`if [ -d "${wtPath}" ]; then`);
+    lines.push(`  echo "Cleaning up directory..."`);
+    lines.push(`  rm -rf "${wtPath}"`);
+    lines.push('fi');
+    lines.push('git worktree prune 2>/dev/null');
+    lines.push('echo ""');
+    lines.push('echo "=== REMOVE COMPLETE ==="');
+  }
+
+  fs.writeFileSync(scriptPath, lines.join('\n'), { encoding: 'utf8' });
+
+  const cmd = isWin ? scriptPath : `sh "${scriptPath}"`;
+  const proc = spawnPty(cmd, barePath);
+
+  proc.onData((data) => {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('worktreeRemove:data', data);
+    }
+  });
+
+  proc.onExit(({ exitCode }) => {
+    try { fs.unlinkSync(scriptPath); } catch {}
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('worktreeRemove:exit', { exitCode: 0, wtPath });
+    }
+  });
+
+  return { proc };
+}
+
+module.exports = { createWorktreePty, createClonePty, createDeletePty, createWorktreeRemovePty };

@@ -75,6 +75,17 @@ function renderBranchList(filter) {
   wtBranchList.classList.add('open');
 }
 
+function applyBranches(branches) {
+  wtAllBranches = branches;
+  const defaultBranch = ['master', 'main', 'develop'].find(b => branches.includes(b));
+  if (!wtSelectedBranch && defaultBranch) {
+    wtSelectedBranch = defaultBranch;
+    wtBranchSearch.value = defaultBranch;
+  }
+  wtBranchSearch.placeholder = 'Search branches...';
+  wtBranchSearch.disabled = false;
+}
+
 async function showWorktreeDialog(groupEl, tabsEl) {
   wtCurrentGroupEl = groupEl;
   wtCurrentTabsEl = tabsEl;
@@ -90,17 +101,41 @@ async function showWorktreeDialog(groupEl, tabsEl) {
 
   wtDialogOverlay.classList.add('visible');
 
-  const [branches, user] = await Promise.all([
-    window.reposAPI.remoteBranches(groupEl._barePath),
+  // Load cached branches + git user immediately
+  const [cached, user] = await Promise.all([
+    window.reposAPI.cachedBranches(groupEl._barePath),
     window.reposAPI.gitUser(groupEl._barePath)
   ]);
-  wtAllBranches = branches;
   wtGitUser = user || 'user';
 
-  wtBranchSearch.placeholder = 'Search branches...';
-  wtBranchSearch.disabled = false;
-  renderBranchList('');
-  wtBranchSearch.focus();
+  if (cached.length > 0) {
+    applyBranches(cached);
+    if (wtSelectedBranch) {
+      wtNameInput.focus();
+    } else {
+      wtBranchSearch.focus();
+    }
+  }
+
+  // Fetch fresh branches in background
+  window.reposAPI.fetchBranches(groupEl._barePath).then((fetched) => {
+    if (!wtDialogOverlay.classList.contains('visible')) return;
+    if (wtCurrentGroupEl !== groupEl) return;
+    const prevSelected = wtSelectedBranch;
+    applyBranches(fetched);
+    // If the combobox list is open, refresh it
+    if (wtBranchList.classList.contains('open')) {
+      renderBranchList(wtBranchSearch.value);
+    }
+    // If we had no branches before, now focus appropriately
+    if (cached.length === 0) {
+      if (wtSelectedBranch) {
+        wtNameInput.focus();
+      } else {
+        wtBranchSearch.focus();
+      }
+    }
+  });
 }
 
 function hideWorktreeDialog() {
@@ -355,4 +390,77 @@ deleteDialogOverlay.addEventListener('click', (e) => {
 document.getElementById('delete-cancel-btn').addEventListener('click', hideDeleteDialog);
 document.getElementById('delete-confirm-btn').addEventListener('click', confirmDeleteRepo);
 
-export { showWorktreeDialog, showCloneDialog, showDeleteDialog, registerSidebarFns, registerRemoveRepoGroup };
+// ===== Worktree Remove Dialog =====
+
+const wtRemoveDialogOverlay = document.getElementById('wt-remove-dialog-overlay');
+const wtRemoveDialogPath = document.getElementById('wt-remove-dialog-path');
+
+let _removeTabEl = null;
+let _removeGroupEl = null;
+
+function showWorktreeRemoveDialog(tabEl, groupEl) {
+  _removeTabEl = tabEl;
+  _removeGroupEl = groupEl;
+  wtRemoveDialogPath.textContent = tabEl._wtPath;
+  wtRemoveDialogOverlay.classList.add('visible');
+}
+
+function hideWorktreeRemoveDialog() {
+  wtRemoveDialogOverlay.classList.remove('visible');
+  _removeTabEl = null;
+  _removeGroupEl = null;
+}
+
+async function confirmRemoveWorktree() {
+  if (!_removeTabEl || !_removeGroupEl) return;
+  const tabEl = _removeTabEl;
+  const groupEl = _removeGroupEl;
+  const wtPath = tabEl._wtPath;
+  const branchLabel = tabEl._wtBranch;
+  hideWorktreeRemoveDialog();
+
+  showTerminal(`Removing worktree: ${branchLabel}`);
+  const xterm = createTerminal();
+
+  window.worktreeRemoveAPI.resize(xterm.cols, xterm.rows);
+
+  window.worktreeRemoveAPI.removeListeners();
+  window.worktreeRemoveAPI.onData((data) => {
+    xterm.write(data);
+  });
+
+  window.worktreeRemoveAPI.onExit(({ exitCode }) => {
+    if (exitCode === 0) {
+      xterm.writeln('');
+      xterm.writeln('\x1b[32mWorktree removed successfully!\x1b[0m');
+      // Remove the tab from sidebar
+      if (tabEl._dotEl) tabEl._dotEl.remove();
+      tabEl.remove();
+      setTimeout(() => closeTerminal(), 1200);
+    } else {
+      xterm.writeln('');
+      xterm.writeln(`\x1b[31mWorktree removal failed with exit code ${exitCode}\x1b[0m`);
+      setTitle(`Worktree removal failed`);
+      showCloseButton();
+    }
+  });
+
+  try {
+    await window.worktreeRemoveAPI.start({
+      barePath: groupEl._barePath,
+      wtPath
+    });
+  } catch (err) {
+    xterm.writeln(`\x1b[31m${err.message || err}\x1b[0m`);
+    setTitle(`Worktree removal failed`);
+    showCloseButton();
+  }
+}
+
+wtRemoveDialogOverlay.addEventListener('click', (e) => {
+  if (e.target === wtRemoveDialogOverlay) hideWorktreeRemoveDialog();
+});
+document.getElementById('wt-remove-cancel-btn').addEventListener('click', hideWorktreeRemoveDialog);
+document.getElementById('wt-remove-confirm-btn').addEventListener('click', confirmRemoveWorktree);
+
+export { showWorktreeDialog, showCloneDialog, showDeleteDialog, showWorktreeRemoveDialog, registerSidebarFns, registerRemoveRepoGroup };

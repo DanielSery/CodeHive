@@ -8,7 +8,8 @@ contextBridge.exposeInMainWorld('reposAPI', {
   openDirectoryDialog: () => ipcRenderer.invoke('dialog:openDirectory'),
   scanDirectory: (dirPath) => ipcRenderer.invoke('repos:scanDirectory', dirPath),
   checkClaudeActive: (wtPath) => ipcRenderer.invoke('repos:claudeActive', wtPath),
-  remoteBranches: (barePath) => ipcRenderer.invoke('repos:remoteBranches', barePath),
+  cachedBranches: (barePath) => ipcRenderer.invoke('repos:cachedBranches', barePath),
+  fetchBranches: (barePath) => ipcRenderer.invoke('repos:fetchBranches', barePath),
   gitUser: (barePath) => ipcRenderer.invoke('repos:gitUser', barePath),
 });
 
@@ -42,6 +43,17 @@ contextBridge.exposeInMainWorld('deleteAPI', {
   removeListeners: () => {
     ipcRenderer.removeAllListeners('delete:data');
     ipcRenderer.removeAllListeners('delete:exit');
+  }
+});
+
+contextBridge.exposeInMainWorld('worktreeRemoveAPI', {
+  start: (opts) => ipcRenderer.invoke('worktreeRemove:start', opts),
+  onData: (cb) => ipcRenderer.on('worktreeRemove:data', (_, data) => cb(data)),
+  onExit: (cb) => ipcRenderer.on('worktreeRemove:exit', (_, info) => cb(info)),
+  resize: (cols, rows) => ipcRenderer.send('worktreeRemove:resize', { cols, rows }),
+  removeListeners: () => {
+    ipcRenderer.removeAllListeners('worktreeRemove:data');
+    ipcRenderer.removeAllListeners('worktreeRemove:exit');
   }
 });
 

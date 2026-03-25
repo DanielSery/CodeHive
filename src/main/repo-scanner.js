@@ -78,7 +78,20 @@ function checkClaudeActive(wtPath) {
   return null;
 }
 
-function listRemoteBranches(barePath) {
+function getCachedBranches(barePath) {
+  try {
+    const stdout = execSync('git branch -r', { cwd: barePath, encoding: 'utf8', timeout: 10000 });
+    if (!stdout) return [];
+    return stdout.trim().split('\n')
+      .map(b => b.trim())
+      .filter(b => b && !b.includes('->'))
+      .map(b => b.replace(/^origin\//, ''));
+  } catch {
+    return [];
+  }
+}
+
+function fetchAndListBranches(barePath) {
   return new Promise((resolve) => {
     try {
       const existing = execSync('git config remote.origin.fetch', { cwd: barePath, encoding: 'utf8' }).trim();
@@ -114,4 +127,4 @@ function getGitUser(barePath) {
   }
 }
 
-module.exports = { scanDirectory, checkClaudeActive, listRemoteBranches, getGitUser };
+module.exports = { scanDirectory, checkClaudeActive, getCachedBranches, fetchAndListBranches, getGitUser };
