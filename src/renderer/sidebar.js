@@ -200,7 +200,7 @@ function createWorktreeTab(wt) {
 
   tabEl.querySelector('.workspace-tab-commit').addEventListener('click', (e) => {
     e.stopPropagation();
-    runClaudeCommand(tabEl, 'Commit and push all changes', 'Commit & Push');
+    showCommitDialog(tabEl);
   });
 
   tabEl.querySelector('.workspace-tab-pr').addEventListener('click', (e) => {
@@ -376,6 +376,46 @@ function runClaudeCommand(tabEl, prompt, title) {
   });
 }
 
+// ===== Commit Dialog =====
+
+const commitDialogOverlay = document.getElementById('commit-dialog-overlay');
+const commitMessageInput = document.getElementById('commit-message-input');
+let _commitTabEl = null;
+
+function showCommitDialog(tabEl) {
+  _commitTabEl = tabEl;
+  commitMessageInput.value = '';
+  commitDialogOverlay.classList.add('visible');
+  setTimeout(() => commitMessageInput.focus(), 50);
+}
+
+function hideCommitDialog() {
+  commitDialogOverlay.classList.remove('visible');
+  _commitTabEl = null;
+}
+
+function confirmCommit() {
+  if (!_commitTabEl) return;
+  const tabEl = _commitTabEl;
+  const msg = commitMessageInput.value.trim();
+  hideCommitDialog();
+
+  const prompt = msg
+    ? `Commit and push all changes. Message: ${msg}`
+    : 'Commit and push all changes';
+  runClaudeCommand(tabEl, prompt, 'Commit & Push');
+}
+
+commitDialogOverlay.addEventListener('click', (e) => {
+  if (e.target === commitDialogOverlay) hideCommitDialog();
+});
+document.getElementById('commit-cancel-btn').addEventListener('click', hideCommitDialog);
+document.getElementById('commit-confirm-btn').addEventListener('click', confirmCommit);
+commitMessageInput.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') confirmCommit();
+  if (e.key === 'Escape') hideCommitDialog();
+});
+
 // ===== Context Menu =====
 
 let _contextMenuTabEl = null;
@@ -429,7 +469,7 @@ contextMenu.addEventListener('click', (e) => {
   if (action === 'open-explorer') {
     window.shellAPI.openInExplorer(tabEl._wtPath);
   } else if (action === 'commit-push') {
-    runClaudeCommand(tabEl, 'Commit and push all changes', 'Commit & Push');
+    showCommitDialog(tabEl);
   } else if (action === 'pull-request') {
     runClaudeCommand(tabEl, 'Create a pull request for the current branch', 'Pull Request');
   } else if (action === 'close-editor') {
