@@ -78,7 +78,7 @@ function checkClaudeActive(wtPath) {
     for (const file of files) {
       if (!file.endsWith('.jsonl')) continue;
       const stat = fs.statSync(path.join(projectDir, file));
-      if (now - stat.mtimeMs < 5000) return 'working';
+      if (now - stat.mtimeMs < 30000) return 'working';
     }
   } catch {}
 
