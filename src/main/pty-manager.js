@@ -246,8 +246,17 @@ function createWorktreeSwitchPty(mainWindow, { barePath, repoDir, oldWtPath, bra
     if (needsRename) {
       lines.push('echo.');
       lines.push(`echo Renaming directory: ${path.basename(oldWtPath)} -^> ${dirName}`);
-      lines.push(`ren "${oldWtForFs}" "${dirName}"`);
+      // Retry loop: file handles from VS Code may take a moment to release
+      lines.push('set RETRIES=0');
+      lines.push(':RENAME_RETRY');
+      lines.push(`ren "${oldWtForFs}" "${dirName}" 2>nul`);
       lines.push('if errorlevel 1 (');
+      lines.push('  set /a RETRIES+=1');
+      lines.push('  if %RETRIES% lss 10 (');
+      lines.push('    echo   Waiting for file handles to release... attempt %RETRIES%');
+      lines.push('    timeout /t 1 /nobreak >nul');
+      lines.push('    goto RENAME_RETRY');
+      lines.push('  )');
       lines.push('  echo.');
       lines.push('  echo === RENAME FAILED ===');
       lines.push('  exit /b 1');
