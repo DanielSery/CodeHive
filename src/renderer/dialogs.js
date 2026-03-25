@@ -195,12 +195,13 @@ async function confirmCreateWorktree() {
     xterm.write(data);
   });
 
+  const sourceBranch = wtSelectedBranch;
   window.worktreeAPI.onExit(({ exitCode, wtPath, branchName: branch, dirName: dir }) => {
     if (exitCode === 0) {
       xterm.writeln('');
       xterm.writeln('\x1b[32mWorktree created successfully!\x1b[0m');
 
-      const wt = { path: wtPath, branch, name: dir };
+      const wt = { path: wtPath, branch, name: dir, sourceBranch };
       const tabEl = _createWorktreeTab(wt);
       tabsEl.appendChild(tabEl);
 
@@ -621,20 +622,17 @@ async function showWorktreeSwitchDialog(tabEl, groupEl) {
 
   wtSwitchDialogOverlay.classList.add('visible');
 
-  const wtBranch = tabEl._wtBranch || '';
   const repoName = groupEl.dataset.repoName;
+  const preselect = tabEl._wtSourceBranch || null;
 
   // Use app state cache for instant display
   const stateCache = _getCachedBranches ? _getCachedBranches(repoName) : [];
 
-  const [cached, user, sourceBranch] = await Promise.all([
+  const [cached, user] = await Promise.all([
     window.reposAPI.cachedBranches(groupEl._barePath),
-    window.reposAPI.gitUser(groupEl._barePath),
-    window.reposAPI.worktreeSourceBranch(groupEl._barePath, wtBranch)
+    window.reposAPI.gitUser(groupEl._barePath)
   ]);
   wtSwitchGitUser = user || 'user';
-
-  let preselect = sourceBranch || null;
 
   const initialBranches = cached.length > 0 ? cached : stateCache;
   if (initialBranches.length > 0) {
@@ -699,7 +697,7 @@ async function confirmSwitchWorktree() {
       tabEl.remove();
 
       // Create new tab — same directory, new branch
-      const wt = { path: wtPath, branch, name: dir };
+      const wt = { path: wtPath, branch, name: dir, sourceBranch: wtSwitchSelectedBranch };
       const newTabEl = _createWorktreeTab(wt);
       tabsEl.appendChild(newTabEl);
 

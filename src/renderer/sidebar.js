@@ -20,9 +20,16 @@ let _showDeleteDialog = null;
 let _showWorktreeRemoveDialog = null;
 let _showWorktreeSwitchDialog = null;
 let _onStateChange = null;
+let _getCachedBranches = null;
+let _saveBranchCache = null;
 
 function registerOnStateChange(fn) {
   _onStateChange = fn;
+}
+
+function registerSidebarBranchCache(getCached, saveCached) {
+  _getCachedBranches = getCached;
+  _saveBranchCache = saveCached;
 }
 
 function registerWorktreeDialog(fn) {
@@ -169,6 +176,7 @@ function createWorktreeTab(wt) {
 
   tabEl._wtPath = wt.path;
   tabEl._wtBranch = wt.branch;
+  tabEl._wtSourceBranch = wt.sourceBranch || null;
   tabEl._workspaceId = null;
   tabEl._pollTimer = null;
   tabEl._wasWorking = false;
@@ -484,38 +492,47 @@ function showPrDialog(tabEl) {
 
   const groupEl = tabEl.closest('.repo-group');
   const barePath = groupEl._barePath;
+  const preselect = tabEl._wtSourceBranch || null;
+  const repoName = groupEl.dataset.repoName;
 
-  // Use source branch detection to prefill target
-  const wtBranch = tabEl._wtBranch || '';
-  window.reposAPI.worktreeSourceBranch(barePath, wtBranch).then((source) => {
-    const preselect = source || null;
+  // Use cached branches for instant display
+  const stateCache = _getCachedBranches ? _getCachedBranches(repoName) : [];
+  if (stateCache.length > 0) {
+    prAllBranches = stateCache;
+    if (preselect && stateCache.includes(preselect)) {
+      prSelectedBranch = preselect;
+      prBranchSearch.value = preselect;
+    }
+    prBranchSearch.placeholder = 'Search branches...';
+    prBranchSearch.disabled = false;
+    prTitleInput.focus();
+  }
 
-    window.reposAPI.cachedBranches(barePath).then((cached) => {
-      if (cached.length > 0) {
-        prAllBranches = cached;
-        if (preselect && cached.includes(preselect)) {
-          prSelectedBranch = preselect;
-          prBranchSearch.value = preselect;
-        }
-        prBranchSearch.placeholder = 'Search branches...';
-        prBranchSearch.disabled = false;
-        prTitleInput.focus();
+  window.reposAPI.cachedBranches(barePath).then((cached) => {
+    if (cached.length > 0 && stateCache.length === 0) {
+      prAllBranches = cached;
+      if (preselect && cached.includes(preselect)) {
+        prSelectedBranch = preselect;
+        prBranchSearch.value = preselect;
       }
+      prBranchSearch.placeholder = 'Search branches...';
+      prBranchSearch.disabled = false;
+      prTitleInput.focus();
+    }
 
-      window.reposAPI.fetchBranches(barePath).then((fetched) => {
-        if (!prDialogOverlay.classList.contains('visible')) return;
-        prAllBranches = fetched;
-        if (!prSelectedBranch && preselect && fetched.includes(preselect)) {
-          prSelectedBranch = preselect;
-          prBranchSearch.value = preselect;
-        }
-        prBranchSearch.placeholder = 'Search branches...';
-        prBranchSearch.disabled = false;
-        if (prBranchList.classList.contains('open')) {
-          renderPrBranchList(prBranchSearch.value);
-        }
-        if (cached.length === 0) prTitleInput.focus();
-      });
+    window.reposAPI.fetchBranches(barePath).then((fetched) => {
+      if (!prDialogOverlay.classList.contains('visible')) return;
+      prAllBranches = fetched;
+      if (_saveBranchCache) _saveBranchCache(repoName, fetched);
+      if (!prSelectedBranch && preselect && fetched.includes(preselect)) {
+        prSelectedBranch = preselect;
+        prBranchSearch.value = preselect;
+      }
+      prBranchSearch.placeholder = 'Search branches...';
+      prBranchSearch.disabled = false;
+      if (prBranchList.classList.contains('open')) {
+        renderPrBranchList(prBranchSearch.value);
+      }
     });
   });
 }
@@ -749,4 +766,4 @@ function getOpenWorktreePaths() {
   return paths;
 }
 
-export { addRepoGroup, createWorktreeTab, registerWorktreeDialog, registerDeleteDialog, registerWorktreeRemoveDialog, registerWorktreeSwitchDialog, registerOnStateChange, removeRepoGroup, showTabCloseButton, showTabRemoveButton, getRepoOrder, getOpenWorktreePaths };
+export { addRepoGroup, createWorktreeTab, registerWorktreeDialog, registerDeleteDialog, registerWorktreeRemoveDialog, registerWorktreeSwitchDialog, registerOnStateChange, registerSidebarBranchCache, removeRepoGroup, showTabCloseButton, showTabRemoveButton, getRepoOrder, getOpenWorktreePaths };

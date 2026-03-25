@@ -1,4 +1,4 @@
-import { addRepoGroup, createWorktreeTab, registerWorktreeDialog, registerDeleteDialog, registerWorktreeRemoveDialog, registerWorktreeSwitchDialog, registerOnStateChange, removeRepoGroup, showTabCloseButton, showTabRemoveButton, getRepoOrder } from './sidebar.js';
+import { addRepoGroup, createWorktreeTab, registerWorktreeDialog, registerDeleteDialog, registerWorktreeRemoveDialog, registerWorktreeSwitchDialog, registerOnStateChange, registerSidebarBranchCache, removeRepoGroup, showTabCloseButton, showTabRemoveButton, getRepoOrder } from './sidebar.js';
 import { showWorktreeDialog, showCloneDialog, showDeleteDialog, showWorktreeRemoveDialog, showWorktreeSwitchDialog, registerSidebarFns, registerRemoveRepoGroup, registerOnCloneComplete, registerBranchCache } from './dialogs.js';
 import { cycleWorkspace, registerTabButtonFns } from './workspace-manager.js';
 
@@ -51,6 +51,7 @@ function saveDirectories(dirPath) {
 
 registerOnStateChange(saveState);
 registerBranchCache(getCachedBranchesFromState, saveBranchCache);
+registerSidebarBranchCache(getCachedBranchesFromState, saveBranchCache);
 registerOnCloneComplete((reposDir) => {
   saveDirectories(reposDir);
   saveState();

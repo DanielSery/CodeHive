@@ -134,34 +134,4 @@ function getGitUser(barePath) {
   }
 }
 
-function getWorktreeSourceBranch(barePath, wtBranch) {
-  // Walk back from the branch and find the first commit referenced by a remote branch.
-  // --decorate-refs limits decoration to remote tracking refs, --first-parent keeps it linear.
-  const PREFERRED = ['master', 'main', 'develop', 'release'];
-  return new Promise((resolve) => {
-    exec(
-      `git log refs/heads/${wtBranch} --decorate-refs=refs/remotes/origin/ --format=%D --first-parent`,
-      { cwd: barePath, encoding: 'utf8', timeout: 10000 },
-      (err, stdout) => {
-        if (err || !stdout) { resolve(null); return; }
-        for (const line of stdout.split('\n')) {
-          const trimmed = line.trim();
-          if (!trimmed) continue;
-          // Collect all refs on this commit
-          const refs = trimmed.split(',')
-            .map(r => r.trim())
-            .filter(r => r.startsWith('origin/') && !r.includes('HEAD'))
-            .map(r => r.replace(/^origin\//, ''));
-          if (refs.length === 0) continue;
-          // Prefer common base branches when multiple refs point to the same commit
-          const preferred = refs.find(r => PREFERRED.includes(r) || r.startsWith('release'));
-          resolve(preferred || refs[0]);
-          return;
-        }
-        resolve(null);
-      }
-    );
-  });
-}
-
-module.exports = { scanDirectory, checkClaudeActive, getCachedBranches, fetchAndListBranches, getGitUser, getWorktreeSourceBranch };
+module.exports = { scanDirectory, checkClaudeActive, getCachedBranches, fetchAndListBranches, getGitUser };
