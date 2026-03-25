@@ -119,14 +119,26 @@ async function showWorktreeDialog(groupEl, tabsEl) {
 
   wtDialogOverlay.classList.add('visible');
 
-  // Load cached branches + git user immediately
+  // Use app state cache for instant display
+  const repoName = groupEl.dataset.repoName;
+  const stateCache = _getCachedBranches ? _getCachedBranches(repoName) : [];
+  if (stateCache.length > 0) {
+    applyBranches(stateCache);
+    if (wtSelectedBranch) {
+      wtNameInput.focus();
+    } else {
+      wtBranchSearch.focus();
+    }
+  }
+
+  // Load git cached branches + git user
   const [cached, user] = await Promise.all([
     window.reposAPI.cachedBranches(groupEl._barePath),
     window.reposAPI.gitUser(groupEl._barePath)
   ]);
   wtGitUser = user || 'user';
 
-  if (cached.length > 0) {
+  if (cached.length > 0 && stateCache.length === 0) {
     applyBranches(cached);
     if (wtSelectedBranch) {
       wtNameInput.focus();
@@ -141,6 +153,7 @@ async function showWorktreeDialog(groupEl, tabsEl) {
     if (wtCurrentGroupEl !== groupEl) return;
     const prevSelected = wtSelectedBranch;
     applyBranches(fetched);
+    if (_saveBranchCache) _saveBranchCache(repoName, fetched);
     // If the combobox list is open, refresh it
     if (wtBranchList.classList.contains('open')) {
       renderBranchList(wtBranchSearch.value);
@@ -609,6 +622,10 @@ async function showWorktreeSwitchDialog(tabEl, groupEl) {
   wtSwitchDialogOverlay.classList.add('visible');
 
   const wtBranch = tabEl._wtBranch || '';
+  const repoName = groupEl.dataset.repoName;
+
+  // Use app state cache for instant display
+  const stateCache = _getCachedBranches ? _getCachedBranches(repoName) : [];
 
   const [cached, user, sourceBranch] = await Promise.all([
     window.reposAPI.cachedBranches(groupEl._barePath),
@@ -619,8 +636,9 @@ async function showWorktreeSwitchDialog(tabEl, groupEl) {
 
   let preselect = sourceBranch || null;
 
-  if (cached.length > 0) {
-    applySwitchBranches(cached, preselect);
+  const initialBranches = cached.length > 0 ? cached : stateCache;
+  if (initialBranches.length > 0) {
+    applySwitchBranches(initialBranches, preselect);
     wtSwitchNameInput.focus();
   }
 
@@ -629,6 +647,7 @@ async function showWorktreeSwitchDialog(tabEl, groupEl) {
     if (!wtSwitchDialogOverlay.classList.contains('visible')) return;
     if (wtSwitchGroupEl !== groupEl) return;
     applySwitchBranches(fetched, preselect);
+    if (_saveBranchCache) _saveBranchCache(repoName, fetched);
     if (wtSwitchBranchList.classList.contains('open')) {
       renderSwitchBranchList(wtSwitchBranchSearch.value);
     }
@@ -780,9 +799,16 @@ document.getElementById('wt-switch-cancel-btn').addEventListener('click', hideWo
 document.getElementById('wt-switch-confirm-btn').addEventListener('click', confirmSwitchWorktree);
 
 let _onCloneComplete = null;
+let _getCachedBranches = null;
+let _saveBranchCache = null;
 
 function registerOnCloneComplete(fn) {
   _onCloneComplete = fn;
 }
 
-export { showWorktreeDialog, showCloneDialog, showDeleteDialog, showWorktreeRemoveDialog, showWorktreeSwitchDialog, registerSidebarFns, registerRemoveRepoGroup, registerOnCloneComplete };
+function registerBranchCache(getCached, saveCached) {
+  _getCachedBranches = getCached;
+  _saveBranchCache = saveCached;
+}
+
+export { showWorktreeDialog, showCloneDialog, showDeleteDialog, showWorktreeRemoveDialog, showWorktreeSwitchDialog, registerSidebarFns, registerRemoveRepoGroup, registerOnCloneComplete, registerBranchCache };
