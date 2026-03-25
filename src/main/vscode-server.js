@@ -10,7 +10,7 @@ const REQUIRED_EXTENSIONS = [
   'ms-dotnettools.csharp'
 ];
 
-const SERVER_DATA_DIR = path.join(__dirname, 'vscode-data');
+const SERVER_DATA_DIR = path.join(__dirname, '..', '..', 'vscode-data');
 
 function findPort(startPort) {
   return new Promise((resolve) => {
@@ -115,7 +115,6 @@ function startServer(port) {
 
 function buildFolderUrl(port, folderPath) {
   let normalized = folderPath.replace(/\\/g, '/');
-  // Ensure drive letter path starts with / for URI format (e.g. /C:/Repos/...)
   if (/^[A-Za-z]:/.test(normalized)) normalized = '/' + normalized;
   const folderUri = `vscode-remote://localhost:${port}${normalized}`;
   return `http://127.0.0.1:${port}/?folder=${encodeURIComponent(folderUri)}`;

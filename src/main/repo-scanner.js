@@ -58,8 +58,6 @@ function listWorktrees(barePath) {
 }
 
 function checkClaudeActive(wtPath) {
-  // Claude stores sessions in ~/.claude/projects/<encoded-path>/*.jsonl
-  // While Claude is working, it writes to the session file continuously.
   const normalized = wtPath.replace(/\\/g, '/');
   const encoded = normalized.replace(/^\//, '').replace(/[/:]/g, '-').replace(/\//g, '-');
   const projectDir = path.join(
@@ -77,13 +75,11 @@ function checkClaudeActive(wtPath) {
     }
   } catch {}
 
-  // Return null — let the renderer decide based on its own state tracking
   return null;
 }
 
 function listRemoteBranches(barePath) {
   return new Promise((resolve) => {
-    // Ensure fetch refspec is configured
     try {
       const existing = execSync('git config remote.origin.fetch', { cwd: barePath, encoding: 'utf8' }).trim();
       if (!existing) throw new Error('empty');
@@ -93,7 +89,6 @@ function listRemoteBranches(barePath) {
       } catch {}
     }
 
-    // Fetch async, then list branches
     exec('git fetch origin', { cwd: barePath, encoding: 'utf8', timeout: 60000 }, () => {
       exec('git branch -r', { cwd: barePath, encoding: 'utf8', timeout: 10000 }, (err, stdout) => {
         if (err || !stdout) { resolve([]); return; }
