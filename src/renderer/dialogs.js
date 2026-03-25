@@ -297,6 +297,7 @@ async function startClone() {
       if (newRepo && _addRepoGroup) {
         _addRepoGroup(newRepo);
       }
+      if (_onCloneComplete) _onCloneComplete(rDir);
     } else {
       xterm.writeln('');
       xterm.writeln(`\x1b[31mClone failed with exit code ${exitCode}\x1b[0m`);
@@ -699,4 +700,10 @@ wtSwitchDialogOverlay.addEventListener('click', (e) => {
 document.getElementById('wt-switch-cancel-btn').addEventListener('click', hideWorktreeSwitchDialog);
 document.getElementById('wt-switch-confirm-btn').addEventListener('click', confirmSwitchWorktree);
 
-export { showWorktreeDialog, showCloneDialog, showDeleteDialog, showWorktreeRemoveDialog, showWorktreeSwitchDialog, registerSidebarFns, registerRemoveRepoGroup };
+let _onCloneComplete = null;
+
+function registerOnCloneComplete(fn) {
+  _onCloneComplete = fn;
+}
+
+export { showWorktreeDialog, showCloneDialog, showDeleteDialog, showWorktreeRemoveDialog, showWorktreeSwitchDialog, registerSidebarFns, registerRemoveRepoGroup, registerOnCloneComplete };

@@ -16,6 +16,11 @@ let _showWorktreeDialog = null;
 let _showDeleteDialog = null;
 let _showWorktreeRemoveDialog = null;
 let _showWorktreeSwitchDialog = null;
+let _onStateChange = null;
+
+function registerOnStateChange(fn) {
+  _onStateChange = fn;
+}
 
 function registerWorktreeDialog(fn) {
   _showWorktreeDialog = fn;
@@ -111,6 +116,7 @@ function addRepoGroup(repo) {
     groupEl.classList.remove('dragging', 'drag-ghost');
     document.querySelectorAll('.repo-group.drag-over').forEach(el => el.classList.remove('drag-over'));
     rebuildCollapsedDots();
+    if (_onStateChange) _onStateChange();
   });
 
   groupEl.addEventListener('dragover', (e) => {
@@ -448,4 +454,19 @@ function removeRepoGroup(groupEl) {
   groupEl.remove();
 }
 
-export { addRepoGroup, createWorktreeTab, registerWorktreeDialog, registerDeleteDialog, registerWorktreeRemoveDialog, registerWorktreeSwitchDialog, removeRepoGroup, showTabCloseButton, showTabRemoveButton };
+function getRepoOrder() {
+  return Array.from(repoGroupsEl.querySelectorAll('.repo-group'))
+    .map(el => el.dataset.repoName);
+}
+
+function getOpenWorktreePaths() {
+  const paths = [];
+  for (const tab of document.querySelectorAll('.workspace-tab')) {
+    if (tab._workspaceId !== null) {
+      paths.push(tab._wtPath);
+    }
+  }
+  return paths;
+}
+
+export { addRepoGroup, createWorktreeTab, registerWorktreeDialog, registerDeleteDialog, registerWorktreeRemoveDialog, registerWorktreeSwitchDialog, registerOnStateChange, removeRepoGroup, showTabCloseButton, showTabRemoveButton, getRepoOrder, getOpenWorktreePaths };
