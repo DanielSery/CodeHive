@@ -6,8 +6,7 @@
   "scripts": {
     "start": "electron .",
     "dev": "electron . --dev",
-    "build": "electron-builder --win",
-    "build:portable": "electron-builder --win portable"
+    "build": "electron-builder --win --dir"
   },
   "build": {
     "appId": "com.codehive.app",
@@ -25,20 +24,10 @@
     ],
     "win": {
       "target": [
-        "nsis",
-        "portable"
+        "dir"
       ],
       "icon": "CodeHive.ico",
       "signAndEditExecutable": false
-    },
-    "nsis": {
-      "oneClick": false,
-      "allowToChangeInstallationDirectory": true,
-      "installerIcon": "CodeHive.ico",
-      "uninstallerIcon": "CodeHive.ico"
-    },
-    "portable": {
-      "artifactName": "CodeHive-${version}-portable.exe"
     }
   },
   "dependencies": {
