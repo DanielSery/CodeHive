@@ -95,8 +95,9 @@ function toggleTerminal() {
     } else {
       placeholder.style.display = 'flex';
     }
-  } else if (xterm) {
-    // Show terminal (only if there's content)
+  } else {
+    // Create empty terminal if none exists
+    if (!xterm) createTerminal();
     terminalEl.classList.add('active');
     sidebarTab.classList.add('active');
     placeholder.style.display = 'none';
