@@ -137,6 +137,7 @@ function getGitUser(barePath) {
 function getWorktreeSourceBranch(barePath, wtBranch) {
   // Walk back from the branch and find the first commit referenced by a remote branch.
   // --decorate-refs limits decoration to remote tracking refs, --first-parent keeps it linear.
+  const PREFERRED = ['master', 'main', 'develop'];
   return new Promise((resolve) => {
     exec(
       `git log refs/heads/${wtBranch} --decorate-refs=refs/remotes/origin/ --format=%D --first-parent`,
@@ -146,14 +147,16 @@ function getWorktreeSourceBranch(barePath, wtBranch) {
         for (const line of stdout.split('\n')) {
           const trimmed = line.trim();
           if (!trimmed) continue;
-          // Each line may have multiple refs comma-separated, e.g. "origin/master, origin/HEAD"
-          for (const ref of trimmed.split(',')) {
-            const r = ref.trim();
-            if (r.startsWith('origin/') && !r.includes('HEAD')) {
-              resolve(r.replace(/^origin\//, ''));
-              return;
-            }
-          }
+          // Collect all refs on this commit
+          const refs = trimmed.split(',')
+            .map(r => r.trim())
+            .filter(r => r.startsWith('origin/') && !r.includes('HEAD'))
+            .map(r => r.replace(/^origin\//, ''));
+          if (refs.length === 0) continue;
+          // Prefer common base branches when multiple refs point to the same commit
+          const preferred = refs.find(r => PREFERRED.includes(r));
+          resolve(preferred || refs[0]);
+          return;
         }
         resolve(null);
       }
