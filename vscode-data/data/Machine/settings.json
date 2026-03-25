@@ -40,5 +40,6 @@
   "dotnet.codeLens.enableReferencesCodeLens": false,
   "dotnet.codeLens.enableTestsCodeLens": false,
   "quickInput.position": "center",
-  "window.quickOpen.position": "center"
+  "window.quickOpen.position": "center",
+  "security.workspace.trust.enabled": false
 }
