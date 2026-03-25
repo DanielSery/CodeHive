@@ -208,7 +208,7 @@ function createWorktreeRemovePty(mainWindow, { barePath, wtPath }) {
   proc.onExit(({ exitCode }) => {
     try { fs.unlinkSync(scriptPath); } catch {}
     if (mainWindow && !mainWindow.isDestroyed()) {
-      mainWindow.webContents.send('worktreeRemove:exit', { exitCode: 0, wtPath });
+      mainWindow.webContents.send('worktreeRemove:exit', { exitCode, wtPath });
     }
   });
 
