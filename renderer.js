@@ -75,6 +75,45 @@ function addRepoGroup(repo) {
     tabsEl.appendChild(tabEl);
   });
 
+  // Drag-and-drop reordering
+  groupEl.setAttribute('draggable', 'true');
+
+  groupEl.addEventListener('dragstart', (e) => {
+    e.dataTransfer.effectAllowed = 'move';
+    groupEl.classList.add('dragging');
+    // Timeout so the drag ghost renders before we style it
+    setTimeout(() => groupEl.classList.add('drag-ghost'), 0);
+  });
+
+  groupEl.addEventListener('dragend', () => {
+    groupEl.classList.remove('dragging', 'drag-ghost');
+    document.querySelectorAll('.repo-group.drag-over').forEach(el => el.classList.remove('drag-over'));
+  });
+
+  groupEl.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    const dragging = repoGroupsEl.querySelector('.dragging');
+    if (!dragging || dragging === groupEl) return;
+
+    const rect = groupEl.getBoundingClientRect();
+    const midY = rect.top + rect.height / 2;
+
+    // Remove drag-over from all groups
+    document.querySelectorAll('.repo-group.drag-over').forEach(el => el.classList.remove('drag-over'));
+    groupEl.classList.add('drag-over');
+
+    if (e.clientY < midY) {
+      repoGroupsEl.insertBefore(dragging, groupEl);
+    } else {
+      repoGroupsEl.insertBefore(dragging, groupEl.nextSibling);
+    }
+  });
+
+  groupEl.addEventListener('dragleave', () => {
+    groupEl.classList.remove('drag-over');
+  });
+
   groupEl.appendChild(headerEl);
   groupEl.appendChild(tabsEl);
   repoGroupsEl.appendChild(groupEl);
@@ -205,7 +244,7 @@ function switchWorkspace(id) {
     if (ws.tabEl.dataset.status !== 'working') {
       setTabStatus(ws.tabEl, 'open');
     }
-    document.querySelector('.titlebar-title').textContent = `DevShell — ${ws.name}`;
+    document.querySelector('.titlebar-title').textContent = `CodeHive — ${ws.name}`;
   }
 }
 
@@ -228,7 +267,7 @@ function closeWorkspace(id) {
       switchWorkspace(remaining[remaining.length - 1]);
     } else {
       placeholder.style.display = 'flex';
-      document.querySelector('.titlebar-title').textContent = 'DevShell';
+      document.querySelector('.titlebar-title').textContent = 'CodeHive';
     }
   }
 }

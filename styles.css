@@ -250,52 +250,75 @@ html, body {
 }
 
 .repo-group {
-  margin-bottom: 4px;
+  margin-bottom: 2px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border);
+}
+
+.repo-group[draggable="true"] .repo-group-header {
+  cursor: grab;
+}
+
+.repo-group.dragging .repo-group-header {
+  cursor: grabbing;
+}
+
+.repo-group.drag-ghost {
+  opacity: 0.4;
 }
 
 .repo-group-header {
   display: flex;
   align-items: center;
-  padding: 6px 8px;
-  border-radius: 6px;
+  padding: 5px 8px;
+  border-radius: 4px;
   cursor: pointer;
   transition: background 0.15s;
   user-select: none;
 }
 
 .repo-group-header:hover {
-  background: var(--tab-hover-bg);
+  background: var(--tab-bg);
 }
 
 .repo-group-chevron {
-  font-size: 9px;
+  font-size: 8px;
   color: var(--text-muted);
-  width: 16px;
+  width: 14px;
   flex-shrink: 0;
+  transition: color 0.15s;
+}
+
+.repo-group-header:hover .repo-group-chevron {
+  color: var(--text);
 }
 
 .repo-group-name {
   flex: 1;
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 600;
   color: var(--text);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
 }
 
 .repo-group-count {
-  font-size: 10px;
+  font-size: 9px;
   color: var(--text-muted);
   background: var(--tab-bg);
-  padding: 1px 6px;
-  border-radius: 8px;
+  padding: 1px 5px;
+  border-radius: 6px;
   margin-left: 6px;
+  font-weight: 500;
 }
 
 .repo-group-tabs {
   display: none;
-  padding-left: 8px;
+  padding-left: 14px;
+  margin-top: 2px;
 }
 
 .repo-group-tabs.expanded {
@@ -307,95 +330,87 @@ html, body {
 .workspace-tab {
   display: flex;
   align-items: center;
-  padding: 8px 10px;
-  margin-bottom: 2px;
-  border-radius: 6px;
+  padding: 4px 8px;
+  margin-bottom: 1px;
+  border-radius: 4px;
   cursor: pointer;
-  transition: background 0.15s;
+  transition: background 0.15s, border-color 0.15s;
   position: relative;
   user-select: none;
+  border-left: 2px solid transparent;
 }
 
 .workspace-tab:hover {
-  background: var(--tab-hover-bg);
+  background: var(--tab-bg);
 }
 
 .workspace-tab.active {
   background: var(--tab-active-bg);
+  border-left-color: var(--accent);
 }
 
-.workspace-tab.active::before {
-  content: '';
-  position: absolute;
-  left: 0;
-  top: 4px;
-  bottom: 4px;
-  width: 3px;
-  background: var(--accent);
-  border-radius: 0 3px 3px 0;
+.workspace-tab[data-status="open"] {
+  border-left-color: var(--accent);
+}
+
+.workspace-tab[data-status="working"] {
+  border-left-color: var(--yellow);
+}
+
+.workspace-tab[data-status="done"] {
+  border-left-color: var(--green);
 }
 
 .workspace-tab-status {
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  margin-right: 10px;
-  flex-shrink: 0;
-  background: var(--text-muted);
-  transition: background 0.3s, box-shadow 0.3s;
-}
-
-.workspace-tab[data-status="open"] .workspace-tab-status {
-  background: var(--accent);
-  box-shadow: 0 0 4px var(--accent);
-}
-
-.workspace-tab[data-status="working"] .workspace-tab-status {
-  background: var(--yellow);
-  box-shadow: 0 0 6px var(--yellow);
-  animation: pulse 1.5s ease-in-out infinite;
-}
-
-.workspace-tab[data-status="done"] .workspace-tab-status {
-  background: var(--green);
-  box-shadow: 0 0 4px var(--green);
+  display: none;
 }
 
 @keyframes pulse {
-  0%, 100% { opacity: 1; box-shadow: 0 0 6px var(--yellow); }
-  50% { opacity: 0.4; box-shadow: 0 0 2px var(--yellow); }
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
 }
 
 .workspace-tab-label {
   flex: 1;
-  font-size: 13px;
-  color: var(--text);
+  font-size: 12px;
+  color: var(--text-muted);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  transition: color 0.15s;
+}
+
+.workspace-tab:hover .workspace-tab-label,
+.workspace-tab.active .workspace-tab-label,
+.workspace-tab[data-status="open"] .workspace-tab-label,
+.workspace-tab[data-status="working"] .workspace-tab-label,
+.workspace-tab[data-status="done"] .workspace-tab-label {
+  color: var(--text);
 }
 
 .workspace-tab-close {
-  width: 20px;
-  height: 20px;
+  width: 18px;
+  height: 18px;
   border: none;
   background: transparent;
   color: var(--text-muted);
-  font-size: 14px;
+  font-size: 13px;
   cursor: pointer;
-  border-radius: 4px;
+  border-radius: 3px;
   display: flex;
   align-items: center;
   justify-content: center;
   opacity: 0;
   transition: all 0.15s;
+  margin-left: 4px;
 }
 
 .workspace-tab:hover .workspace-tab-close {
-  opacity: 1;
+  opacity: 0.6;
 }
 
-.workspace-tab-close:hover {
+.workspace-tab:hover .workspace-tab-close:hover {
+  opacity: 1;
   background: var(--red);
   color: #1e1e2e;
 }

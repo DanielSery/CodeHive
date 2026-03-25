@@ -1,7 +1,7 @@
 {
   "name": "electron-terminal",
   "version": "1.0.0",
-  "description": "DevShell - VS Code workspace manager",
+  "description": "CodeHive - VS Code workspace manager",
   "main": "main.js",
   "scripts": {
     "start": "electron .",
