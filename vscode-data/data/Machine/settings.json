@@ -39,5 +39,6 @@
   "csharp.inlayHints.enableInlayHintsForTypes": false,
   "dotnet.codeLens.enableReferencesCodeLens": false,
   "dotnet.codeLens.enableTestsCodeLens": false,
-  "quickInput.position": "center"
+  "quickInput.position": "center",
+  "window.quickOpen.position": "center"
 }
