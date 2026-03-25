@@ -227,24 +227,26 @@ function createWorktreeSwitchPty(mainWindow, { barePath, repoDir, oldWtPath, bra
   const newWtForFs = isWin ? newWtPath.replace(/\//g, '\\') : newWtPath;
   const needsRename = oldWtPath.replace(/\\/g, '/') !== newWtPath;
 
+  // Use git -C to operate on the worktree without cd-ing into it,
+  // so no process holds a lock on the directory when we rename.
+  const oldWtForGit = oldWtPath.replace(/\\/g, '/');
+  const parentDir = path.dirname(oldWtPath);
+  const parentDirFs = isWin ? parentDir.replace(/\//g, '\\') : parentDir;
+
   const lines = [];
   if (isWin) {
     lines.push('@echo off');
-    // Switch branch in-place inside the worktree
     lines.push(`echo Switching branch to: ${branchName}`);
-    lines.push(`cd /d "${oldWtForFs}"`);
-    lines.push(`git checkout -B ${branchName} ${startPoint}`);
+    lines.push(`git -C "${oldWtForGit}" checkout -B ${branchName} ${startPoint}`);
     lines.push('if errorlevel 1 (');
     lines.push('  echo.');
     lines.push('  echo === SWITCH FAILED ===');
     lines.push('  exit /b 1');
     lines.push(')');
-    // Rename directory if needed
     if (needsRename) {
       lines.push('echo.');
       lines.push(`echo Renaming directory: ${path.basename(oldWtPath)} -^> ${dirName}`);
-      lines.push(`cd /d "${path.dirname(oldWtForFs)}"`);
-      lines.push(`ren "${path.basename(oldWtForFs)}" "${dirName}"`);
+      lines.push(`ren "${oldWtForFs}" "${dirName}"`);
       lines.push('if errorlevel 1 (');
       lines.push('  echo.');
       lines.push('  echo === RENAME FAILED ===');
@@ -256,13 +258,11 @@ function createWorktreeSwitchPty(mainWindow, { barePath, repoDir, oldWtPath, bra
   } else {
     lines.push('#!/bin/sh');
     lines.push(`echo "Switching branch to: ${branchName}"`);
-    lines.push(`cd "${oldWtPath}"`);
-    lines.push(`git checkout -B ${branchName} ${startPoint} || { echo ""; echo "=== SWITCH FAILED ==="; exit 1; }`);
+    lines.push(`git -C "${oldWtPath}" checkout -B ${branchName} ${startPoint} || { echo ""; echo "=== SWITCH FAILED ==="; exit 1; }`);
     if (needsRename) {
       lines.push('echo ""');
       lines.push(`echo "Renaming directory: ${path.basename(oldWtPath)} -> ${dirName}"`);
-      lines.push(`cd "${path.dirname(oldWtPath)}"`);
-      lines.push(`mv "${path.basename(oldWtPath)}" "${dirName}" || { echo ""; echo "=== RENAME FAILED ==="; exit 1; }`);
+      lines.push(`mv "${oldWtPath}" "${newWtPath}" || { echo ""; echo "=== RENAME FAILED ==="; exit 1; }`);
     }
     lines.push('echo ""');
     lines.push('echo "=== SWITCH COMPLETE ==="');
@@ -271,7 +271,7 @@ function createWorktreeSwitchPty(mainWindow, { barePath, repoDir, oldWtPath, bra
   fs.writeFileSync(scriptPath, lines.join('\n'), { encoding: 'utf8' });
 
   const cmd = isWin ? scriptPath : `sh "${scriptPath}"`;
-  const proc = spawnPty(cmd, oldWtPath);
+  const proc = spawnPty(cmd, parentDir);
 
   proc.onData((data) => {
     if (mainWindow && !mainWindow.isDestroyed()) {
