@@ -10,6 +10,7 @@ function spawnProc(cmd, cwd) {
   let ready = false;
   const listeners = { data: [], exit: [] };
 
+  console.log('[spawnProc] cmd:', cmd, 'cwd:', cwd);
   const proc = spawn(cmd, [], {
     cwd,
     env: process.env,
@@ -19,6 +20,7 @@ function spawnProc(cmd, cwd) {
 
   proc.stdout.on('data', (data) => {
     const str = data.toString().replace(/\r?\n/g, '\r\n');
+    console.log('[spawnProc] stdout:', str.substring(0, 100));
     if (ready) {
       for (const cb of listeners.data) cb(str);
     } else {
@@ -28,6 +30,7 @@ function spawnProc(cmd, cwd) {
 
   proc.stderr.on('data', (data) => {
     const str = data.toString().replace(/\r?\n/g, '\r\n');
+    console.log('[spawnProc] stderr:', str.substring(0, 100));
     if (ready) {
       for (const cb of listeners.data) cb(str);
     } else {
@@ -36,6 +39,7 @@ function spawnProc(cmd, cwd) {
   });
 
   proc.on('close', (code) => {
+    console.log('[spawnProc] close, code:', code, 'buffer:', buffer.length, 'ready:', ready);
     const info = { exitCode: code || 0 };
     if (ready) {
       for (const cb of listeners.exit) cb(info);
@@ -45,6 +49,7 @@ function spawnProc(cmd, cwd) {
   });
 
   proc.on('error', (err) => {
+    console.log('[spawnProc] error:', err.message);
     buffer.push(`Error: ${err.message}\r\n`);
     exitInfo = { exitCode: 1 };
   });
@@ -53,6 +58,7 @@ function spawnProc(cmd, cwd) {
     onData: (cb) => listeners.data.push(cb),
     onExit: (cb) => listeners.exit.push(cb),
     flush: () => {
+      console.log('[spawnProc] flush called, buffer:', buffer.length, 'exitInfo:', !!exitInfo, 'data listeners:', listeners.data.length, 'exit listeners:', listeners.exit.length);
       ready = true;
       for (const str of buffer) {
         for (const cb of listeners.data) cb(str);
