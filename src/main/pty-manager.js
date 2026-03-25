@@ -223,16 +223,11 @@ function createWorktreeSwitchPty(mainWindow, { barePath, repoDir, oldWtPath, bra
   const scriptExt = isWin ? '.cmd' : '.sh';
   const scriptPath = path.join(os.tmpdir(), `codehive-wt-switch-${Date.now()}${scriptExt}`);
 
-  const oldWtForFs = isWin ? oldWtPath.replace(/\//g, '\\') : oldWtPath;
-  const newWtForFs = isWin ? newWtPath.replace(/\//g, '\\') : newWtPath;
-  const needsRename = oldWtPath.replace(/\\/g, '/') !== newWtPath;
-
-  // Use git -C to operate on the worktree without cd-ing into it,
-  // so no process holds a lock on the directory when we rename.
   const oldWtForGit = oldWtPath.replace(/\\/g, '/');
-  const parentDir = path.dirname(oldWtPath);
-  const parentDirFs = isWin ? parentDir.replace(/\//g, '\\') : parentDir;
+  const needsMove = oldWtForGit !== newWtPath;
 
+  // 1) git -C <worktree> checkout -B <branch> <startPoint>  — switch branch in-place
+  // 2) git worktree move <old> <new>                         — relocate directory (git-native, handles .git bookkeeping)
   const lines = [];
   if (isWin) {
     lines.push('@echo off');
@@ -243,22 +238,13 @@ function createWorktreeSwitchPty(mainWindow, { barePath, repoDir, oldWtPath, bra
     lines.push('  echo === SWITCH FAILED ===');
     lines.push('  exit /b 1');
     lines.push(')');
-    if (needsRename) {
+    if (needsMove) {
       lines.push('echo.');
-      lines.push(`echo Renaming directory: ${path.basename(oldWtPath)} -^> ${dirName}`);
-      // Retry loop: file handles from VS Code may take a moment to release
-      lines.push('set RETRIES=0');
-      lines.push(':RENAME_RETRY');
-      lines.push(`ren "${oldWtForFs}" "${dirName}" 2>nul`);
+      lines.push(`echo Moving worktree: ${path.basename(oldWtPath)} -^> ${dirName}`);
+      lines.push(`git worktree move "${oldWtForGit}" "${newWtPath}"`);
       lines.push('if errorlevel 1 (');
-      lines.push('  set /a RETRIES+=1');
-      lines.push('  if %RETRIES% lss 10 (');
-      lines.push('    echo   Waiting for file handles to release... attempt %RETRIES%');
-      lines.push('    timeout /t 1 /nobreak >nul');
-      lines.push('    goto RENAME_RETRY');
-      lines.push('  )');
       lines.push('  echo.');
-      lines.push('  echo === RENAME FAILED ===');
+      lines.push('  echo === MOVE FAILED ===');
       lines.push('  exit /b 1');
       lines.push(')');
     }
@@ -267,11 +253,11 @@ function createWorktreeSwitchPty(mainWindow, { barePath, repoDir, oldWtPath, bra
   } else {
     lines.push('#!/bin/sh');
     lines.push(`echo "Switching branch to: ${branchName}"`);
-    lines.push(`git -C "${oldWtPath}" checkout -B ${branchName} ${startPoint} || { echo ""; echo "=== SWITCH FAILED ==="; exit 1; }`);
-    if (needsRename) {
+    lines.push(`git -C "${oldWtForGit}" checkout -B ${branchName} ${startPoint} || { echo ""; echo "=== SWITCH FAILED ==="; exit 1; }`);
+    if (needsMove) {
       lines.push('echo ""');
-      lines.push(`echo "Renaming directory: ${path.basename(oldWtPath)} -> ${dirName}"`);
-      lines.push(`mv "${oldWtPath}" "${newWtPath}" || { echo ""; echo "=== RENAME FAILED ==="; exit 1; }`);
+      lines.push(`echo "Moving worktree: ${path.basename(oldWtPath)} -> ${dirName}"`);
+      lines.push(`git worktree move "${oldWtForGit}" "${newWtPath}" || { echo ""; echo "=== MOVE FAILED ==="; exit 1; }`);
     }
     lines.push('echo ""');
     lines.push('echo "=== SWITCH COMPLETE ==="');
@@ -280,7 +266,7 @@ function createWorktreeSwitchPty(mainWindow, { barePath, repoDir, oldWtPath, bra
   fs.writeFileSync(scriptPath, lines.join('\n'), { encoding: 'utf8' });
 
   const cmd = isWin ? scriptPath : `sh "${scriptPath}"`;
-  const proc = spawnPty(cmd, parentDir);
+  const proc = spawnPty(cmd, barePath);
 
   proc.onData((data) => {
     if (mainWindow && !mainWindow.isDestroyed()) {

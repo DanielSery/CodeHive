@@ -597,11 +597,10 @@ async function confirmSwitchWorktree() {
 
   hideWorktreeSwitchDialog();
 
-  // Close workspace if open and wait for VS Code to release file handles
+  // Close workspace if open
   if (tabEl._workspaceId !== null) {
     const { closeWorkspace } = await import('./workspace-manager.js');
     closeWorkspace(tabEl._workspaceId);
-    await new Promise(r => setTimeout(r, 1500));
   }
 
   showTerminal(`Switching worktree: ${branchName}`);
