@@ -119,16 +119,4 @@ function getGitUser(barePath) {
   }
 }
 
-function createWorktree(barePath, repoDir, branchName, dirName, sourceBranch) {
-  // Create worktree at repoDir/dirName with new branch based on origin/sourceBranch
-  const wtPath = path.join(repoDir, dirName);
-  const startPoint = `origin/${sourceBranch}`;
-  execSync(`git worktree add "${wtPath}" -b "${branchName}" "${startPoint}"`, {
-    cwd: barePath,
-    encoding: 'utf8',
-    timeout: 30000
-  });
-  return wtPath;
-}
-
-module.exports = { scanDirectory, checkClaudeActive, listRemoteBranches, getGitUser, createWorktree };
+module.exports = { scanDirectory, checkClaudeActive, listRemoteBranches, getGitUser };

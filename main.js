@@ -2,7 +2,7 @@ const { app, BrowserWindow, ipcMain, dialog } = require('electron');
 const path = require('path');
 const pty = require('node-pty');
 const vscode = require('./vscode-server');
-const { scanDirectory, checkClaudeActive, listRemoteBranches, getGitUser, createWorktree } = require('./repo-scanner');
+const { scanDirectory, checkClaudeActive, listRemoteBranches, getGitUser } = require('./repo-scanner');
 
 let mainWindow;
 let serverProcess = null;
@@ -64,8 +64,43 @@ ipcMain.handle('repos:gitUser', (event, barePath) => {
   return getGitUser(barePath);
 });
 
-ipcMain.handle('repos:createWorktree', (event, { barePath, repoDir, branchName, dirName, sourceBranch }) => {
-  return createWorktree(barePath, repoDir, branchName, dirName, sourceBranch);
+// ===== Worktree Creation via PTY =====
+let worktreePty = null;
+
+ipcMain.handle('worktree:start', (event, { barePath, repoDir, branchName, dirName, sourceBranch }) => {
+  const wtPath = path.join(repoDir, dirName).replace(/\\/g, '/');
+  const startPoint = `refs/remotes/origin/${sourceBranch}`;
+  const cmd = `git worktree add ${wtPath} -b ${branchName} ${startPoint}`;
+
+  const shell = process.platform === 'win32' ? 'cmd.exe' : '/bin/bash';
+  const args = process.platform === 'win32' ? ['/c', cmd] : ['-c', cmd];
+
+  worktreePty = pty.spawn(shell, args, {
+    name: 'xterm-color',
+    cols: 120,
+    rows: 30,
+    cwd: barePath,
+    env: process.env
+  });
+
+  worktreePty.onData((data) => {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('worktree:data', data);
+    }
+  });
+
+  worktreePty.onExit(({ exitCode }) => {
+    worktreePty = null;
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('worktree:exit', { exitCode, wtPath, branchName, dirName });
+    }
+  });
+
+  return { wtPath, branchName, dirName };
+});
+
+ipcMain.on('worktree:resize', (event, { cols, rows }) => {
+  if (worktreePty) worktreePty.resize(cols, rows);
 });
 
 // ===== Clone Repository =====

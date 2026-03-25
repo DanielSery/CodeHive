@@ -447,24 +447,98 @@ async function confirmCreateWorktree() {
   const name = wtNameInput.value.trim();
   const dirName = nameToSlug(name);
   const branchName = nameToBranch(wtGitUser, name);
+  const groupEl = wtCurrentGroupEl;
+  const tabsEl = wtCurrentTabsEl;
 
   hideWorktreeDialog();
 
+  cloneTerminalTitle.textContent = `Creating worktree: ${branchName}`;
+  cloneTerminalCloseBtn.style.display = 'none';
+
+  // Show terminal panel
+  cloneTerminalEl.classList.add('active');
+  placeholder.style.display = 'none';
+
+  // Hide active workspace webview if any
+  if (activeWorkspaceId !== null) {
+    const ws = workspaces.get(activeWorkspaceId);
+    if (ws) ws.webview.classList.remove('active');
+  }
+
+  // Initialize xterm
+  if (cloneXterm) {
+    cloneXterm.dispose();
+  }
+  cloneXterm = new Terminal({
+    cursorBlink: false,
+    fontSize: 13,
+    fontFamily: "'Consolas', 'Courier New', monospace",
+    theme: {
+      background: '#1e1e2e',
+      foreground: '#cdd6f4',
+      cursor: '#cdd6f4',
+      black: '#45475a',
+      red: '#f38ba8',
+      green: '#a6e3a1',
+      yellow: '#f9e2af',
+      blue: '#89b4fa',
+      magenta: '#cba6f7',
+      cyan: '#94e2d5',
+      white: '#bac2de'
+    }
+  });
+  cloneFitAddon = new (FitAddon.FitAddon || FitAddon)();
+  cloneXterm.loadAddon(cloneFitAddon);
+  cloneXterm.open(cloneTerminalXtermEl);
+  cloneFitAddon.fit();
+
+  window.worktreeAPI.resize(cloneXterm.cols, cloneXterm.rows);
+
+  window.worktreeAPI.removeListeners();
+  window.worktreeAPI.onData((data) => {
+    cloneXterm.write(data);
+  });
+
+  window.worktreeAPI.onExit(({ exitCode, wtPath, branchName: branch, dirName: dir }) => {
+    if (exitCode === 0) {
+      cloneXterm.writeln('');
+      cloneXterm.writeln('\x1b[32mWorktree created successfully!\x1b[0m');
+
+      // Add the new worktree tab
+      const wt = { path: wtPath, branch, name: dir };
+      const tabEl = createWorktreeTab(wt);
+      tabsEl.appendChild(tabEl);
+
+      // Auto-close terminal and open the new worktree
+      setTimeout(async () => {
+        closeCloneTerminal();
+        try {
+          await openWorktree(tabEl, wt);
+        } catch (err) {
+          console.error('Failed to open worktree:', err);
+          alert(`Worktree created but failed to open: ${err.message || err}`);
+        }
+      }, 800);
+    } else {
+      cloneXterm.writeln('');
+      cloneXterm.writeln(`\x1b[31mWorktree creation failed with exit code ${exitCode}\x1b[0m`);
+      cloneTerminalTitle.textContent = `Worktree creation failed`;
+      cloneTerminalCloseBtn.style.display = 'block';
+    }
+  });
+
   try {
-    const wtPath = await window.reposAPI.createWorktree({
-      barePath: wtCurrentGroupEl._barePath,
-      repoDir: wtCurrentGroupEl._repoDir,
+    await window.worktreeAPI.start({
+      barePath: groupEl._barePath,
+      repoDir: groupEl._repoDir,
       branchName,
       dirName,
       sourceBranch: wtSelectedBranch
     });
-
-    // Add the new worktree tab
-    const wt = { path: wtPath, branch: branchName, name: dirName };
-    const tabEl = createWorktreeTab(wt);
-    wtCurrentTabsEl.appendChild(tabEl);
   } catch (err) {
-    alert(`Failed to create worktree: ${err.message || err}`);
+    cloneXterm.writeln(`\x1b[31m${err.message || err}\x1b[0m`);
+    cloneTerminalTitle.textContent = `Worktree creation failed`;
+    cloneTerminalCloseBtn.style.display = 'block';
   }
 }
 
@@ -629,6 +703,7 @@ async function startClone() {
 function closeCloneTerminal() {
   cloneTerminalEl.classList.remove('active');
   window.cloneAPI.removeListeners();
+  window.worktreeAPI.removeListeners();
   if (cloneXterm) {
     cloneXterm.dispose();
     cloneXterm = null;
@@ -662,7 +737,10 @@ cloneUrlInput.addEventListener('keydown', (e) => {
 window.addEventListener('resize', () => {
   if (cloneFitAddon && cloneTerminalEl.classList.contains('active')) {
     cloneFitAddon.fit();
-    window.cloneAPI.resize(cloneXterm.cols, cloneXterm.rows);
+    if (cloneXterm) {
+      window.cloneAPI.resize(cloneXterm.cols, cloneXterm.rows);
+      window.worktreeAPI.resize(cloneXterm.cols, cloneXterm.rows);
+    }
   }
 });
 

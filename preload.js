@@ -10,7 +10,17 @@ contextBridge.exposeInMainWorld('reposAPI', {
   checkClaudeActive: (wtPath) => ipcRenderer.invoke('repos:claudeActive', wtPath),
   remoteBranches: (barePath) => ipcRenderer.invoke('repos:remoteBranches', barePath),
   gitUser: (barePath) => ipcRenderer.invoke('repos:gitUser', barePath),
-  createWorktree: (opts) => ipcRenderer.invoke('repos:createWorktree', opts)
+});
+
+contextBridge.exposeInMainWorld('worktreeAPI', {
+  start: (opts) => ipcRenderer.invoke('worktree:start', opts),
+  onData: (cb) => ipcRenderer.on('worktree:data', (_, data) => cb(data)),
+  onExit: (cb) => ipcRenderer.on('worktree:exit', (_, info) => cb(info)),
+  resize: (cols, rows) => ipcRenderer.send('worktree:resize', { cols, rows }),
+  removeListeners: () => {
+    ipcRenderer.removeAllListeners('worktree:data');
+    ipcRenderer.removeAllListeners('worktree:exit');
+  }
 });
 
 contextBridge.exposeInMainWorld('cloneAPI', {
