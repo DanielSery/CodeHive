@@ -119,14 +119,9 @@ async function openDirectory() {
   const dirPath = await window.reposAPI.openDirectoryDialog();
   if (!dirPath) return;
 
-  const repos = await window.reposAPI.scanDirectory(dirPath);
-  if (repos.length === 0) {
-    alert('No repositories with a Bare subdirectory found in this directory.');
-    return;
-  }
-
   saveDirectories(dirPath);
 
+  const repos = await window.reposAPI.scanDirectory(dirPath);
   for (const repo of repos) {
     addRepoGroup(repo);
   }
