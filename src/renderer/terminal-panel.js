@@ -74,12 +74,6 @@ function closeTerminal() {
   window.cloneAPI.removeListeners();
   window.worktreeAPI.removeListeners();
   window.deleteAPI.removeListeners();
-  if (xterm) {
-    xterm.dispose();
-    xterm = null;
-    fitAddon = null;
-    xtermContainerEl.innerHTML = '';
-  }
 
   // Restore previous view
   const ws = getActive();
