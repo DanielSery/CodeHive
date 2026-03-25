@@ -4,6 +4,11 @@ import { createTerminal, showTerminal, showCloseButton, setTitle, closeTerminal 
 // Injected by renderer.js to avoid circular dependency
 let _addRepoGroup = null;
 let _createWorktreeTab = null;
+let _cloneReposDir = null;
+
+function setCloneReposDir(dir) {
+  _cloneReposDir = dir;
+}
 
 function registerSidebarFns(addRepoGroup, createWorktreeTab) {
   _addRepoGroup = addRepoGroup;
@@ -329,7 +334,11 @@ async function startClone() {
 
   hideCloneDialog();
 
-  const reposDir = 'C:/Repos';
+  const reposDir = _cloneReposDir;
+  if (!reposDir) {
+    alert('Please open a directory first.');
+    return;
+  }
   const repoName = parseRepoName(url);
 
   showTerminal(`Cloning ${repoName}...`);
@@ -817,4 +826,4 @@ function registerSaveSourceBranch(fn) {
   _saveSourceBranch = fn;
 }
 
-export { showWorktreeDialog, showCloneDialog, showDeleteDialog, showWorktreeRemoveDialog, showWorktreeSwitchDialog, registerSidebarFns, registerRemoveRepoGroup, registerOnCloneComplete, registerBranchCache, registerSaveSourceBranch };
+export { showWorktreeDialog, showCloneDialog, showDeleteDialog, showWorktreeRemoveDialog, showWorktreeSwitchDialog, setCloneReposDir, registerSidebarFns, registerRemoveRepoGroup, registerOnCloneComplete, registerBranchCache, registerSaveSourceBranch };

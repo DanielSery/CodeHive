@@ -1,5 +1,5 @@
 import { addRepoGroup, createWorktreeTab, registerWorktreeDialog, registerDeleteDialog, registerWorktreeRemoveDialog, registerWorktreeSwitchDialog, registerOnStateChange, registerSidebarBranchCache, registerSourceBranchLookup, removeRepoGroup, showTabCloseButton, showTabRemoveButton, getRepoOrder } from './sidebar.js';
-import { showWorktreeDialog, showCloneDialog, showDeleteDialog, showWorktreeRemoveDialog, showWorktreeSwitchDialog, registerSidebarFns, registerRemoveRepoGroup, registerOnCloneComplete, registerBranchCache, registerSaveSourceBranch } from './dialogs.js';
+import { showWorktreeDialog, showCloneDialog, showDeleteDialog, showWorktreeRemoveDialog, showWorktreeSwitchDialog, setCloneReposDir, registerSidebarFns, registerRemoveRepoGroup, registerOnCloneComplete, registerBranchCache, registerSaveSourceBranch } from './dialogs.js';
 import { cycleWorkspace, registerTabButtonFns } from './workspace-manager.js';
 
 // Wire cross-module dependencies (avoids circular imports)
@@ -81,6 +81,9 @@ async function restoreState() {
   try { state = JSON.parse(raw); } catch { return; }
   if (!state.directories || state.directories.length === 0) return;
 
+  // Set clone directory to the first saved directory
+  setCloneReposDir(state.directories[0]);
+
   // Scan all saved directories
   const allRepos = [];
   for (const dir of state.directories) {
@@ -91,6 +94,8 @@ async function restoreState() {
       }
     }
   }
+
+  document.getElementById('btn-clone-repo').classList.add('visible');
 
   if (allRepos.length === 0) return;
 
@@ -120,6 +125,7 @@ async function openDirectory() {
   if (!dirPath) return;
 
   saveDirectories(dirPath);
+  setCloneReposDir(dirPath);
 
   const repos = await window.reposAPI.scanDirectory(dirPath);
   for (const repo of repos) {
