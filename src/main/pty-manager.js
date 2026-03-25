@@ -5,10 +5,10 @@ const { spawn, execSync } = require('child_process');
 const shell = process.platform === 'win32' ? 'cmd.exe' : '/bin/bash';
 
 function spawnProc(cmd, cwd) {
-  const args = process.platform === 'win32' ? ['/c', cmd] : ['-c', cmd];
-  const proc = spawn(shell, args, {
+  const proc = spawn(cmd, [], {
     cwd,
     env: process.env,
+    shell: true,
     stdio: ['pipe', 'pipe', 'pipe']
   });
 
