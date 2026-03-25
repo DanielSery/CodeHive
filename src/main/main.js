@@ -15,7 +15,6 @@ function createWindow() {
     minWidth: 800,
     minHeight: 600,
     backgroundColor: '#1e1e2e',
-    icon: path.join(__dirname, '..', '..', 'CodeHive.ico'),
     frame: false,
     webPreferences: {
       preload: path.join(__dirname, '..', 'preload', 'preload.js'),
