@@ -30,6 +30,9 @@ function scanDirectory(dirPath) {
 function listWorktrees(barePath) {
   const worktrees = [];
   try {
+    // Prune stale worktree entries (deleted directories)
+    try { execSync('git worktree prune', { cwd: barePath, timeout: 5000 }); } catch {}
+
     const output = execSync('git worktree list --porcelain', {
       cwd: barePath,
       encoding: 'utf8',
@@ -45,6 +48,10 @@ function listWorktrees(barePath) {
       if (!wtLine || isBare) continue;
 
       const wtPath = wtLine.substring('worktree '.length).trim();
+
+      // Skip worktrees whose directories no longer exist
+      try { if (!fs.statSync(wtPath).isDirectory()) continue; } catch { continue; }
+
       const branch = branchLine
         ? branchLine.substring('branch '.length).replace('refs/heads/', '')
         : path.basename(wtPath);
