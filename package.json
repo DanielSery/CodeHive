@@ -28,7 +28,8 @@
         "nsis",
         "portable"
       ],
-      "icon": "CodeHive.ico"
+      "icon": "CodeHive.ico",
+      "signAndEditExecutable": false
     },
     "nsis": {
       "oneClick": false,
