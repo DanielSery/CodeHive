@@ -38,15 +38,24 @@ function seedDefaultSettings() {
   console.log('Seeded default VS Code Machine settings');
 }
 
-function findPort(startPort) {
+function findPort(startPort, maxAttempts = 20) {
   return new Promise((resolve, reject) => {
-    const server = net.createServer();
-    server.listen(startPort, '127.0.0.1', () => {
-      server.close(() => resolve(startPort));
-    });
-    server.on('error', () => {
-      reject(new Error(`Port ${startPort} is already in use`));
-    });
+    let attempt = 0;
+    function tryPort(port) {
+      if (attempt >= maxAttempts) {
+        reject(new Error(`No available port found in range ${startPort}-${startPort + maxAttempts - 1}`));
+        return;
+      }
+      attempt++;
+      const server = net.createServer();
+      server.listen(port, '127.0.0.1', () => {
+        server.close(() => resolve(port));
+      });
+      server.on('error', () => {
+        tryPort(port + 1);
+      });
+    }
+    tryPort(startPort);
   });
 }
 
@@ -97,70 +106,6 @@ function installExtensions(sendStatus) {
   proc.on('error', (err) => {
     console.warn('[extensions] Install failed:', err.message);
   });
-}
-
-function isTrustedFolder(folderPath, port) {
-  const dbPath = path.join(getServerDataDir(), 'data', 'User', 'globalStorage', 'state.vscdb');
-  if (!fs.existsSync(dbPath)) return false;
-
-  try {
-    const data = fs.readFileSync(dbPath);
-    let normalized = folderPath.replace(/\\/g, '/');
-    if (/^[A-Za-z]:/.test(normalized)) normalized = '/' + normalized;
-    // Check for the vscode-remote trust entry with the correct authority
-    const content = data.toString();
-    return content.includes(`localhost:${port}`) && content.includes(normalized);
-  } catch {
-    return false;
-  }
-}
-
-async function seedTrustedFolders(trustedPaths, port) {
-  const initSqlJs = require('sql.js');
-  const stateDir = path.join(getServerDataDir(), 'data', 'User', 'globalStorage');
-  const dbPath = path.join(stateDir, 'state.vscdb');
-
-  fs.mkdirSync(stateDir, { recursive: true });
-
-  const SQL = await initSqlJs();
-  const db = fs.existsSync(dbPath)
-    ? new SQL.Database(fs.readFileSync(dbPath))
-    : new SQL.Database();
-
-  db.run('CREATE TABLE IF NOT EXISTS ItemTable (key TEXT UNIQUE ON CONFLICT REPLACE, value BLOB)');
-
-  // Load existing trust entries to avoid overwriting user-added ones
-  let existing = [];
-  const rows = db.exec("SELECT value FROM ItemTable WHERE key = 'content.trust.model.key'");
-  if (rows.length > 0) {
-    try { existing = JSON.parse(rows[0].values[0][0]).uriTrustInfo || []; } catch {}
-  }
-
-  const authority = `localhost:${port}`;
-  const newEntries = trustedPaths.map(p => {
-    let normalized = p.replace(/\\/g, '/');
-    if (/^[A-Za-z]:/.test(normalized)) normalized = '/' + normalized;
-    return {
-      uri: {
-        $mid: 1,
-        path: normalized,
-        scheme: 'vscode-remote',
-        authority
-      },
-      trusted: true
-    };
-  });
-
-  // Merge: keep existing entries, add new ones that aren't already present
-  const existingPaths = new Set(existing.map(e => e.uri?.path));
-  const merged = [...existing, ...newEntries.filter(e => !existingPaths.has(e.uri.path))];
-
-  const value = JSON.stringify({ uriTrustInfo: merged });
-  db.run('INSERT OR REPLACE INTO ItemTable (key, value) VALUES (?, ?)', ['content.trust.model.key', value]);
-
-  fs.writeFileSync(dbPath, Buffer.from(db.export()));
-  db.close();
-  console.log(`[vscode-server] Trusted folders seeded: ${trustedPaths.join(', ')}`);
 }
 
 function startServer(port) {
@@ -224,4 +169,4 @@ function buildFolderUrl(port, folderPath) {
   return `http://127.0.0.1:${port}/?folder=${encodeURIComponent(folderUri)}`;
 }
 
-module.exports = { findPort, installExtensions, isTrustedFolder, seedTrustedFolders, seedDefaultSettings, startServer, buildFolderUrl };
+module.exports = { findPort, installExtensions, seedDefaultSettings, startServer, buildFolderUrl };

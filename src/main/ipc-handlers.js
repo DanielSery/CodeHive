@@ -23,20 +23,6 @@ function register(mainWindow, getServerPort) {
   });
 
   ipcMain.handle('repos:scanDirectory', async (event, dirPath) => {
-    if (!vscode.isTrustedFolder(dirPath, getServerPort())) {
-      const { response } = await dialog.showMessageBox(mainWindow, {
-        type: 'question',
-        buttons: ['Trust', 'Don\'t Trust'],
-        defaultId: 0,
-        cancelId: 1,
-        title: 'Trust Folder',
-        message: `Do you trust the authors of the files in this folder?\n\n${dirPath}`,
-        detail: 'Trusting a folder allows VS Code extensions to run with full functionality for workspaces inside it.'
-      });
-      if (response === 0) {
-        await vscode.seedTrustedFolders([dirPath], getServerPort());
-      }
-    }
     return scanDirectory(dirPath);
   });
 
