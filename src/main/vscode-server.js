@@ -3,6 +3,7 @@ const os = require('os');
 const fs = require('fs');
 const net = require('net');
 const { spawn, execSync } = require('child_process');
+const { app } = require('electron');
 
 const REQUIRED_EXTENSIONS = [
   'Catppuccin.catppuccin-vsc',
@@ -11,7 +12,31 @@ const REQUIRED_EXTENSIONS = [
   'ms-dotnettools.csharp'
 ];
 
-const SERVER_DATA_DIR = path.join(__dirname, '..', '..', 'vscode-data');
+function getServerDataDir() {
+  return path.join(app.getPath('userData'), 'vscode-data');
+}
+
+function getBundledDataDir() {
+  // In packaged app: resources/app.asar/vscode-data
+  // In dev: ./vscode-data
+  return path.join(__dirname, '..', '..', 'vscode-data');
+}
+
+function seedDefaultSettings() {
+  const serverDataDir = getServerDataDir();
+  const machineSettingsDir = path.join(serverDataDir, 'data', 'Machine');
+  const machineSettingsFile = path.join(machineSettingsDir, 'settings.json');
+
+  // Only seed if settings don't exist yet
+  if (fs.existsSync(machineSettingsFile)) return;
+
+  const bundledSettings = path.join(getBundledDataDir(), 'data', 'Machine', 'settings.json');
+  if (!fs.existsSync(bundledSettings)) return;
+
+  fs.mkdirSync(machineSettingsDir, { recursive: true });
+  fs.copyFileSync(bundledSettings, machineSettingsFile);
+  console.log('Seeded default VS Code Machine settings');
+}
 
 function findPort(startPort) {
   return new Promise((resolve) => {
@@ -41,27 +66,36 @@ function installExtensions() {
   const env = { ...process.env };
   delete env.ELECTRON_RUN_AS_NODE;
   delete env.ELECTRON_NO_ASAR;
-  const extensionsDir = path.join(SERVER_DATA_DIR, 'extensions');
+  const extensionsDir = path.join(getServerDataDir(), 'extensions');
 
-  for (const ext of REQUIRED_EXTENSIONS) {
-    try {
-      console.log(`Installing extension: ${ext}`);
-      execSync(`"${cmd}" --install-extension ${ext} --extensions-dir "${extensionsDir}"`, {
-        stdio: 'pipe',
-        shell: true,
-        timeout: 60000,
-        env,
-        cwd: path.dirname(cmd)
-      });
-      console.log(`Extension installed: ${ext}`);
-    } catch (err) {
-      console.warn(`Extension install failed for ${ext}:`, err.message);
-    }
-  }
+  // Run in background — spawn a single shell with all installs chained
+  const cmds = REQUIRED_EXTENSIONS.map(ext =>
+    `"${cmd}" --install-extension ${ext} --extensions-dir "${extensionsDir}"`
+  ).join(' && ');
+
+  const proc = spawn(cmds, [], {
+    cwd: path.dirname(cmd),
+    env,
+    shell: true,
+    stdio: ['ignore', 'pipe', 'pipe']
+  });
+
+  proc.stdout.on('data', (data) => {
+    console.log('[extensions]', data.toString().trim());
+  });
+  proc.stderr.on('data', (data) => {
+    console.warn('[extensions]', data.toString().trim());
+  });
+  proc.on('close', (code) => {
+    console.log(`[extensions] Install finished with exit code ${code}`);
+  });
+  proc.on('error', (err) => {
+    console.warn('[extensions] Install failed:', err.message);
+  });
 }
 
 function isTrustedFolder(folderPath) {
-  const dbPath = path.join(SERVER_DATA_DIR, 'data', 'User', 'globalStorage', 'state.vscdb');
+  const dbPath = path.join(getServerDataDir(), 'data', 'User', 'globalStorage', 'state.vscdb');
   if (!fs.existsSync(dbPath)) return false;
 
   try {
@@ -78,7 +112,7 @@ function isTrustedFolder(folderPath) {
 
 async function seedTrustedFolders(trustedPaths) {
   const initSqlJs = require('sql.js');
-  const stateDir = path.join(SERVER_DATA_DIR, 'data', 'User', 'globalStorage');
+  const stateDir = path.join(getServerDataDir(), 'data', 'User', 'globalStorage');
   const dbPath = path.join(stateDir, 'state.vscdb');
 
   fs.mkdirSync(stateDir, { recursive: true });
@@ -132,7 +166,7 @@ function startServer(port) {
       '--host', '127.0.0.1',
       '--without-connection-token',
       '--accept-server-license-terms',
-      '--server-data-dir', SERVER_DATA_DIR
+      '--server-data-dir', getServerDataDir()
     ];
 
     const env = { ...process.env };
@@ -184,4 +218,4 @@ function buildFolderUrl(port, folderPath) {
   return `http://127.0.0.1:${port}/?folder=${encodeURIComponent(folderUri)}`;
 }
 
-module.exports = { findPort, installExtensions, isTrustedFolder, seedTrustedFolders, startServer, buildFolderUrl };
+module.exports = { findPort, installExtensions, isTrustedFolder, seedTrustedFolders, seedDefaultSettings, startServer, buildFolderUrl };
