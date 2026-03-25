@@ -27,7 +27,7 @@
         "dir"
       ],
       "icon": "CodeHive.ico",
-      "sign": false
+      "forceCodeSigning": false
     }
   },
   "dependencies": {
