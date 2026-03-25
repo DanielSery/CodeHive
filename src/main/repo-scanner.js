@@ -128,37 +128,38 @@ function getGitUser(barePath) {
 }
 
 function getWorktreeSourceBranch(barePath, wtBranch) {
-  try {
-    // Get all remote branches
-    const stdout = execSync('git branch -r', { cwd: barePath, encoding: 'utf8', timeout: 10000 });
-    if (!stdout) return null;
-    const remoteBranches = stdout.trim().split('\n')
-      .map(b => b.trim())
-      .filter(b => b && !b.includes('->'));
+  return new Promise((resolve) => {
+    exec('git branch -r', { cwd: barePath, encoding: 'utf8', timeout: 10000 }, (err, stdout) => {
+      if (err || !stdout) { resolve(null); return; }
+      const remoteBranches = stdout.trim().split('\n')
+        .map(b => b.trim())
+        .filter(b => b && !b.includes('->'));
 
-    // For each remote branch, count how many commits the local branch is ahead
-    // The source branch is the one with the fewest commits ahead (closest ancestor)
-    let bestBranch = null;
-    let bestAhead = Infinity;
+      if (remoteBranches.length === 0) { resolve(null); return; }
 
-    for (const rb of remoteBranches) {
-      try {
-        const count = execSync(
+      let bestBranch = null;
+      let bestAhead = Infinity;
+      let pending = remoteBranches.length;
+
+      for (const rb of remoteBranches) {
+        exec(
           `git rev-list --count ${rb}..refs/heads/${wtBranch}`,
-          { cwd: barePath, encoding: 'utf8', timeout: 5000, stdio: 'pipe' }
-        ).trim();
-        const ahead = parseInt(count, 10);
-        if (!isNaN(ahead) && ahead < bestAhead) {
-          bestAhead = ahead;
-          bestBranch = rb.replace(/^origin\//, '');
-        }
-      } catch {}
-    }
-
-    return bestBranch;
-  } catch {
-    return null;
-  }
+          { cwd: barePath, encoding: 'utf8', timeout: 5000 },
+          (err2, countOut) => {
+            if (!err2 && countOut) {
+              const ahead = parseInt(countOut.trim(), 10);
+              if (!isNaN(ahead) && ahead < bestAhead) {
+                bestAhead = ahead;
+                bestBranch = rb.replace(/^origin\//, '');
+              }
+            }
+            pending--;
+            if (pending === 0) resolve(bestBranch);
+          }
+        );
+      }
+    });
+  });
 }
 
 module.exports = { scanDirectory, checkClaudeActive, getCachedBranches, fetchAndListBranches, getGitUser, getWorktreeSourceBranch };
