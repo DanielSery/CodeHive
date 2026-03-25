@@ -1,18 +1,45 @@
 const path = require('path');
 const fs = require('fs');
-const pty = require('node-pty');
+const { spawn, execSync } = require('child_process');
 
 const shell = process.platform === 'win32' ? 'cmd.exe' : '/bin/bash';
 
-function spawnPty(cmd, cwd) {
+function spawnProc(cmd, cwd) {
   const args = process.platform === 'win32' ? ['/c', cmd] : ['-c', cmd];
-  return pty.spawn(shell, args, {
-    name: 'xterm-color',
-    cols: 120,
-    rows: 30,
+  const proc = spawn(shell, args, {
     cwd,
-    env: process.env
+    env: process.env,
+    stdio: ['pipe', 'pipe', 'pipe']
   });
+
+  // Provide node-pty compatible interface
+  const listeners = { data: [], exit: [] };
+
+  proc.stdout.on('data', (data) => {
+    const str = data.toString();
+    for (const cb of listeners.data) cb(str);
+  });
+
+  proc.stderr.on('data', (data) => {
+    const str = data.toString();
+    for (const cb of listeners.data) cb(str);
+  });
+
+  proc.on('close', (code) => {
+    for (const cb of listeners.exit) cb({ exitCode: code || 0 });
+  });
+
+  proc.on('error', (err) => {
+    for (const cb of listeners.data) cb(`Error: ${err.message}\r\n`);
+    for (const cb of listeners.exit) cb({ exitCode: 1 });
+  });
+
+  return {
+    onData: (cb) => listeners.data.push(cb),
+    onExit: (cb) => listeners.exit.push(cb),
+    resize: () => {}, // no-op without PTY
+    kill: () => proc.kill()
+  };
 }
 
 function createWorktreePty(mainWindow, { barePath, repoDir, branchName, dirName, sourceBranch }) {
@@ -22,7 +49,6 @@ function createWorktreePty(mainWindow, { barePath, repoDir, branchName, dirName,
   // Check if the branch already exists locally
   let branchExists = false;
   try {
-    const { execSync } = require('child_process');
     execSync(`git rev-parse --verify refs/heads/${branchName}`, { cwd: barePath, encoding: 'utf8', stdio: 'pipe' });
     branchExists = true;
   } catch {}
@@ -31,7 +57,7 @@ function createWorktreePty(mainWindow, { barePath, repoDir, branchName, dirName,
     ? `git worktree add ${wtPath} ${branchName}`
     : `git worktree add ${wtPath} -b ${branchName} ${startPoint}`;
 
-  const proc = spawnPty(cmd, barePath);
+  const proc = spawnProc(cmd, barePath);
 
   proc.onData((data) => {
     if (mainWindow && !mainWindow.isDestroyed()) {
@@ -59,7 +85,7 @@ function createClonePty(mainWindow, { url, reposDir }) {
   const gitCmds = `git init --bare . && git remote add origin ${url} && git config remote.origin.fetch +refs/heads/*:refs/remotes/origin/* && git fetch origin && echo. && echo === CLONE COMPLETE ===`;
   const cmd = process.platform === 'win32' ? gitCmds : gitCmds.replace(/echo\./g, 'echo');
 
-  const proc = spawnPty(cmd, bareDir);
+  const proc = spawnProc(cmd, bareDir);
 
   proc.onData((data) => {
     if (mainWindow && !mainWindow.isDestroyed()) {
@@ -79,7 +105,6 @@ function createClonePty(mainWindow, { url, reposDir }) {
 function createDeletePty(mainWindow, { repoDir }) {
   const barePath = path.join(repoDir, 'Bare');
   const os = require('os');
-  const { execSync } = require('child_process');
 
   // Collect worktree paths upfront
   let worktreePaths = [];
@@ -141,7 +166,7 @@ function createDeletePty(mainWindow, { repoDir }) {
   fs.writeFileSync(scriptPath, lines.join('\n'), { encoding: 'utf8' });
 
   const cmd = isWin ? scriptPath : `sh "${scriptPath}"`;
-  const proc = spawnPty(cmd, barePath);
+  const proc = spawnProc(cmd, barePath);
 
   proc.onData((data) => {
     if (mainWindow && !mainWindow.isDestroyed()) {
@@ -197,7 +222,7 @@ function createWorktreeRemovePty(mainWindow, { barePath, wtPath }) {
   fs.writeFileSync(scriptPath, lines.join('\n'), { encoding: 'utf8' });
 
   const cmd = isWin ? scriptPath : `sh "${scriptPath}"`;
-  const proc = spawnPty(cmd, barePath);
+  const proc = spawnProc(cmd, barePath);
 
   proc.onData((data) => {
     if (mainWindow && !mainWindow.isDestroyed()) {
@@ -223,7 +248,7 @@ function createWorktreeSwitchPty(mainWindow, { barePath, oldWtPath, branchName, 
   // Run checkout from within the worktree directory to avoid cmd.exe quoting issues with git -C
   const cwd = path.resolve(oldWtPath);
   const cmd = `git checkout -B ${branchName} ${startPoint}`;
-  const proc = spawnPty(cmd, cwd);
+  const proc = spawnProc(cmd, cwd);
 
   proc.onData((data) => {
     if (mainWindow && !mainWindow.isDestroyed()) {

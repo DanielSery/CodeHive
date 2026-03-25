@@ -8,6 +8,7 @@
     "dev": "electron . --dev"
   },
   "dependencies": {
-    "electron": "^33.0.0"
+    "electron": "^33.0.0",
+    "sql.js": "^1.14.1"
   }
 }
