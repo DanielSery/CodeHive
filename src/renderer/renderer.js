@@ -1,10 +1,12 @@
-import { addRepoGroup, createWorktreeTab, registerWorktreeDialog } from './sidebar.js';
-import { showWorktreeDialog, showCloneDialog, registerSidebarFns } from './dialogs.js';
+import { addRepoGroup, createWorktreeTab, registerWorktreeDialog, registerDeleteDialog, removeRepoGroup } from './sidebar.js';
+import { showWorktreeDialog, showCloneDialog, showDeleteDialog, registerSidebarFns, registerRemoveRepoGroup } from './dialogs.js';
 import { cycleWorkspace } from './workspace-manager.js';
 
 // Wire cross-module dependencies (avoids circular imports)
 registerWorktreeDialog(showWorktreeDialog);
+registerDeleteDialog(showDeleteDialog);
 registerSidebarFns(addRepoGroup, createWorktreeTab);
+registerRemoveRepoGroup(removeRepoGroup);
 
 // ===== Open Directory =====
 

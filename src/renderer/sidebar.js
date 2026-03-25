@@ -6,11 +6,16 @@ const collapsedDotsEl = document.getElementById('collapsed-dots');
 const sidebar = document.getElementById('sidebar');
 const resizeHandle = document.getElementById('sidebar-resize-handle');
 
-// Lazy reference to avoid circular import with dialogs.js
+// Lazy references to avoid circular import with dialogs.js
 let _showWorktreeDialog = null;
+let _showDeleteDialog = null;
 
 function registerWorktreeDialog(fn) {
   _showWorktreeDialog = fn;
+}
+
+function registerDeleteDialog(fn) {
+  _showDeleteDialog = fn;
 }
 
 function formatBranchLabel(branch) {
@@ -36,6 +41,7 @@ function addRepoGroup(repo) {
     <span class="repo-group-chevron">&#x25B6;</span>
     <span class="repo-group-name">${repo.name}</span>
     <button class="repo-group-add" title="Add Worktree">+</button>
+    <button class="repo-group-delete" title="Delete Project">&#x2715;</button>
   `;
 
   const tabsEl = document.createElement('div');
@@ -46,6 +52,11 @@ function addRepoGroup(repo) {
   headerEl.querySelector('.repo-group-add').addEventListener('click', (e) => {
     e.stopPropagation();
     if (_showWorktreeDialog) _showWorktreeDialog(groupEl, tabsEl);
+  });
+
+  headerEl.querySelector('.repo-group-delete').addEventListener('click', (e) => {
+    e.stopPropagation();
+    if (_showDeleteDialog) _showDeleteDialog(groupEl);
   });
 
   headerEl.addEventListener('click', (e) => {
@@ -223,4 +234,16 @@ resizeHandle.addEventListener('dblclick', () => {
   }
 });
 
-export { addRepoGroup, createWorktreeTab, registerWorktreeDialog };
+function removeRepoGroup(groupEl) {
+  // Close all open workspaces in this group
+  const tabs = groupEl.querySelectorAll('.workspace-tab');
+  for (const tab of tabs) {
+    if (tab._workspaceId !== null) {
+      closeWorkspace(tab._workspaceId);
+    }
+    if (tab._dotEl) tab._dotEl.remove();
+  }
+  groupEl.remove();
+}
+
+export { addRepoGroup, createWorktreeTab, registerWorktreeDialog, registerDeleteDialog, removeRepoGroup };

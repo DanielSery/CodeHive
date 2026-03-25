@@ -63,6 +63,7 @@ function closeTerminal() {
   terminalEl.classList.remove('active');
   window.cloneAPI.removeListeners();
   window.worktreeAPI.removeListeners();
+  window.deleteAPI.removeListeners();
   if (xterm) {
     xterm.dispose();
     xterm = null;
@@ -101,6 +102,7 @@ window.addEventListener('resize', () => {
   if (xterm) {
     window.cloneAPI.resize(xterm.cols, xterm.rows);
     window.worktreeAPI.resize(xterm.cols, xterm.rows);
+    window.deleteAPI.resize(xterm.cols, xterm.rows);
   }
 });
 

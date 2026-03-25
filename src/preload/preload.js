@@ -34,6 +34,17 @@ contextBridge.exposeInMainWorld('cloneAPI', {
   }
 });
 
+contextBridge.exposeInMainWorld('deleteAPI', {
+  start: (repoDir) => ipcRenderer.invoke('delete:start', { repoDir }),
+  onData: (cb) => ipcRenderer.on('delete:data', (_, data) => cb(data)),
+  onExit: (cb) => ipcRenderer.on('delete:exit', (_, info) => cb(info)),
+  resize: (cols, rows) => ipcRenderer.send('delete:resize', { cols, rows }),
+  removeListeners: () => {
+    ipcRenderer.removeAllListeners('delete:data');
+    ipcRenderer.removeAllListeners('delete:exit');
+  }
+});
+
 contextBridge.exposeInMainWorld('windowAPI', {
   minimize: () => ipcRenderer.send('window:minimize'),
   maximize: () => ipcRenderer.send('window:maximize'),

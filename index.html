@@ -94,6 +94,20 @@
     </div>
   </div>
 
+  <!-- Delete confirmation dialog -->
+  <div id="delete-dialog-overlay" class="dialog-overlay">
+    <div class="dialog-box">
+      <h3 class="dialog-title">Delete Project</h3>
+      <p class="dialog-desc">This will permanently delete the bare repo, all worktrees, and the project directory.</p>
+      <p id="delete-dialog-path" class="dialog-preview" style="color: var(--red); margin-bottom: 8px;"></p>
+      <p class="dialog-desc" style="margin-bottom: 0;">Are you sure? This cannot be undone.</p>
+      <div class="dialog-buttons">
+        <button id="delete-cancel-btn" class="dialog-btn dialog-btn-cancel">Cancel</button>
+        <button id="delete-confirm-btn" class="dialog-btn dialog-btn-danger">Delete</button>
+      </div>
+    </div>
+  </div>
+
   <script src="node_modules/@xterm/xterm/lib/xterm.js"></script>
   <script src="node_modules/@xterm/addon-fit/lib/addon-fit.js"></script>
   <script type="module" src="src/renderer/renderer.js"></script>

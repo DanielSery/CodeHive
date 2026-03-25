@@ -1,10 +1,11 @@
 const { ipcMain, dialog } = require('electron');
 const vscode = require('./vscode-server');
 const { scanDirectory, checkClaudeActive, listRemoteBranches, getGitUser } = require('./repo-scanner');
-const { createWorktreePty, createClonePty } = require('./pty-manager');
+const { createWorktreePty, createClonePty, createDeletePty } = require('./pty-manager');
 
 let worktreePty = null;
 let clonePty = null;
+let deletePty = null;
 
 function register(mainWindow, getServerPort) {
   ipcMain.handle('codeserver:openFolder', (event, folderPath) => {
@@ -55,6 +56,17 @@ function register(mainWindow, getServerPort) {
 
   ipcMain.on('clone:resize', (event, { cols, rows }) => {
     if (clonePty) clonePty.resize(cols, rows);
+  });
+
+  // Delete PTY
+  ipcMain.handle('delete:start', (event, { repoDir }) => {
+    const result = createDeletePty(mainWindow, { repoDir });
+    deletePty = result.proc;
+    return {};
+  });
+
+  ipcMain.on('delete:resize', (event, { cols, rows }) => {
+    if (deletePty) deletePty.resize(cols, rows);
   });
 
   // Window controls
