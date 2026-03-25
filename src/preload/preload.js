@@ -57,6 +57,17 @@ contextBridge.exposeInMainWorld('worktreeRemoveAPI', {
   }
 });
 
+contextBridge.exposeInMainWorld('worktreeSwitchAPI', {
+  start: (opts) => ipcRenderer.invoke('worktreeSwitch:start', opts),
+  onData: (cb) => ipcRenderer.on('worktreeSwitch:data', (_, data) => cb(data)),
+  onExit: (cb) => ipcRenderer.on('worktreeSwitch:exit', (_, info) => cb(info)),
+  resize: (cols, rows) => ipcRenderer.send('worktreeSwitch:resize', { cols, rows }),
+  removeListeners: () => {
+    ipcRenderer.removeAllListeners('worktreeSwitch:data');
+    ipcRenderer.removeAllListeners('worktreeSwitch:exit');
+  }
+});
+
 contextBridge.exposeInMainWorld('windowAPI', {
   minimize: () => ipcRenderer.send('window:minimize'),
   maximize: () => ipcRenderer.send('window:maximize'),

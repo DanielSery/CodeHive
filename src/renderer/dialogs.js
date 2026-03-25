@@ -219,7 +219,7 @@ wtBranchSearch.addEventListener('blur', () => {
   setTimeout(() => wtBranchList.classList.remove('open'), 200);
 });
 
-document.querySelector('.combobox-arrow').addEventListener('click', () => {
+document.querySelector('#worktree-dialog-overlay .combobox-arrow').addEventListener('click', () => {
   if (wtBranchList.classList.contains('open')) {
     wtBranchList.classList.remove('open');
   } else {
@@ -463,4 +463,249 @@ wtRemoveDialogOverlay.addEventListener('click', (e) => {
 document.getElementById('wt-remove-cancel-btn').addEventListener('click', hideWorktreeRemoveDialog);
 document.getElementById('wt-remove-confirm-btn').addEventListener('click', confirmRemoveWorktree);
 
-export { showWorktreeDialog, showCloneDialog, showDeleteDialog, showWorktreeRemoveDialog, registerSidebarFns, registerRemoveRepoGroup };
+// ===== Worktree Switch Dialog =====
+
+const wtSwitchDialogOverlay = document.getElementById('wt-switch-dialog-overlay');
+const wtSwitchBranchSearch = document.getElementById('wt-switch-branch-search');
+const wtSwitchBranchList = document.getElementById('wt-switch-branch-list');
+const wtSwitchNameInput = document.getElementById('wt-switch-name-input');
+const wtSwitchPreview = document.getElementById('wt-switch-preview');
+
+let wtSwitchAllBranches = [];
+let wtSwitchSelectedBranch = null;
+let wtSwitchTabEl = null;
+let wtSwitchGroupEl = null;
+let wtSwitchGitUser = '';
+
+function updateWtSwitchPreview() {
+  const name = wtSwitchNameInput.value.trim();
+  if (!name || !wtSwitchSelectedBranch) {
+    wtSwitchPreview.textContent = '';
+    return;
+  }
+  const slug = nameToSlug(name);
+  const branch = nameToBranch(wtSwitchGitUser, name);
+  wtSwitchPreview.textContent = `Branch: ${branch}  |  Dir: ${slug}`;
+}
+
+function renderSwitchBranchList(filter) {
+  wtSwitchBranchList.innerHTML = '';
+  const q = (filter || '').toLowerCase();
+  const filtered = wtSwitchAllBranches.filter(b => b.toLowerCase().includes(q));
+  if (filtered.length === 0) {
+    wtSwitchBranchList.classList.remove('open');
+    return;
+  }
+  for (const b of filtered) {
+    const item = document.createElement('div');
+    item.className = 'combobox-item';
+    if (b === wtSwitchSelectedBranch) item.classList.add('selected');
+    item.textContent = b;
+    item.addEventListener('mousedown', (e) => {
+      e.preventDefault();
+      wtSwitchSelectedBranch = b;
+      wtSwitchBranchSearch.value = b;
+      wtSwitchBranchList.classList.remove('open');
+      updateWtSwitchPreview();
+    });
+    wtSwitchBranchList.appendChild(item);
+  }
+  wtSwitchBranchList.classList.add('open');
+}
+
+function applySwitchBranches(branches, preselect) {
+  wtSwitchAllBranches = branches;
+  if (preselect && branches.includes(preselect) && !wtSwitchSelectedBranch) {
+    wtSwitchSelectedBranch = preselect;
+    wtSwitchBranchSearch.value = preselect;
+  } else if (!wtSwitchSelectedBranch) {
+    const defaultBranch = ['master', 'main', 'develop'].find(b => branches.includes(b));
+    if (defaultBranch) {
+      wtSwitchSelectedBranch = defaultBranch;
+      wtSwitchBranchSearch.value = defaultBranch;
+    }
+  }
+  wtSwitchBranchSearch.placeholder = 'Search branches...';
+  wtSwitchBranchSearch.disabled = false;
+}
+
+async function showWorktreeSwitchDialog(tabEl, groupEl) {
+  wtSwitchTabEl = tabEl;
+  wtSwitchGroupEl = groupEl;
+  wtSwitchSelectedBranch = null;
+  wtSwitchAllBranches = [];
+  wtSwitchBranchSearch.value = '';
+  wtSwitchBranchSearch.placeholder = 'Fetching branches...';
+  wtSwitchBranchSearch.disabled = true;
+  wtSwitchNameInput.value = '';
+  wtSwitchPreview.textContent = '';
+  wtSwitchBranchList.innerHTML = '';
+  wtSwitchBranchList.classList.remove('open');
+
+  wtSwitchDialogOverlay.classList.add('visible');
+
+  // Determine current source branch from the worktree's branch name
+  // The wt branch is stored as e.g. "dsery/feature-name"
+  // We try to find if the base branch name (before the /) matches a remote branch
+  const wtBranch = tabEl._wtBranch || '';
+
+  const [cached, user] = await Promise.all([
+    window.reposAPI.cachedBranches(groupEl._barePath),
+    window.reposAPI.gitUser(groupEl._barePath)
+  ]);
+  wtSwitchGitUser = user || 'user';
+
+  // Try to preselect the source branch - check if the full branch name exists as remote
+  let preselect = null;
+  if (cached.includes(wtBranch)) {
+    preselect = wtBranch;
+  }
+
+  if (cached.length > 0) {
+    applySwitchBranches(cached, preselect);
+    wtSwitchNameInput.focus();
+  }
+
+  // Fetch fresh branches in background
+  window.reposAPI.fetchBranches(groupEl._barePath).then((fetched) => {
+    if (!wtSwitchDialogOverlay.classList.contains('visible')) return;
+    if (wtSwitchGroupEl !== groupEl) return;
+    let pre = preselect;
+    if (!pre && fetched.includes(wtBranch)) {
+      pre = wtBranch;
+    }
+    applySwitchBranches(fetched, pre);
+    if (wtSwitchBranchList.classList.contains('open')) {
+      renderSwitchBranchList(wtSwitchBranchSearch.value);
+    }
+    if (cached.length === 0) {
+      if (wtSwitchSelectedBranch) {
+        wtSwitchNameInput.focus();
+      } else {
+        wtSwitchBranchSearch.focus();
+      }
+    }
+  });
+}
+
+function hideWorktreeSwitchDialog() {
+  wtSwitchDialogOverlay.classList.remove('visible');
+  wtSwitchBranchList.classList.remove('open');
+}
+
+async function confirmSwitchWorktree() {
+  if (!wtSwitchSelectedBranch || !wtSwitchNameInput.value.trim()) return;
+  if (!wtSwitchTabEl || !wtSwitchGroupEl) return;
+
+  const name = wtSwitchNameInput.value.trim();
+  const dirName = nameToSlug(name);
+  const branchName = nameToBranch(wtSwitchGitUser, name);
+  const tabEl = wtSwitchTabEl;
+  const groupEl = wtSwitchGroupEl;
+  const oldWtPath = tabEl._wtPath;
+  const tabsEl = tabEl.parentElement;
+
+  hideWorktreeSwitchDialog();
+
+  // Close workspace if open
+  if (tabEl._workspaceId !== null) {
+    const { closeWorkspace } = await import('./workspace-manager.js');
+    closeWorkspace(tabEl._workspaceId);
+  }
+
+  showTerminal(`Switching worktree: ${branchName}`);
+  const xterm = createTerminal();
+
+  window.worktreeSwitchAPI.resize(xterm.cols, xterm.rows);
+
+  window.worktreeSwitchAPI.removeListeners();
+  window.worktreeSwitchAPI.onData((data) => {
+    xterm.write(data);
+  });
+
+  window.worktreeSwitchAPI.onExit(({ exitCode, wtPath, branchName: branch, dirName: dir }) => {
+    if (exitCode === 0) {
+      xterm.writeln('');
+      xterm.writeln('\x1b[32mWorktree switched successfully!\x1b[0m');
+
+      // Remove old tab and dot
+      if (tabEl._dotEl) tabEl._dotEl.remove();
+      tabEl.remove();
+
+      // Create new tab for the switched worktree
+      const wt = { path: wtPath, branch, name: dir };
+      const newTabEl = _createWorktreeTab(wt);
+      tabsEl.appendChild(newTabEl);
+
+      setTimeout(async () => {
+        closeTerminal();
+        try {
+          await openWorktree(newTabEl, wt);
+        } catch (err) {
+          console.error('Failed to open switched worktree:', err);
+        }
+      }, 800);
+    } else {
+      xterm.writeln('');
+      xterm.writeln(`\x1b[31mWorktree switch failed with exit code ${exitCode}\x1b[0m`);
+      setTitle(`Worktree switch failed`);
+      showCloseButton();
+    }
+  });
+
+  try {
+    await window.worktreeSwitchAPI.start({
+      barePath: groupEl._barePath,
+      repoDir: groupEl._repoDir,
+      oldWtPath,
+      branchName,
+      dirName,
+      sourceBranch: wtSwitchSelectedBranch
+    });
+  } catch (err) {
+    xterm.writeln(`\x1b[31m${err.message || err}\x1b[0m`);
+    setTitle(`Worktree switch failed`);
+    showCloseButton();
+  }
+}
+
+// Switch dialog event listeners
+wtSwitchBranchSearch.addEventListener('input', () => {
+  wtSwitchSelectedBranch = null;
+  renderSwitchBranchList(wtSwitchBranchSearch.value);
+});
+
+wtSwitchBranchSearch.addEventListener('focus', () => {
+  renderSwitchBranchList(wtSwitchBranchSearch.value);
+});
+
+wtSwitchBranchSearch.addEventListener('blur', () => {
+  setTimeout(() => wtSwitchBranchList.classList.remove('open'), 200);
+});
+
+document.querySelector('#wt-switch-combobox .combobox-arrow').addEventListener('click', () => {
+  if (wtSwitchBranchList.classList.contains('open')) {
+    wtSwitchBranchList.classList.remove('open');
+  } else {
+    renderSwitchBranchList(wtSwitchBranchSearch.value);
+    wtSwitchBranchSearch.focus();
+  }
+});
+
+wtSwitchBranchSearch.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') hideWorktreeSwitchDialog();
+});
+
+wtSwitchNameInput.addEventListener('input', updateWtSwitchPreview);
+wtSwitchNameInput.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') confirmSwitchWorktree();
+  if (e.key === 'Escape') hideWorktreeSwitchDialog();
+});
+
+wtSwitchDialogOverlay.addEventListener('click', (e) => {
+  if (e.target === wtSwitchDialogOverlay) hideWorktreeSwitchDialog();
+});
+document.getElementById('wt-switch-cancel-btn').addEventListener('click', hideWorktreeSwitchDialog);
+document.getElementById('wt-switch-confirm-btn').addEventListener('click', confirmSwitchWorktree);
+
+export { showWorktreeDialog, showCloneDialog, showDeleteDialog, showWorktreeRemoveDialog, showWorktreeSwitchDialog, registerSidebarFns, registerRemoveRepoGroup };

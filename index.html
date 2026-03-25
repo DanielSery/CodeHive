@@ -94,6 +94,27 @@
     </div>
   </div>
 
+  <!-- Worktree switch dialog -->
+  <div id="wt-switch-dialog-overlay" class="dialog-overlay">
+    <div class="dialog-box">
+      <h3 class="dialog-title">Switch Worktree</h3>
+      <p class="dialog-desc">Change the source branch and directory name for this worktree</p>
+      <label class="dialog-label">Source Branch</label>
+      <div class="combobox" id="wt-switch-combobox">
+        <input id="wt-switch-branch-search" type="text" class="dialog-input combobox-input" placeholder="Search branches..." spellcheck="false" autocomplete="off" />
+        <span class="combobox-arrow">&#x25BC;</span>
+        <div id="wt-switch-branch-list" class="combobox-list"></div>
+      </div>
+      <label class="dialog-label">Worktree Name</label>
+      <input id="wt-switch-name-input" type="text" class="dialog-input" placeholder="e.g. Test new features" spellcheck="false" />
+      <div id="wt-switch-preview" class="dialog-preview"></div>
+      <div class="dialog-buttons">
+        <button id="wt-switch-cancel-btn" class="dialog-btn dialog-btn-cancel">Cancel</button>
+        <button id="wt-switch-confirm-btn" class="dialog-btn dialog-btn-confirm">Switch</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Worktree remove confirmation dialog -->
   <div id="wt-remove-dialog-overlay" class="dialog-overlay">
     <div class="dialog-box">

@@ -215,4 +215,84 @@ function createWorktreeRemovePty(mainWindow, { barePath, wtPath }) {
   return { proc };
 }
 
-module.exports = { createWorktreePty, createClonePty, createDeletePty, createWorktreeRemovePty };
+function createWorktreeSwitchPty(mainWindow, { barePath, repoDir, oldWtPath, branchName, dirName, sourceBranch }) {
+  const newWtPath = path.join(repoDir, dirName).replace(/\\/g, '/');
+  const startPoint = `refs/remotes/origin/${sourceBranch}`;
+  const isWin = process.platform === 'win32';
+  const os = require('os');
+  const { execSync } = require('child_process');
+  const scriptExt = isWin ? '.cmd' : '.sh';
+  const scriptPath = path.join(os.tmpdir(), `codehive-wt-switch-${Date.now()}${scriptExt}`);
+
+  const oldWtForGit = oldWtPath.replace(/\\/g, '/');
+  const oldWtForFs = isWin ? oldWtPath.replace(/\//g, '\\') : oldWtPath;
+
+  // Check if the new branch already exists locally
+  let branchExists = false;
+  try {
+    execSync(`git rev-parse --verify refs/heads/${branchName}`, { cwd: barePath, encoding: 'utf8', stdio: 'pipe' });
+    branchExists = true;
+  } catch {}
+
+  const addCmd = branchExists
+    ? `git worktree add "${newWtPath}" ${branchName}`
+    : `git worktree add "${newWtPath}" -b ${branchName} ${startPoint}`;
+
+  const lines = [];
+  if (isWin) {
+    lines.push('@echo off');
+    lines.push(`echo Removing old worktree: ${path.basename(oldWtPath)}`);
+    lines.push(`git worktree remove "${oldWtForGit}" --force 2>nul`);
+    lines.push(`if exist "${oldWtForFs}" (`);
+    lines.push(`  echo Cleaning up old directory...`);
+    lines.push(`  rd /s /q "${oldWtForFs}"`);
+    lines.push(`)`);
+    lines.push(`git worktree prune 2>nul`);
+    lines.push('echo.');
+    lines.push(`echo Creating new worktree: ${dirName}`);
+    lines.push(addCmd);
+    lines.push('if errorlevel 1 (');
+    lines.push('  echo.');
+    lines.push('  echo === SWITCH FAILED ===');
+    lines.push('  exit /b 1');
+    lines.push(')');
+    lines.push('echo.');
+    lines.push('echo === SWITCH COMPLETE ===');
+  } else {
+    lines.push('#!/bin/sh');
+    lines.push(`echo "Removing old worktree: ${path.basename(oldWtPath)}"`);
+    lines.push(`git worktree remove "${oldWtForGit}" --force 2>/dev/null`);
+    lines.push(`if [ -d "${oldWtPath}" ]; then`);
+    lines.push(`  echo "Cleaning up old directory..."`);
+    lines.push(`  rm -rf "${oldWtPath}"`);
+    lines.push('fi');
+    lines.push('git worktree prune 2>/dev/null');
+    lines.push('echo ""');
+    lines.push(`echo "Creating new worktree: ${dirName}"`);
+    lines.push(`${addCmd} || { echo ""; echo "=== SWITCH FAILED ==="; exit 1; }`);
+    lines.push('echo ""');
+    lines.push('echo "=== SWITCH COMPLETE ==="');
+  }
+
+  fs.writeFileSync(scriptPath, lines.join('\n'), { encoding: 'utf8' });
+
+  const cmd = isWin ? scriptPath : `sh "${scriptPath}"`;
+  const proc = spawnPty(cmd, barePath);
+
+  proc.onData((data) => {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('worktreeSwitch:data', data);
+    }
+  });
+
+  proc.onExit(({ exitCode }) => {
+    try { fs.unlinkSync(scriptPath); } catch {}
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('worktreeSwitch:exit', { exitCode, wtPath: newWtPath, branchName, dirName });
+    }
+  });
+
+  return { proc, wtPath: newWtPath, branchName, dirName };
+}
+
+module.exports = { createWorktreePty, createClonePty, createDeletePty, createWorktreeRemovePty, createWorktreeSwitchPty };

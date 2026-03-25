@@ -1,12 +1,13 @@
 const { ipcMain, dialog } = require('electron');
 const vscode = require('./vscode-server');
 const { scanDirectory, checkClaudeActive, getCachedBranches, fetchAndListBranches, getGitUser } = require('./repo-scanner');
-const { createWorktreePty, createClonePty, createDeletePty, createWorktreeRemovePty } = require('./pty-manager');
+const { createWorktreePty, createClonePty, createDeletePty, createWorktreeRemovePty, createWorktreeSwitchPty } = require('./pty-manager');
 
 let worktreePty = null;
 let clonePty = null;
 let deletePty = null;
 let worktreeRemovePty = null;
+let worktreeSwitchPty = null;
 
 function register(mainWindow, getServerPort) {
   ipcMain.handle('codeserver:openFolder', (event, folderPath) => {
@@ -83,6 +84,17 @@ function register(mainWindow, getServerPort) {
 
   ipcMain.on('worktreeRemove:resize', (event, { cols, rows }) => {
     try { if (worktreeRemovePty) worktreeRemovePty.resize(cols, rows); } catch {}
+  });
+
+  // Worktree Switch PTY
+  ipcMain.handle('worktreeSwitch:start', (event, opts) => {
+    const result = createWorktreeSwitchPty(mainWindow, opts);
+    worktreeSwitchPty = result.proc;
+    return { wtPath: result.wtPath, branchName: result.branchName, dirName: result.dirName };
+  });
+
+  ipcMain.on('worktreeSwitch:resize', (event, { cols, rows }) => {
+    try { if (worktreeSwitchPty) worktreeSwitchPty.resize(cols, rows); } catch {}
   });
 
   // Window controls

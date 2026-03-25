@@ -2,6 +2,7 @@ import { setTabStatus } from './claude-poll.js';
 import { openWorktree, closeWorkspace } from './workspace-manager.js';
 
 const BIN_ICON_SVG = '<svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2 4h12M5.3 4V2.7a1 1 0 011-1h3.4a1 1 0 011 1V4M6.5 7.3v4.4M9.5 7.3v4.4"/><path d="M3.5 4l.7 9.3a1 1 0 001 .9h5.6a1 1 0 001-.9L12.5 4"/></svg>';
+const SWITCH_ICON_SVG = '<svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M11 1l3 3-3 3"/><path d="M14 4H5"/><path d="M5 15l-3-3 3-3"/><path d="M2 12h9"/></svg>';
 
 const repoGroupsEl = document.getElementById('repo-groups');
 const collapsedDotsEl = document.getElementById('collapsed-dots');
@@ -12,6 +13,7 @@ const resizeHandle = document.getElementById('sidebar-resize-handle');
 let _showWorktreeDialog = null;
 let _showDeleteDialog = null;
 let _showWorktreeRemoveDialog = null;
+let _showWorktreeSwitchDialog = null;
 
 function registerWorktreeDialog(fn) {
   _showWorktreeDialog = fn;
@@ -23,6 +25,10 @@ function registerDeleteDialog(fn) {
 
 function registerWorktreeRemoveDialog(fn) {
   _showWorktreeRemoveDialog = fn;
+}
+
+function registerWorktreeSwitchDialog(fn) {
+  _showWorktreeSwitchDialog = fn;
 }
 
 function formatBranchLabel(branch) {
@@ -136,6 +142,7 @@ function createWorktreeTab(wt) {
   tabEl.innerHTML = `
     <span class="workspace-tab-status"></span>
     <span class="workspace-tab-label">${formatBranchLabel(wt.branch)}</span>
+    <button class="workspace-tab-switch" title="Switch Worktree">${SWITCH_ICON_SVG}</button>
     <button class="workspace-tab-remove" title="Remove Worktree">${BIN_ICON_SVG}</button>
     <button class="workspace-tab-close" title="Close" style="display:none">&times;</button>
   `;
@@ -155,8 +162,16 @@ function createWorktreeTab(wt) {
   collapsedDotsEl.appendChild(dotEl);
   tabEl._dotEl = dotEl;
 
+  tabEl.querySelector('.workspace-tab-switch').addEventListener('click', (e) => {
+    e.stopPropagation();
+    if (_showWorktreeSwitchDialog) {
+      const groupEl = tabEl.closest('.repo-group');
+      _showWorktreeSwitchDialog(tabEl, groupEl);
+    }
+  });
+
   tabEl.addEventListener('click', (e) => {
-    if (e.target.closest('.workspace-tab-close') || e.target.closest('.workspace-tab-remove')) return;
+    if (e.target.closest('.workspace-tab-close') || e.target.closest('.workspace-tab-remove') || e.target.closest('.workspace-tab-switch')) return;
     openWorktree(tabEl, wt);
   });
 
@@ -179,15 +194,19 @@ function createWorktreeTab(wt) {
 }
 
 function showTabCloseButton(tabEl) {
+  const switchBtn = tabEl.querySelector('.workspace-tab-switch');
   const removeBtn = tabEl.querySelector('.workspace-tab-remove');
   const closeBtn = tabEl.querySelector('.workspace-tab-close');
+  if (switchBtn) switchBtn.style.display = 'none';
   if (removeBtn) removeBtn.style.display = 'none';
   if (closeBtn) closeBtn.style.display = '';
 }
 
 function showTabRemoveButton(tabEl) {
+  const switchBtn = tabEl.querySelector('.workspace-tab-switch');
   const removeBtn = tabEl.querySelector('.workspace-tab-remove');
   const closeBtn = tabEl.querySelector('.workspace-tab-close');
+  if (switchBtn) switchBtn.style.display = '';
   if (removeBtn) removeBtn.style.display = '';
   if (closeBtn) closeBtn.style.display = 'none';
 }
@@ -276,4 +295,4 @@ function removeRepoGroup(groupEl) {
   groupEl.remove();
 }
 
-export { addRepoGroup, createWorktreeTab, registerWorktreeDialog, registerDeleteDialog, registerWorktreeRemoveDialog, removeRepoGroup, showTabCloseButton, showTabRemoveButton };
+export { addRepoGroup, createWorktreeTab, registerWorktreeDialog, registerDeleteDialog, registerWorktreeRemoveDialog, registerWorktreeSwitchDialog, removeRepoGroup, showTabCloseButton, showTabRemoveButton };
