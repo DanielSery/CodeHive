@@ -6,7 +6,7 @@
   "scripts": {
     "start": "electron .",
     "dev": "electron . --dev",
-    "build": "electron-builder --win --dir"
+    "build": "set CSC_IDENTITY_AUTO_DISCOVERY=false&& electron-builder --win --dir"
   },
   "build": {
     "appId": "com.codehive.app",
