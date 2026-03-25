@@ -26,8 +26,7 @@
       "target": [
         "dir"
       ],
-      "icon": "CodeHive.ico",
-      "signAndEditExecutable": false
+      "icon": "CodeHive.ico"
     }
   },
   "dependencies": {
