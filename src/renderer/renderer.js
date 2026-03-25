@@ -1,4 +1,4 @@
-import { addRepoGroup, createWorktreeTab, registerWorktreeDialog, registerDeleteDialog, registerWorktreeRemoveDialog, registerWorktreeSwitchDialog, registerOnStateChange, registerSidebarBranchCache, registerSourceBranchLookup, removeRepoGroup, showTabCloseButton, showTabRemoveButton, getRepoOrder } from './sidebar.js';
+import { addRepoGroup, clearAllGroups, createWorktreeTab, registerWorktreeDialog, registerDeleteDialog, registerWorktreeRemoveDialog, registerWorktreeSwitchDialog, registerOnStateChange, registerSidebarBranchCache, registerSourceBranchLookup, removeRepoGroup, showTabCloseButton, showTabRemoveButton, getRepoOrder } from './sidebar.js';
 import { showWorktreeDialog, showCloneDialog, showDeleteDialog, showWorktreeRemoveDialog, showWorktreeSwitchDialog, setCloneReposDir, registerSidebarFns, registerRemoveRepoGroup, registerOnCloneComplete, registerBranchCache, registerSaveSourceBranch } from './dialogs.js';
 import { cycleWorkspace, registerTabButtonFns } from './workspace-manager.js';
 
@@ -59,6 +59,13 @@ function saveDirectories(dirPath) {
   const dirs = state.directories || [];
   if (!dirs.includes(dirPath)) dirs.push(dirPath);
   state.directories = dirs;
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+}
+
+function resetDirectories(dirPath) {
+  const state = getState();
+  state.directories = [dirPath];
+  state.repoOrder = [];
   localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
 }
 
@@ -124,7 +131,9 @@ async function openDirectory() {
   const dirPath = await window.reposAPI.openDirectoryDialog();
   if (!dirPath) return;
 
-  saveDirectories(dirPath);
+  // Clear existing workspace and replace with new directory
+  clearAllGroups();
+  resetDirectories(dirPath);
   setCloneReposDir(dirPath);
 
   const repos = await window.reposAPI.scanDirectory(dirPath);

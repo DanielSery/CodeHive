@@ -453,6 +453,21 @@ projectContextMenu.addEventListener('click', (e) => {
   }
 });
 
+function clearAllGroups() {
+  const groups = repoGroupsEl.querySelectorAll('.repo-group');
+  for (const groupEl of groups) {
+    const tabs = groupEl.querySelectorAll('.workspace-tab');
+    for (const tab of tabs) {
+      if (tab._workspaceId !== null) {
+        closeWorkspace(tab._workspaceId);
+      }
+      if (tab._dotEl) tab._dotEl.remove();
+    }
+    groupEl.remove();
+  }
+  collapsedDotsEl.innerHTML = '';
+}
+
 function removeRepoGroup(groupEl) {
   // Close all open workspaces in this group
   const tabs = groupEl.querySelectorAll('.workspace-tab');
@@ -480,4 +495,4 @@ function getOpenWorktreePaths() {
   return paths;
 }
 
-export { addRepoGroup, createWorktreeTab, registerWorktreeDialog, registerDeleteDialog, registerWorktreeRemoveDialog, registerWorktreeSwitchDialog, registerOnStateChange, registerSidebarBranchCache, registerSourceBranchLookup, removeRepoGroup, showTabCloseButton, showTabRemoveButton, getRepoOrder, getOpenWorktreePaths };
+export { addRepoGroup, clearAllGroups, createWorktreeTab, registerWorktreeDialog, registerDeleteDialog, registerWorktreeRemoveDialog, registerWorktreeSwitchDialog, registerOnStateChange, registerSidebarBranchCache, registerSourceBranchLookup, removeRepoGroup, showTabCloseButton, showTabRemoveButton, getRepoOrder, getOpenWorktreePaths };
