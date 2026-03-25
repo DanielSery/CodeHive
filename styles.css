@@ -45,7 +45,7 @@ html, body {
   height: 100%;
   display: flex;
   align-items: center;
-  padding-left: 12px;
+  justify-content: center;
 }
 
 .titlebar-title {
@@ -118,7 +118,7 @@ html, body {
 #sidebar-top {
   display: flex;
   align-items: center;
-  padding: 8px 8px 6px;
+  padding: 8px 8px 6px 12px;
   gap: 8px;
   flex-shrink: 0;
 }
@@ -135,9 +135,18 @@ html, body {
   letter-spacing: 1px;
 }
 
-#sidebar.collapsed #sidebar-section-label,
-#sidebar.collapsed #btn-open-directory {
+#btn-clone-repo {
   display: none;
+}
+
+#btn-clone-repo.visible {
+  display: flex;
+}
+
+#sidebar.collapsed #sidebar-section-label,
+#sidebar.collapsed #btn-open-directory,
+#sidebar.collapsed #btn-clone-repo {
+  display: none !important;
 }
 
 #sidebar-content {
@@ -219,7 +228,8 @@ html, body {
   box-shadow: 0 0 4px var(--green);
 }
 
-#btn-open-directory {
+#btn-open-directory,
+#btn-clone-repo {
   padding: 3px;
   border: 1px solid var(--border);
   border-radius: 4px;
@@ -229,12 +239,16 @@ html, body {
   transition: all 0.15s;
   line-height: 1;
   flex-shrink: 0;
-  display: flex;
   align-items: center;
   justify-content: center;
 }
 
-#btn-open-directory:hover {
+#btn-open-directory {
+  display: flex;
+}
+
+#btn-open-directory:hover,
+#btn-clone-repo:hover {
   background: var(--tab-bg);
   color: var(--text);
 }
@@ -305,14 +319,33 @@ html, body {
   letter-spacing: 0.3px;
 }
 
-.repo-group-count {
-  font-size: 9px;
+.repo-group-add {
+  width: 18px;
+  height: 18px;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
   color: var(--text-muted);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-left: 4px;
+  opacity: 0;
+  transition: all 0.15s;
+  line-height: 1;
+}
+
+.repo-group-header:hover .repo-group-add {
+  opacity: 0.6;
+}
+
+.repo-group-add:hover {
+  opacity: 1 !important;
   background: var(--tab-bg);
-  padding: 1px 5px;
-  border-radius: 6px;
-  margin-left: 6px;
-  font-weight: 500;
+  color: var(--text);
 }
 
 .repo-group-tabs {
@@ -472,5 +505,227 @@ html, body {
 
 .workspace-webview.active {
   display: flex;
+}
+
+/* ===== Clone Dialog ===== */
+.dialog-overlay {
+  display: none;
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0, 0, 0, 0.6);
+  z-index: 10000;
+  align-items: center;
+  justify-content: center;
+}
+
+.dialog-overlay.visible {
+  display: flex;
+}
+
+.dialog-box {
+  background: var(--sidebar-bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 20px 24px;
+  width: 520px;
+  max-width: 90vw;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+}
+
+.dialog-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+  margin-bottom: 4px;
+}
+
+.dialog-desc {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-bottom: 14px;
+}
+
+.dialog-input {
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--bg);
+  color: var(--text);
+  font-size: 12px;
+  font-family: 'Consolas', 'Courier New', monospace;
+  outline: none;
+  transition: border-color 0.15s;
+}
+
+.dialog-input:focus {
+  border-color: var(--accent);
+}
+
+.dialog-buttons {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.dialog-btn {
+  padding: 6px 16px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.dialog-btn-cancel {
+  background: transparent;
+  color: var(--text-muted);
+}
+
+.dialog-btn-cancel:hover {
+  background: var(--tab-bg);
+  color: var(--text);
+}
+
+.dialog-btn-confirm {
+  background: var(--accent);
+  color: #1e1e2e;
+  border-color: var(--accent);
+  font-weight: 600;
+}
+
+.dialog-btn-confirm:hover {
+  filter: brightness(1.1);
+}
+
+.dialog-label {
+  display: block;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted);
+  margin-bottom: 4px;
+  margin-top: 10px;
+}
+
+.dialog-preview {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-top: 6px;
+  font-family: 'Consolas', 'Courier New', monospace;
+  min-height: 14px;
+}
+
+/* Combobox */
+.combobox {
+  position: relative;
+}
+
+.combobox-input {
+  padding-right: 28px;
+}
+
+.combobox-arrow {
+  position: absolute;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  width: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 8px;
+  color: var(--text-muted);
+  cursor: pointer;
+  border-left: 1px solid var(--border);
+  transition: all 0.15s;
+}
+
+.combobox-arrow:hover {
+  background: var(--tab-bg);
+  color: var(--text);
+}
+
+.combobox-list {
+  display: none;
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  max-height: 180px;
+  overflow-y: auto;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-top: none;
+  border-radius: 0 0 4px 4px;
+  z-index: 10;
+}
+
+.combobox-list.open {
+  display: block;
+}
+
+.combobox-item {
+  padding: 6px 10px;
+  font-size: 12px;
+  color: var(--text);
+  cursor: pointer;
+  font-family: 'Consolas', 'Courier New', monospace;
+}
+
+.combobox-item:hover,
+.combobox-item.selected {
+  background: var(--tab-active-bg);
+}
+
+/* ===== XTerm Terminal Panel ===== */
+#clone-terminal {
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: var(--bg);
+  display: none;
+  flex-direction: column;
+}
+
+#clone-terminal.active {
+  display: flex;
+}
+
+#clone-terminal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  background: var(--sidebar-bg);
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+#clone-terminal-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+#clone-terminal-close {
+  padding: 3px 8px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 11px;
+  cursor: pointer;
+  transition: all 0.15s;
+  display: none;
+}
+
+#clone-terminal-close:hover {
+  background: var(--tab-bg);
+  color: var(--text);
+}
+
+#clone-terminal-xterm {
+  flex: 1;
+  padding: 8px;
 }
 

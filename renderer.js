@@ -3,6 +3,12 @@ const workspaces = new Map(); // id -> { folderPath, name, webview, tabEl }
 let activeWorkspaceId = null;
 let workspaceCounter = 0;
 
+function formatBranchLabel(branch) {
+  // "dsery/Test-new-branch" -> "Test new branch"
+  const name = branch.includes('/') ? branch.substring(branch.indexOf('/') + 1) : branch;
+  return name.replace(/-/g, ' ');
+}
+
 function setTabStatus(tabEl, status) {
   tabEl.dataset.status = status;
   if (tabEl._dotEl) tabEl._dotEl.dataset.status = status;
@@ -31,6 +37,8 @@ async function openDirectory() {
   for (const repo of repos) {
     addRepoGroup(repo);
   }
+
+  document.getElementById('btn-clone-repo').classList.add('visible');
 }
 
 // ===== Repo Groups =====
@@ -43,21 +51,30 @@ function addRepoGroup(repo) {
   groupEl.className = 'repo-group';
   groupEl.dataset.repoName = repo.name;
 
+  groupEl._barePath = repo.barePath;
+  groupEl._repoDir = repo.barePath.replace(/[\\/]Bare$/, '');
+
   const headerEl = document.createElement('div');
   headerEl.className = 'repo-group-header';
   headerEl.innerHTML = `
     <span class="repo-group-chevron">&#x25B6;</span>
     <span class="repo-group-name">${repo.name}</span>
-    <span class="repo-group-count">${repo.worktrees.length}</span>
+    <button class="repo-group-add" title="Add Worktree">+</button>
   `;
 
   const tabsEl = document.createElement('div');
   tabsEl.className = 'repo-group-tabs';
 
-  // Collapsed by default
-  let collapsed = true;
+  // Expanded by default
+  let collapsed = false;
 
-  headerEl.addEventListener('click', () => {
+  headerEl.querySelector('.repo-group-add').addEventListener('click', (e) => {
+    e.stopPropagation();
+    showWorktreeDialog(groupEl, tabsEl);
+  });
+
+  headerEl.addEventListener('click', (e) => {
+    if (e.target.classList.contains('repo-group-add')) return;
     collapsed = !collapsed;
     tabsEl.classList.toggle('expanded', !collapsed);
     headerEl.querySelector('.repo-group-chevron').innerHTML = collapsed ? '&#x25B6;' : '&#x25BC;';
@@ -114,16 +131,12 @@ function addRepoGroup(repo) {
     groupEl.classList.remove('drag-over');
   });
 
+  tabsEl.classList.add('expanded');
+  headerEl.querySelector('.repo-group-chevron').innerHTML = '&#x25BC;';
+
   groupEl.appendChild(headerEl);
   groupEl.appendChild(tabsEl);
   repoGroupsEl.appendChild(groupEl);
-
-  // Auto-expand if first group
-  if (repoGroupsEl.children.length === 1) {
-    collapsed = false;
-    tabsEl.classList.add('expanded');
-    headerEl.querySelector('.repo-group-chevron').innerHTML = '&#x25BC;';
-  }
 }
 
 function createWorktreeTab(wt) {
@@ -132,7 +145,7 @@ function createWorktreeTab(wt) {
   setTabStatus(tabEl, 'idle');
   tabEl.innerHTML = `
     <span class="workspace-tab-status"></span>
-    <span class="workspace-tab-label">${wt.branch}</span>
+    <span class="workspace-tab-label">${formatBranchLabel(wt.branch)}</span>
     <button class="workspace-tab-close" title="Close">&times;</button>
   `;
 
@@ -328,9 +341,330 @@ document.addEventListener('keydown', (e) => {
   }
 });
 
+// ===== New Worktree Dialog =====
+
+const wtDialogOverlay = document.getElementById('worktree-dialog-overlay');
+const wtBranchSearch = document.getElementById('wt-branch-search');
+const wtBranchList = document.getElementById('wt-branch-list');
+const wtNameInput = document.getElementById('wt-name-input');
+const wtPreview = document.getElementById('wt-preview');
+
+let wtAllBranches = [];
+let wtSelectedBranch = null;
+let wtCurrentGroupEl = null;
+let wtCurrentTabsEl = null;
+let wtGitUser = '';
+
+function nameToSlug(name) {
+  return name.trim().replace(/\s+/g, '-').substring(0, 15);
+}
+
+function userToPrefix(fullName) {
+  // "Daniel Sery" -> "dsery", "Daniel Šerý" -> "dsery"
+  const parts = fullName.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim().split(/\s+/);
+  if (parts.length === 0) return 'user';
+  if (parts.length === 1) return parts[0];
+  return parts[0][0] + parts[parts.length - 1];
+}
+
+function nameToBranch(user, name) {
+  return `${userToPrefix(user)}/${name.trim().replace(/\s+/g, '-')}`;
+}
+
+function updateWtPreview() {
+  const name = wtNameInput.value.trim();
+  if (!name || !wtSelectedBranch) {
+    wtPreview.textContent = '';
+    return;
+  }
+  const slug = nameToSlug(name);
+  const branch = nameToBranch(wtGitUser, name);
+  wtPreview.textContent = `Branch: ${branch}  |  Dir: ${slug}`;
+}
+
+function renderBranchList(filter) {
+  wtBranchList.innerHTML = '';
+  const q = (filter || '').toLowerCase();
+  const filtered = wtAllBranches.filter(b => b.toLowerCase().includes(q));
+  if (filtered.length === 0) {
+    wtBranchList.classList.remove('open');
+    return;
+  }
+  for (const b of filtered) {
+    const item = document.createElement('div');
+    item.className = 'combobox-item';
+    if (b === wtSelectedBranch) item.classList.add('selected');
+    item.textContent = b;
+    item.addEventListener('mousedown', (e) => {
+      e.preventDefault();
+      wtSelectedBranch = b;
+      wtBranchSearch.value = b;
+      wtBranchList.classList.remove('open');
+      updateWtPreview();
+    });
+    wtBranchList.appendChild(item);
+  }
+  wtBranchList.classList.add('open');
+}
+
+async function showWorktreeDialog(groupEl, tabsEl) {
+  wtCurrentGroupEl = groupEl;
+  wtCurrentTabsEl = tabsEl;
+  wtSelectedBranch = null;
+  wtAllBranches = [];
+  wtBranchSearch.value = '';
+  wtBranchSearch.placeholder = 'Fetching branches...';
+  wtBranchSearch.disabled = true;
+  wtNameInput.value = '';
+  wtPreview.textContent = '';
+  wtBranchList.innerHTML = '';
+  wtBranchList.classList.remove('open');
+
+  wtDialogOverlay.classList.add('visible');
+
+  // Load branches and user in parallel (fetch is async, won't block UI)
+  const [branches, user] = await Promise.all([
+    window.reposAPI.remoteBranches(groupEl._barePath),
+    window.reposAPI.gitUser(groupEl._barePath)
+  ]);
+  wtAllBranches = branches;
+  wtGitUser = user || 'user';
+
+  wtBranchSearch.placeholder = 'Search branches...';
+  wtBranchSearch.disabled = false;
+  renderBranchList('');
+  wtBranchSearch.focus();
+}
+
+function hideWorktreeDialog() {
+  wtDialogOverlay.classList.remove('visible');
+  wtBranchList.classList.remove('open');
+}
+
+async function confirmCreateWorktree() {
+  if (!wtSelectedBranch || !wtNameInput.value.trim()) return;
+
+  const name = wtNameInput.value.trim();
+  const dirName = nameToSlug(name);
+  const branchName = nameToBranch(wtGitUser, name);
+
+  hideWorktreeDialog();
+
+  try {
+    const wtPath = await window.reposAPI.createWorktree({
+      barePath: wtCurrentGroupEl._barePath,
+      repoDir: wtCurrentGroupEl._repoDir,
+      branchName,
+      dirName,
+      sourceBranch: wtSelectedBranch
+    });
+
+    // Add the new worktree tab
+    const wt = { path: wtPath, branch: branchName, name: dirName };
+    const tabEl = createWorktreeTab(wt);
+    wtCurrentTabsEl.appendChild(tabEl);
+  } catch (err) {
+    alert(`Failed to create worktree: ${err.message || err}`);
+  }
+}
+
+wtBranchSearch.addEventListener('input', () => {
+  wtSelectedBranch = null;
+  renderBranchList(wtBranchSearch.value);
+});
+
+wtBranchSearch.addEventListener('focus', () => {
+  renderBranchList(wtBranchSearch.value);
+});
+
+wtBranchSearch.addEventListener('blur', () => {
+  setTimeout(() => wtBranchList.classList.remove('open'), 200);
+});
+
+document.querySelector('.combobox-arrow').addEventListener('click', () => {
+  if (wtBranchList.classList.contains('open')) {
+    wtBranchList.classList.remove('open');
+  } else {
+    renderBranchList(wtBranchSearch.value);
+    wtBranchSearch.focus();
+  }
+});
+
+wtBranchSearch.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') hideWorktreeDialog();
+});
+
+wtNameInput.addEventListener('input', updateWtPreview);
+wtNameInput.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') confirmCreateWorktree();
+  if (e.key === 'Escape') hideWorktreeDialog();
+});
+
+wtDialogOverlay.addEventListener('click', (e) => {
+  if (e.target === wtDialogOverlay) hideWorktreeDialog();
+});
+document.getElementById('wt-cancel-btn').addEventListener('click', hideWorktreeDialog);
+document.getElementById('wt-confirm-btn').addEventListener('click', confirmCreateWorktree);
+
 // ===== Title Bar =====
 
 document.getElementById('btn-open-directory').addEventListener('click', openDirectory);
+
+// ===== Clone Repository =====
+
+const cloneDialogOverlay = document.getElementById('clone-dialog-overlay');
+const cloneUrlInput = document.getElementById('clone-url-input');
+const cloneTerminalEl = document.getElementById('clone-terminal');
+const cloneTerminalXtermEl = document.getElementById('clone-terminal-xterm');
+const cloneTerminalTitle = document.getElementById('clone-terminal-title');
+const cloneTerminalCloseBtn = document.getElementById('clone-terminal-close');
+
+let cloneXterm = null;
+let cloneFitAddon = null;
+
+function showCloneDialog() {
+  cloneUrlInput.value = '';
+  cloneDialogOverlay.classList.add('visible');
+  setTimeout(() => cloneUrlInput.focus(), 50);
+}
+
+function hideCloneDialog() {
+  cloneDialogOverlay.classList.remove('visible');
+}
+
+function parseRepoName(url) {
+  const cleaned = url.replace(/\.git\/?$/, '').replace(/\/$/, '');
+  return cleaned.split('/').pop();
+}
+
+async function startClone() {
+  const url = cloneUrlInput.value.trim();
+  if (!url) return;
+
+  hideCloneDialog();
+
+  // Use C:/Repos as the workspace root
+  const reposDir = 'C:/Repos';
+
+  const repoName = parseRepoName(url);
+  cloneTerminalTitle.textContent = `Cloning ${repoName}...`;
+  cloneTerminalCloseBtn.style.display = 'none';
+
+  // Show terminal panel in the editor area
+  cloneTerminalEl.classList.add('active');
+  placeholder.style.display = 'none';
+
+  // Hide active workspace webview if any
+  if (activeWorkspaceId !== null) {
+    const ws = workspaces.get(activeWorkspaceId);
+    if (ws) ws.webview.classList.remove('active');
+  }
+
+  // Initialize xterm (loaded via script tags, available as globals)
+  if (cloneXterm) {
+    cloneXterm.dispose();
+  }
+  cloneXterm = new Terminal({
+    cursorBlink: false,
+    fontSize: 13,
+    fontFamily: "'Consolas', 'Courier New', monospace",
+    theme: {
+      background: '#1e1e2e',
+      foreground: '#cdd6f4',
+      cursor: '#cdd6f4',
+      black: '#45475a',
+      red: '#f38ba8',
+      green: '#a6e3a1',
+      yellow: '#f9e2af',
+      blue: '#89b4fa',
+      magenta: '#cba6f7',
+      cyan: '#94e2d5',
+      white: '#bac2de'
+    }
+  });
+  cloneFitAddon = new (FitAddon.FitAddon || FitAddon)();
+  cloneXterm.loadAddon(cloneFitAddon);
+  cloneXterm.open(cloneTerminalXtermEl);
+  cloneFitAddon.fit();
+
+  // Notify main process of terminal size
+  window.cloneAPI.resize(cloneXterm.cols, cloneXterm.rows);
+
+  // Listen for data from the PTY
+  window.cloneAPI.removeListeners();
+  window.cloneAPI.onData((data) => {
+    cloneXterm.write(data);
+  });
+
+  window.cloneAPI.onExit(async ({ exitCode, repoName: name, repoDir, bareDir, reposDir: rDir }) => {
+    if (exitCode === 0) {
+      cloneXterm.writeln('');
+      cloneXterm.writeln('\x1b[32mRepository cloned successfully!\x1b[0m');
+      cloneTerminalTitle.textContent = `Clone complete: ${name}`;
+
+      // Scan and add the new repo to the sidebar
+      const repos = await window.reposAPI.scanDirectory(rDir);
+      const newRepo = repos.find(r => r.name === name);
+      if (newRepo) {
+        addRepoGroup(newRepo);
+      }
+    } else {
+      cloneXterm.writeln('');
+      cloneXterm.writeln(`\x1b[31mClone failed with exit code ${exitCode}\x1b[0m`);
+      cloneTerminalTitle.textContent = `Clone failed: ${name}`;
+    }
+    cloneTerminalCloseBtn.style.display = 'block';
+  });
+
+  // Start the clone
+  try {
+    await window.cloneAPI.start(url, reposDir);
+  } catch (err) {
+    cloneXterm.writeln(`\x1b[31m${err.message || err}\x1b[0m`);
+    cloneTerminalTitle.textContent = `Clone failed: ${repoName}`;
+    cloneTerminalCloseBtn.style.display = 'block';
+  }
+}
+
+function closeCloneTerminal() {
+  cloneTerminalEl.classList.remove('active');
+  window.cloneAPI.removeListeners();
+  if (cloneXterm) {
+    cloneXterm.dispose();
+    cloneXterm = null;
+    cloneFitAddon = null;
+    cloneTerminalXtermEl.innerHTML = '';
+  }
+
+  // Restore previous view
+  if (activeWorkspaceId !== null) {
+    const ws = workspaces.get(activeWorkspaceId);
+    if (ws) ws.webview.classList.add('active');
+  } else {
+    placeholder.style.display = 'flex';
+  }
+}
+
+document.getElementById('btn-clone-repo').addEventListener('click', showCloneDialog);
+cloneDialogOverlay.addEventListener('click', (e) => {
+  if (e.target === cloneDialogOverlay) hideCloneDialog();
+});
+document.getElementById('clone-cancel-btn').addEventListener('click', hideCloneDialog);
+document.getElementById('clone-confirm-btn').addEventListener('click', startClone);
+cloneTerminalCloseBtn.addEventListener('click', closeCloneTerminal);
+
+cloneUrlInput.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') startClone();
+  if (e.key === 'Escape') hideCloneDialog();
+});
+
+// Handle terminal resize
+window.addEventListener('resize', () => {
+  if (cloneFitAddon && cloneTerminalEl.classList.contains('active')) {
+    cloneFitAddon.fit();
+    window.cloneAPI.resize(cloneXterm.cols, cloneXterm.rows);
+  }
+});
 
 // ===== Sidebar Resize =====
 const COLLAPSE_THRESHOLD = 60;

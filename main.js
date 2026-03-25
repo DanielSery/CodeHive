@@ -1,7 +1,8 @@
 const { app, BrowserWindow, ipcMain, dialog } = require('electron');
 const path = require('path');
+const pty = require('node-pty');
 const vscode = require('./vscode-server');
-const { scanDirectory, checkClaudeActive } = require('./repo-scanner');
+const { scanDirectory, checkClaudeActive, listRemoteBranches, getGitUser, createWorktree } = require('./repo-scanner');
 
 let mainWindow;
 let serverProcess = null;
@@ -53,6 +54,66 @@ ipcMain.handle('repos:scanDirectory', (event, dirPath) => {
 
 ipcMain.handle('repos:claudeActive', (event, wtPath) => {
   return checkClaudeActive(wtPath);
+});
+
+ipcMain.handle('repos:remoteBranches', (event, barePath) => {
+  return listRemoteBranches(barePath);
+});
+
+ipcMain.handle('repos:gitUser', (event, barePath) => {
+  return getGitUser(barePath);
+});
+
+ipcMain.handle('repos:createWorktree', (event, { barePath, repoDir, branchName, dirName, sourceBranch }) => {
+  return createWorktree(barePath, repoDir, branchName, dirName, sourceBranch);
+});
+
+// ===== Clone Repository =====
+let clonePty = null;
+
+ipcMain.handle('clone:start', (event, { url, reposDir }) => {
+  // Extract repo name from URL (last segment, strip .git)
+  const urlPath = url.replace(/\.git\/?$/, '').replace(/\/$/, '');
+  const repoName = urlPath.split('/').pop();
+  const repoDir = path.join(reposDir, repoName);
+  const bareDir = path.join(repoDir, 'Bare');
+
+  const fs = require('fs');
+  fs.mkdirSync(bareDir, { recursive: true });
+
+  // Run git commands with cwd set to bareDir so no path issues
+  const shell = process.platform === 'win32' ? 'cmd.exe' : '/bin/bash';
+  const gitCmds = `git init --bare . && git remote add origin ${url} && git config remote.origin.fetch "+refs/heads/*:refs/remotes/origin/*" && git fetch origin && echo. && echo === CLONE COMPLETE ===`;
+  const args = process.platform === 'win32'
+    ? ['/c', gitCmds]
+    : ['-c', gitCmds.replace(/echo\./g, 'echo')];
+
+  clonePty = pty.spawn(shell, args, {
+    name: 'xterm-color',
+    cols: 120,
+    rows: 30,
+    cwd: bareDir,
+    env: process.env
+  });
+
+  clonePty.onData((data) => {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('clone:data', data);
+    }
+  });
+
+  clonePty.onExit(({ exitCode }) => {
+    clonePty = null;
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('clone:exit', { exitCode, repoName, repoDir, bareDir, reposDir });
+    }
+  });
+
+  return { repoName, repoDir, bareDir };
+});
+
+ipcMain.on('clone:resize', (event, { cols, rows }) => {
+  if (clonePty) clonePty.resize(cols, rows);
 });
 
 ipcMain.on('window:minimize', () => mainWindow.minimize());

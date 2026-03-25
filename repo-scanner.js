@@ -1,6 +1,6 @@
 const path = require('path');
 const fs = require('fs');
-const { execSync } = require('child_process');
+const { execSync, exec } = require('child_process');
 
 function scanDirectory(dirPath) {
   const repos = [];
@@ -81,4 +81,54 @@ function checkClaudeActive(wtPath) {
   return null;
 }
 
-module.exports = { scanDirectory, checkClaudeActive };
+function listRemoteBranches(barePath) {
+  return new Promise((resolve) => {
+    // Ensure fetch refspec is configured
+    try {
+      const existing = execSync('git config remote.origin.fetch', { cwd: barePath, encoding: 'utf8' }).trim();
+      if (!existing) throw new Error('empty');
+    } catch {
+      try {
+        execSync('git config remote.origin.fetch "+refs/heads/*:refs/remotes/origin/*"', { cwd: barePath, encoding: 'utf8' });
+      } catch {}
+    }
+
+    // Fetch async, then list branches
+    exec('git fetch origin', { cwd: barePath, encoding: 'utf8', timeout: 60000 }, () => {
+      exec('git branch -r', { cwd: barePath, encoding: 'utf8', timeout: 10000 }, (err, stdout) => {
+        if (err || !stdout) { resolve([]); return; }
+        const branches = stdout.trim().split('\n')
+          .map(b => b.trim())
+          .filter(b => b && !b.includes('->'))
+          .map(b => b.replace(/^origin\//, ''));
+        resolve(branches);
+      });
+    });
+  });
+}
+
+function getGitUser(barePath) {
+  try {
+    return execSync('git config user.name', {
+      cwd: barePath,
+      encoding: 'utf8',
+      timeout: 5000
+    }).trim();
+  } catch {
+    return '';
+  }
+}
+
+function createWorktree(barePath, repoDir, branchName, dirName, sourceBranch) {
+  // Create worktree at repoDir/dirName with new branch based on origin/sourceBranch
+  const wtPath = path.join(repoDir, dirName);
+  const startPoint = `origin/${sourceBranch}`;
+  execSync(`git worktree add "${wtPath}" -b "${branchName}" "${startPoint}"`, {
+    cwd: barePath,
+    encoding: 'utf8',
+    timeout: 30000
+  });
+  return wtPath;
+}
+
+module.exports = { scanDirectory, checkClaudeActive, listRemoteBranches, getGitUser, createWorktree };
