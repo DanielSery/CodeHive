@@ -30,7 +30,13 @@ async function pollClaudeStatus(id) {
     if (result === 'working') {
       setTabStatus(ws.tabEl, 'working');
       ws.tabEl._wasWorking = true;
-    } else if (ws.tabEl._wasWorking && ws.tabEl.dataset.status === 'working') {
+    } else if (result === 'waiting') {
+      setTabStatus(ws.tabEl, 'waiting');
+      ws.tabEl._wasWorking = true;
+    } else if (result === 'error') {
+      setTabStatus(ws.tabEl, 'error');
+      ws.tabEl._wasWorking = true;
+    } else if (ws.tabEl._wasWorking) {
       ws.tabEl._wasWorking = false;
       setTabStatus(ws.tabEl, id === getActiveId() ? 'open' : 'done');
     }

@@ -16,6 +16,7 @@
   --red: #f38ba8;
   --green: #a6e3a1;
   --yellow: #f9e2af;
+  --peach: #fab387;
   --titlebar-bg: #11111b;
   --border: #313244;
 }
@@ -251,6 +252,17 @@ html, body {
   box-shadow: 0 0 4px var(--green);
 }
 
+.collapsed-dot[data-status="waiting"] .collapsed-dot-indicator {
+  background: var(--peach);
+  box-shadow: 0 0 6px var(--peach);
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+.collapsed-dot[data-status="error"] .collapsed-dot-indicator {
+  background: var(--red);
+  box-shadow: 0 0 4px var(--red);
+}
+
 #btn-open-directory,
 #btn-clone-repo {
   padding: 3px;
@@ -445,10 +457,9 @@ html, body {
   margin-bottom: 1px;
   border-radius: 4px;
   cursor: pointer;
-  transition: background 0.15s, border-color 0.15s;
+  transition: background 0.3s;
   position: relative;
   user-select: none;
-  border-left: 2px solid transparent;
 }
 
 .workspace-tab:hover {
@@ -459,19 +470,48 @@ html, body {
   background: var(--tab-active-bg);
 }
 
-.workspace-tab[data-status="open"],
+.workspace-tab[data-status="open"] {
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+}
+
+.workspace-tab[data-status="working"] {
+  background: color-mix(in srgb, var(--yellow) 25%, transparent);
+}
+
+.workspace-tab[data-status="done"] {
+  background: color-mix(in srgb, var(--green) 25%, transparent);
+}
+
+.workspace-tab[data-status="waiting"] {
+  background: color-mix(in srgb, var(--peach) 25%, transparent);
+  animation: tab-pulse-waiting 1.5s ease-in-out infinite;
+}
+
+.workspace-tab[data-status="error"] {
+  background: color-mix(in srgb, var(--red) 25%, transparent);
+  animation: tab-pulse-error 1.5s ease-in-out infinite;
+}
+
 .workspace-tab.active[data-status="open"] {
-  border-left-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 20%, var(--tab-active-bg));
 }
 
-.workspace-tab[data-status="working"],
 .workspace-tab.active[data-status="working"] {
-  border-left-color: var(--yellow);
+  background: color-mix(in srgb, var(--yellow) 35%, var(--tab-active-bg));
 }
 
-.workspace-tab[data-status="done"],
 .workspace-tab.active[data-status="done"] {
-  border-left-color: var(--green);
+  background: color-mix(in srgb, var(--green) 35%, var(--tab-active-bg));
+}
+
+.workspace-tab.active[data-status="waiting"] {
+  background: color-mix(in srgb, var(--peach) 35%, var(--tab-active-bg));
+  animation: tab-pulse-waiting-active 1.5s ease-in-out infinite;
+}
+
+.workspace-tab.active[data-status="error"] {
+  background: color-mix(in srgb, var(--red) 35%, var(--tab-active-bg));
+  animation: tab-pulse-error-active 1.5s ease-in-out infinite;
 }
 
 .workspace-tab-status {
@@ -481,6 +521,26 @@ html, body {
 @keyframes pulse {
   0%, 100% { opacity: 1; }
   50% { opacity: 0.3; }
+}
+
+@keyframes tab-pulse-waiting {
+  0%, 100% { background: color-mix(in srgb, var(--peach) 12%, transparent); }
+  50% { background: color-mix(in srgb, var(--peach) 35%, transparent); }
+}
+
+@keyframes tab-pulse-error {
+  0%, 100% { background: color-mix(in srgb, var(--red) 12%, transparent); }
+  50% { background: color-mix(in srgb, var(--red) 35%, transparent); }
+}
+
+@keyframes tab-pulse-waiting-active {
+  0%, 100% { background: color-mix(in srgb, var(--peach) 20%, var(--tab-active-bg)); }
+  50% { background: color-mix(in srgb, var(--peach) 45%, var(--tab-active-bg)); }
+}
+
+@keyframes tab-pulse-error-active {
+  0%, 100% { background: color-mix(in srgb, var(--red) 20%, var(--tab-active-bg)); }
+  50% { background: color-mix(in srgb, var(--red) 45%, var(--tab-active-bg)); }
 }
 
 .workspace-tab-switch {
@@ -551,7 +611,9 @@ html, body {
 .workspace-tab.active .workspace-tab-label,
 .workspace-tab[data-status="open"] .workspace-tab-label,
 .workspace-tab[data-status="working"] .workspace-tab-label,
-.workspace-tab[data-status="done"] .workspace-tab-label {
+.workspace-tab[data-status="done"] .workspace-tab-label,
+.workspace-tab[data-status="waiting"] .workspace-tab-label,
+.workspace-tab[data-status="error"] .workspace-tab-label {
   color: var(--text);
 }
 

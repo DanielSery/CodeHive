@@ -116,7 +116,8 @@ function switchWorkspace(id) {
     if (ws.tabEl._dotEl) ws.tabEl._dotEl.classList.add('active');
     setActiveId(id);
     placeholder.style.display = 'none';
-    if (ws.tabEl.dataset.status !== 'working') {
+    const status = ws.tabEl.dataset.status;
+    if (status !== 'working' && status !== 'waiting' && status !== 'error') {
       setTabStatus(ws.tabEl, 'open');
     }
     document.querySelector('.titlebar-title').textContent = `CodeHive — ${ws.name}`;
