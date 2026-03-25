@@ -35,6 +35,9 @@ function createWindow() {
 app.whenReady().then(async () => {
   vscode.seedDefaultSettings();
 
+  console.log('Installing VS Code extensions...');
+  vscode.installExtensions();
+
   console.log('Starting VS Code server...');
   try {
     const port = await vscode.findPort(serverPort);
@@ -42,7 +45,6 @@ app.whenReady().then(async () => {
     const result = await vscode.startServer(port);
     serverProcess = result.proc;
     console.log(`VS Code server ready on port ${port}`);
-    vscode.installExtensions();
   } catch (err) {
     console.error('VS Code server failed to start:', err);
   }
