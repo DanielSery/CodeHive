@@ -24,6 +24,7 @@ const xtermContainerEl = document.getElementById('clone-terminal-xterm');
 const titleEl = document.getElementById('clone-terminal-title');
 const closeBtn = document.getElementById('clone-terminal-close');
 const placeholder = document.getElementById('editor-placeholder');
+const sidebarTab = document.getElementById('sidebar-terminal-tab');
 
 let xterm = null;
 let fitAddon = null;
@@ -45,6 +46,8 @@ function showTerminal(title) {
   closeBtn.style.display = 'none';
   terminalEl.classList.add('active');
   placeholder.style.display = 'none';
+  sidebarTab.classList.add('active');
+  sidebarTab.className = 'sidebar-terminal-tab active has-output';
 
   // Hide active workspace webview
   const ws = getActive();
@@ -59,8 +62,15 @@ function setTitle(title) {
   titleEl.textContent = title;
 }
 
+function setTerminalStatus(status) {
+  sidebarTab.classList.remove('success', 'error');
+  if (status === 'success') sidebarTab.classList.add('success');
+  if (status === 'error') sidebarTab.classList.add('error');
+}
+
 function closeTerminal() {
   terminalEl.classList.remove('active');
+  sidebarTab.classList.remove('active');
   window.cloneAPI.removeListeners();
   window.worktreeAPI.removeListeners();
   window.deleteAPI.removeListeners();
@@ -80,6 +90,28 @@ function closeTerminal() {
   }
 }
 
+function toggleTerminal() {
+  if (isActive()) {
+    // Hide terminal, restore workspace
+    terminalEl.classList.remove('active');
+    sidebarTab.classList.remove('active');
+    const ws = getActive();
+    if (ws) {
+      ws.webview.classList.add('active');
+    } else {
+      placeholder.style.display = 'flex';
+    }
+  } else if (xterm) {
+    // Show terminal (only if there's content)
+    terminalEl.classList.add('active');
+    sidebarTab.classList.add('active');
+    placeholder.style.display = 'none';
+    const ws = getActive();
+    if (ws) ws.webview.classList.remove('active');
+    fit();
+  }
+}
+
 function getXterm() {
   return xterm;
 }
@@ -95,6 +127,7 @@ function isActive() {
 }
 
 closeBtn.addEventListener('click', closeTerminal);
+sidebarTab.addEventListener('click', toggleTerminal);
 
 window.addEventListener('resize', () => {
   if (!isActive()) return;
@@ -106,4 +139,4 @@ window.addEventListener('resize', () => {
   }
 });
 
-export { createTerminal, showTerminal, showCloseButton, setTitle, closeTerminal, getXterm, fit };
+export { createTerminal, showTerminal, showCloseButton, setTitle, setTerminalStatus, closeTerminal, getXterm, fit };
