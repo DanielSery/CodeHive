@@ -16,12 +16,12 @@ function spawnProc(cmd, cwd) {
   const listeners = { data: [], exit: [] };
 
   proc.stdout.on('data', (data) => {
-    const str = data.toString();
+    const str = data.toString().replace(/\r?\n/g, '\r\n');
     for (const cb of listeners.data) cb(str);
   });
 
   proc.stderr.on('data', (data) => {
-    const str = data.toString();
+    const str = data.toString().replace(/\r?\n/g, '\r\n');
     for (const cb of listeners.data) cb(str);
   });
 
