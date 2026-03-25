@@ -215,57 +215,14 @@ function createWorktreeRemovePty(mainWindow, { barePath, wtPath }) {
   return { proc };
 }
 
-function createWorktreeSwitchPty(mainWindow, { barePath, repoDir, oldWtPath, branchName, dirName, sourceBranch }) {
-  const newWtPath = path.join(repoDir, dirName).replace(/\\/g, '/');
+function createWorktreeSwitchPty(mainWindow, { barePath, oldWtPath, branchName, sourceBranch }) {
   const startPoint = `refs/remotes/origin/${sourceBranch}`;
-  const isWin = process.platform === 'win32';
-  const os = require('os');
-  const scriptExt = isWin ? '.cmd' : '.sh';
-  const scriptPath = path.join(os.tmpdir(), `codehive-wt-switch-${Date.now()}${scriptExt}`);
-
   const oldWtForGit = oldWtPath.replace(/\\/g, '/');
-  const needsMove = oldWtForGit !== newWtPath;
+  const dirName = path.basename(oldWtPath);
 
-  // 1) git -C <worktree> checkout -B <branch> <startPoint>  — switch branch in-place
-  // 2) git worktree move <old> <new>                         — relocate directory (git-native, handles .git bookkeeping)
-  const lines = [];
-  if (isWin) {
-    lines.push('@echo off');
-    lines.push(`echo Switching branch to: ${branchName}`);
-    lines.push(`git -C "${oldWtForGit}" checkout -B ${branchName} ${startPoint}`);
-    lines.push('if errorlevel 1 (');
-    lines.push('  echo.');
-    lines.push('  echo === SWITCH FAILED ===');
-    lines.push('  exit /b 1');
-    lines.push(')');
-    if (needsMove) {
-      lines.push('echo.');
-      lines.push(`echo Moving worktree: ${path.basename(oldWtPath)} -^> ${dirName}`);
-      lines.push(`git worktree move "${oldWtForGit}" "${newWtPath}"`);
-      lines.push('if errorlevel 1 (');
-      lines.push('  echo.');
-      lines.push('  echo === MOVE FAILED ===');
-      lines.push('  exit /b 1');
-      lines.push(')');
-    }
-    lines.push('echo.');
-    lines.push('echo === SWITCH COMPLETE ===');
-  } else {
-    lines.push('#!/bin/sh');
-    lines.push(`echo "Switching branch to: ${branchName}"`);
-    lines.push(`git -C "${oldWtForGit}" checkout -B ${branchName} ${startPoint} || { echo ""; echo "=== SWITCH FAILED ==="; exit 1; }`);
-    if (needsMove) {
-      lines.push('echo ""');
-      lines.push(`echo "Moving worktree: ${path.basename(oldWtPath)} -> ${dirName}"`);
-      lines.push(`git worktree move "${oldWtForGit}" "${newWtPath}" || { echo ""; echo "=== MOVE FAILED ==="; exit 1; }`);
-    }
-    lines.push('echo ""');
-    lines.push('echo "=== SWITCH COMPLETE ==="');
-  }
-
-  fs.writeFileSync(scriptPath, lines.join('\n'), { encoding: 'utf8' });
-
-  const cmd = isWin ? scriptPath : `sh "${scriptPath}"`;
+  // Just switch the branch in-place — no directory rename needed.
+  // The tab label shows the branch name, not the directory name.
+  const cmd = `git -C "${oldWtForGit}" checkout -B ${branchName} ${startPoint}`;
   const proc = spawnPty(cmd, barePath);
 
   proc.onData((data) => {
@@ -275,13 +232,12 @@ function createWorktreeSwitchPty(mainWindow, { barePath, repoDir, oldWtPath, bra
   });
 
   proc.onExit(({ exitCode }) => {
-    try { fs.unlinkSync(scriptPath); } catch {}
     if (mainWindow && !mainWindow.isDestroyed()) {
-      mainWindow.webContents.send('worktreeSwitch:exit', { exitCode, wtPath: newWtPath, branchName, dirName });
+      mainWindow.webContents.send('worktreeSwitch:exit', { exitCode, wtPath: oldWtForGit, branchName, dirName });
     }
   });
 
-  return { proc, wtPath: newWtPath, branchName, dirName };
+  return { proc, wtPath: oldWtForGit, branchName, dirName };
 }
 
 module.exports = { createWorktreePty, createClonePty, createDeletePty, createWorktreeRemovePty, createWorktreeSwitchPty };

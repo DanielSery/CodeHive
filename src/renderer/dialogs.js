@@ -483,9 +483,8 @@ function updateWtSwitchPreview() {
     wtSwitchPreview.textContent = '';
     return;
   }
-  const slug = nameToSlug(name);
   const branch = nameToBranch(wtSwitchGitUser, name);
-  wtSwitchPreview.textContent = `Branch: ${branch}  |  Dir: ${slug}`;
+  wtSwitchPreview.textContent = `Branch: ${branch}`;
 }
 
 function renderSwitchBranchList(filter) {
@@ -588,7 +587,6 @@ async function confirmSwitchWorktree() {
   if (!wtSwitchTabEl || !wtSwitchGroupEl) return;
 
   const name = wtSwitchNameInput.value.trim();
-  const dirName = nameToSlug(name);
   const branchName = nameToBranch(wtSwitchGitUser, name);
   const tabEl = wtSwitchTabEl;
   const groupEl = wtSwitchGroupEl;
@@ -596,12 +594,6 @@ async function confirmSwitchWorktree() {
   const tabsEl = tabEl.parentElement;
 
   hideWorktreeSwitchDialog();
-
-  // Close workspace if open
-  if (tabEl._workspaceId !== null) {
-    const { closeWorkspace } = await import('./workspace-manager.js');
-    closeWorkspace(tabEl._workspaceId);
-  }
 
   showTerminal(`Switching worktree: ${branchName}`);
   const xterm = createTerminal();
@@ -622,7 +614,7 @@ async function confirmSwitchWorktree() {
       if (tabEl._dotEl) tabEl._dotEl.remove();
       tabEl.remove();
 
-      // Create new tab for the switched worktree
+      // Create new tab — same directory, new branch
       const wt = { path: wtPath, branch, name: dir };
       const newTabEl = _createWorktreeTab(wt);
       tabsEl.appendChild(newTabEl);
@@ -646,10 +638,8 @@ async function confirmSwitchWorktree() {
   try {
     await window.worktreeSwitchAPI.start({
       barePath: groupEl._barePath,
-      repoDir: groupEl._repoDir,
       oldWtPath,
       branchName,
-      dirName,
       sourceBranch: wtSwitchSelectedBranch
     });
   } catch (err) {
