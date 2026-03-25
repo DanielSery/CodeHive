@@ -6,6 +6,7 @@ const collapsedDotsEl = document.getElementById('collapsed-dots');
 const sidebar = document.getElementById('sidebar');
 const resizeHandle = document.getElementById('sidebar-resize-handle');
 const contextMenu = document.getElementById('wt-context-menu');
+const projectContextMenu = document.getElementById('project-context-menu');
 
 // Lazy references to avoid circular import with dialogs.js
 let _showWorktreeDialog = null;
@@ -51,8 +52,6 @@ function addRepoGroup(repo) {
   headerEl.innerHTML = `
     <span class="repo-group-chevron">&#x25B6;</span>
     <span class="repo-group-name">${repo.name}</span>
-    <button class="repo-group-add" title="Add Worktree">+</button>
-    <button class="repo-group-delete" title="Delete Project"><svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2 4h12M5.3 4V2.7a1 1 0 011-1h3.4a1 1 0 011 1V4M6.5 7.3v4.4M9.5 7.3v4.4"/><path d="M3.5 4l.7 9.3a1 1 0 001 .9h5.6a1 1 0 001-.9L12.5 4"/></svg></button>
   `;
 
   const tabsEl = document.createElement('div');
@@ -60,21 +59,16 @@ function addRepoGroup(repo) {
 
   let collapsed = false;
 
-  headerEl.querySelector('.repo-group-add').addEventListener('click', (e) => {
-    e.stopPropagation();
-    if (_showWorktreeDialog) _showWorktreeDialog(groupEl, tabsEl);
-  });
-
-  headerEl.querySelector('.repo-group-delete').addEventListener('click', (e) => {
-    e.stopPropagation();
-    if (_showDeleteDialog) _showDeleteDialog(groupEl);
-  });
-
-  headerEl.addEventListener('click', (e) => {
-    if (e.target.classList.contains('repo-group-add')) return;
+  headerEl.addEventListener('click', () => {
     collapsed = !collapsed;
     tabsEl.classList.toggle('expanded', !collapsed);
     headerEl.querySelector('.repo-group-chevron').innerHTML = collapsed ? '&#x25B6;' : '&#x25BC;';
+  });
+
+  headerEl.addEventListener('contextmenu', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    showProjectContextMenu(e.clientX, e.clientY, groupEl, tabsEl);
   });
 
   if (collapsedDotsEl.children.length > 0) {
@@ -266,6 +260,7 @@ resizeHandle.addEventListener('dblclick', () => {
 let _contextMenuTabEl = null;
 
 function showContextMenu(x, y, tabEl) {
+  hideProjectContextMenu();
   _contextMenuTabEl = tabEl;
   contextMenu.style.left = x + 'px';
   contextMenu.style.top = y + 'px';
@@ -312,6 +307,58 @@ contextMenu.addEventListener('click', (e) => {
       const groupEl = tabEl.closest('.repo-group');
       _showWorktreeRemoveDialog(tabEl, groupEl);
     }
+  }
+});
+
+// ===== Project Context Menu =====
+
+let _projectContextMenuGroupEl = null;
+let _projectContextMenuTabsEl = null;
+
+function showProjectContextMenu(x, y, groupEl, tabsEl) {
+  hideContextMenu();
+  _projectContextMenuGroupEl = groupEl;
+  _projectContextMenuTabsEl = tabsEl;
+  projectContextMenu.style.left = x + 'px';
+  projectContextMenu.style.top = y + 'px';
+  projectContextMenu.classList.add('visible');
+
+  requestAnimationFrame(() => {
+    const rect = projectContextMenu.getBoundingClientRect();
+    if (rect.right > window.innerWidth) {
+      projectContextMenu.style.left = (window.innerWidth - rect.width - 4) + 'px';
+    }
+    if (rect.bottom > window.innerHeight) {
+      projectContextMenu.style.top = (window.innerHeight - rect.height - 4) + 'px';
+    }
+  });
+}
+
+function hideProjectContextMenu() {
+  projectContextMenu.classList.remove('visible');
+  _projectContextMenuGroupEl = null;
+  _projectContextMenuTabsEl = null;
+}
+
+document.addEventListener('click', hideProjectContextMenu);
+document.addEventListener('contextmenu', (e) => {
+  if (!projectContextMenu.contains(e.target)) hideProjectContextMenu();
+});
+
+projectContextMenu.addEventListener('click', (e) => {
+  const item = e.target.closest('.context-menu-item');
+  if (!item || !_projectContextMenuGroupEl) return;
+  const groupEl = _projectContextMenuGroupEl;
+  const tabsEl = _projectContextMenuTabsEl;
+  const action = item.dataset.action;
+  hideProjectContextMenu();
+
+  if (action === 'open-explorer') {
+    window.shellAPI.openInExplorer(groupEl._repoDir);
+  } else if (action === 'add-worktree') {
+    if (_showWorktreeDialog) _showWorktreeDialog(groupEl, tabsEl);
+  } else if (action === 'delete-project') {
+    if (_showDeleteDialog) _showDeleteDialog(groupEl);
   }
 });
 
