@@ -201,6 +201,10 @@ function switchWorkspace(id) {
     if (ws.tabEl._dotEl) ws.tabEl._dotEl.classList.add('active');
     activeWorkspaceId = id;
     placeholder.style.display = 'none';
+    // Reset to blue when switching to this project (unless Claude is working)
+    if (ws.tabEl.dataset.status !== 'working') {
+      setTabStatus(ws.tabEl, 'open');
+    }
     document.querySelector('.titlebar-title').textContent = `DevShell — ${ws.name}`;
   }
 }
@@ -258,9 +262,10 @@ async function pollClaudeStatus(id) {
       setTabStatus(ws.tabEl, 'working');
       ws.tabEl._wasWorking = true;
     } else if (ws.tabEl._wasWorking && ws.tabEl.dataset.status === 'working') {
-      setTabStatus(ws.tabEl, 'done');
+      ws.tabEl._wasWorking = false;
+      // If this is the active project, go back to blue; otherwise green
+      setTabStatus(ws.tabEl, id === activeWorkspaceId ? 'open' : 'done');
     }
-    // Otherwise stay in current state (open or done)
   } catch {
     // Ignore errors
   }

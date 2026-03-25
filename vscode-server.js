@@ -6,7 +6,8 @@ const { spawn, execSync } = require('child_process');
 const REQUIRED_EXTENSIONS = [
   'Catppuccin.catppuccin-vsc',
   'Catppuccin.catppuccin-vsc-icons',
-  'anthropic.claude-code'
+  'anthropic.claude-code',
+  'ms-dotnettools.csharp'
 ];
 
 const SERVER_DATA_DIR = path.join(__dirname, 'vscode-data');

@@ -28,5 +28,15 @@
   "workbench.list.openMode": "singleClick",
   "window.density.styles.breadcrumbs": "compact",
   "window.density.styles.tabs": "compact",
-  "workbench.auxiliaryBar.visible": false
+  "workbench.auxiliaryBar.visible": false,
+  "editor.minimap.enabled": false,
+  "workbench.secondarySideBar.visible": false,
+  "dotnet.backgroundAnalysis.analyzerDiagnosticsScope": "openFiles",
+  "dotnet.backgroundAnalysis.compilerDiagnosticsScope": "openFiles",
+  "csharp.inlayHints.enableInlayHintsForImplicitObjectCreation": false,
+  "csharp.inlayHints.enableInlayHintsForImplicitVariableTypes": false,
+  "csharp.inlayHints.enableInlayHintsForLambdaParameterTypes": false,
+  "csharp.inlayHints.enableInlayHintsForTypes": false,
+  "dotnet.codeLens.enableReferencesCodeLens": false,
+  "dotnet.codeLens.enableTestsCodeLens": false
 }
