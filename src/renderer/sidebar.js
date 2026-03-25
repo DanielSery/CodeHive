@@ -400,7 +400,7 @@ function confirmCommit() {
   const msg = commitMessageInput.value.trim();
   hideCommitDialog();
 
-  const base = 'Run only these git commands in order: 1) git add -A 2) git status to review changes 3) git commit with a descriptive message 4) git push. Do NOT run any other commands. Do NOT modify files. Do NOT run tests or builds.';
+  const base = 'Run only these git commands in order: 1) git add . 2) git status to review changes 3) git commit with a descriptive message 4) git push. Do NOT run any other commands. Do NOT modify files. Do NOT run tests or builds.';
   const prompt = msg
     ? `${base} Commit message context: ${msg}`
     : base;
