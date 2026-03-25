@@ -110,6 +110,7 @@ function addRepoGroup(repo) {
   groupEl.addEventListener('dragend', () => {
     groupEl.classList.remove('dragging', 'drag-ghost');
     document.querySelectorAll('.repo-group.drag-over').forEach(el => el.classList.remove('drag-over'));
+    rebuildCollapsedDots();
   });
 
   groupEl.addEventListener('dragover', (e) => {
@@ -296,6 +297,24 @@ resizeHandle.addEventListener('dblclick', () => {
     sidebar.classList.add('collapsed');
   }
 });
+
+// ===== Collapsed Dots Rebuild =====
+
+function rebuildCollapsedDots() {
+  collapsedDotsEl.innerHTML = '';
+  const groups = repoGroupsEl.querySelectorAll('.repo-group');
+  groups.forEach((groupEl, i) => {
+    if (i > 0) {
+      const sep = document.createElement('hr');
+      sep.className = 'collapsed-dots-separator';
+      collapsedDotsEl.appendChild(sep);
+    }
+    const tabs = groupEl.querySelectorAll('.workspace-tab');
+    for (const tab of tabs) {
+      if (tab._dotEl) collapsedDotsEl.appendChild(tab._dotEl);
+    }
+  });
+}
 
 // ===== Context Menu =====
 
