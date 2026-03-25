@@ -5,7 +5,7 @@ const { spawn, execSync } = require('child_process');
 const shell = process.platform === 'win32' ? 'cmd.exe' : '/bin/bash';
 
 function spawnProc(cmd, cwd) {
-  const buffer = [];
+  const buffer = [`\x1b[90m$ ${cmd}\x1b[0m\r\n`];
   let exitInfo = null;
   let ready = false;
   const listeners = { data: [], exit: [] };
@@ -112,7 +112,7 @@ function createClonePty(mainWindow, { url, reposDir }) {
 
   fs.mkdirSync(bareDir, { recursive: true });
 
-  const gitCmds = `git init --bare . && git remote add origin ${url} && git config remote.origin.fetch +refs/heads/*:refs/remotes/origin/* && git fetch origin && echo. && echo === CLONE COMPLETE ===`;
+  const gitCmds = `git init --bare . && git remote add origin ${url} && git config remote.origin.fetch +refs/heads/*:refs/remotes/origin/* && git fetch --progress origin && echo. && echo === CLONE COMPLETE ===`;
   const cmd = process.platform === 'win32' ? gitCmds : gitCmds.replace(/echo\./g, 'echo');
 
   const proc = spawnProc(cmd, bareDir);

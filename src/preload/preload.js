@@ -77,3 +77,7 @@ contextBridge.exposeInMainWorld('windowAPI', {
   maximize: () => ipcRenderer.send('window:maximize'),
   close: () => ipcRenderer.send('window:close')
 });
+
+contextBridge.exposeInMainWorld('startupAPI', {
+  onStatus: (cb) => ipcRenderer.on('startup:status', (_, msg) => cb(msg)),
+});

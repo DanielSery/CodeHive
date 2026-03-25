@@ -35,9 +35,21 @@ function createWindow() {
 app.whenReady().then(async () => {
   vscode.seedDefaultSettings();
 
-  console.log('Installing VS Code extensions...');
-  vscode.installExtensions();
+  // Show window immediately so user sees startup progress
+  createWindow();
+  ipcHandlers.register(mainWindow, () => serverPort);
 
+  const sendStatus = (msg) => {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('startup:status', msg);
+    }
+  };
+
+  sendStatus('Installing extensions...');
+  console.log('Installing VS Code extensions...');
+  vscode.installExtensions(sendStatus);
+
+  sendStatus('Starting VS Code server...');
   console.log('Starting VS Code server...');
   try {
     const port = await vscode.findPort(serverPort);
@@ -45,12 +57,11 @@ app.whenReady().then(async () => {
     const result = await vscode.startServer(port);
     serverProcess = result.proc;
     console.log(`VS Code server ready on port ${port}`);
+    sendStatus(null);
   } catch (err) {
     console.error('VS Code server failed to start:', err);
+    sendStatus('VS Code server failed to start');
   }
-
-  createWindow();
-  ipcHandlers.register(mainWindow, () => serverPort);
 });
 
 app.on('window-all-closed', () => {

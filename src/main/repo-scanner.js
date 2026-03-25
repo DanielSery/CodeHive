@@ -109,7 +109,7 @@ function fetchAndListBranches(barePath) {
       } catch {}
     }
 
-    exec('git fetch origin', { cwd: barePath, encoding: 'utf8', timeout: 60000 }, () => {
+    exec('git fetch --progress origin', { cwd: barePath, encoding: 'utf8', timeout: 60000 }, () => {
       exec('git branch -r', { cwd: barePath, encoding: 'utf8', timeout: 10000 }, (err, stdout) => {
         if (err || !stdout) { resolve([]); return; }
         const branches = stdout.trim().split('\n')

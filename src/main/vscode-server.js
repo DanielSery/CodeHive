@@ -61,7 +61,7 @@ function findCodeCmd() {
   return isWin ? 'code.cmd' : 'code';
 }
 
-function installExtensions() {
+function installExtensions(sendStatus) {
   const cmd = findCodeCmd();
   const env = { ...process.env };
   delete env.ELECTRON_RUN_AS_NODE;
@@ -81,13 +81,18 @@ function installExtensions() {
   });
 
   proc.stdout.on('data', (data) => {
-    console.log('[extensions]', data.toString().trim());
+    const msg = data.toString().trim();
+    console.log('[extensions]', msg);
+    // Show which extension is being installed
+    const match = msg.match(/Installing extensions?:\s*(.+)/i);
+    if (match && sendStatus) sendStatus(`Installing extension: ${match[1]}`);
   });
   proc.stderr.on('data', (data) => {
     console.warn('[extensions]', data.toString().trim());
   });
   proc.on('close', (code) => {
     console.log(`[extensions] Install finished with exit code ${code}`);
+    if (sendStatus) sendStatus('Extensions installed');
   });
   proc.on('error', (err) => {
     console.warn('[extensions] Install failed:', err.message);

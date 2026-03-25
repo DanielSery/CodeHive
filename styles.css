@@ -457,18 +457,20 @@ html, body {
 
 .workspace-tab.active {
   background: var(--tab-active-bg);
+}
+
+.workspace-tab[data-status="open"],
+.workspace-tab.active[data-status="open"] {
   border-left-color: var(--accent);
 }
 
-.workspace-tab[data-status="open"] {
-  border-left-color: var(--accent);
-}
-
-.workspace-tab[data-status="working"] {
+.workspace-tab[data-status="working"],
+.workspace-tab.active[data-status="working"] {
   border-left-color: var(--yellow);
 }
 
-.workspace-tab[data-status="done"] {
+.workspace-tab[data-status="done"],
+.workspace-tab.active[data-status="done"] {
   border-left-color: var(--green);
 }
 
@@ -625,6 +627,17 @@ html, body {
 .placeholder-hint {
   font-size: 0.8rem !important;
   opacity: 0.6;
+}
+
+.startup-status {
+  font-size: 0.8rem !important;
+  opacity: 0.5;
+  margin-top: 1rem !important;
+  transition: opacity 0.3s;
+}
+
+.startup-status:empty {
+  display: none;
 }
 
 .workspace-webview {

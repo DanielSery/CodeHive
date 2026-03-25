@@ -167,6 +167,13 @@ document.addEventListener('keydown', (e) => {
 // Save state before window closes
 window.addEventListener('beforeunload', saveState);
 
+// ===== Startup status =====
+
+const startupEl = document.getElementById('startup-status');
+window.startupAPI.onStatus((msg) => {
+  startupEl.textContent = msg || '';
+});
+
 // ===== Restore on startup =====
 
 restoreState();
