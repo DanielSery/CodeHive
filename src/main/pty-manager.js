@@ -45,7 +45,7 @@ function createClonePty(mainWindow, { url, reposDir }) {
 
   fs.mkdirSync(bareDir, { recursive: true });
 
-  const gitCmds = `git init --bare . && git remote add origin ${url} && git config remote.origin.fetch "+refs/heads/*:refs/remotes/origin/*" && git fetch origin && echo. && echo === CLONE COMPLETE ===`;
+  const gitCmds = `git init --bare . && git remote add origin ${url} && git config remote.origin.fetch +refs/heads/*:refs/remotes/origin/* && git fetch origin && echo. && echo === CLONE COMPLETE ===`;
   const cmd = process.platform === 'win32' ? gitCmds : gitCmds.replace(/echo\./g, 'echo');
 
   const proc = spawnPty(cmd, bareDir);

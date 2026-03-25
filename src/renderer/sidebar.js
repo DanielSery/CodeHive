@@ -41,7 +41,7 @@ function addRepoGroup(repo) {
     <span class="repo-group-chevron">&#x25B6;</span>
     <span class="repo-group-name">${repo.name}</span>
     <button class="repo-group-add" title="Add Worktree">+</button>
-    <button class="repo-group-delete" title="Delete Project">&#x2715;</button>
+    <button class="repo-group-delete" title="Delete Project"><svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2 4h12M5.3 4V2.7a1 1 0 011-1h3.4a1 1 0 011 1V4M6.5 7.3v4.4M9.5 7.3v4.4"/><path d="M3.5 4l.7 9.3a1 1 0 001 .9h5.6a1 1 0 001-.9L12.5 4"/></svg></button>
   `;
 
   const tabsEl = document.createElement('div');

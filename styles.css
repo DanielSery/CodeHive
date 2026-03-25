@@ -20,6 +20,29 @@
   --border: #313244;
 }
 
+/* ===== Scrollbars ===== */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--tab-bg);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--tab-hover-bg);
+}
+
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
 html, body {
   height: 100%;
   overflow: hidden;

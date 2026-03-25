@@ -82,10 +82,10 @@ function listRemoteBranches(barePath) {
   return new Promise((resolve) => {
     try {
       const existing = execSync('git config remote.origin.fetch', { cwd: barePath, encoding: 'utf8' }).trim();
-      if (!existing) throw new Error('empty');
+      if (!existing || existing.includes('"')) throw new Error('missing or malformed');
     } catch {
       try {
-        execSync('git config remote.origin.fetch "+refs/heads/*:refs/remotes/origin/*"', { cwd: barePath, encoding: 'utf8' });
+        execSync('git config remote.origin.fetch +refs/heads/*:refs/remotes/origin/*', { cwd: barePath, encoding: 'utf8' });
       } catch {}
     }
 
