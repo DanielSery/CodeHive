@@ -205,7 +205,7 @@ function createWorktreeTab(wt) {
 
   tabEl.querySelector('.workspace-tab-pr').addEventListener('click', (e) => {
     e.stopPropagation();
-    runClaudeCommand(tabEl, 'Create a pull request for the current branch', 'Pull Request');
+    runClaudeCommand(tabEl, 'Create a pull request for the current branch. Run only git commands (git log, git diff, git push) and az repos pr create. Do NOT modify files, do NOT run tests or builds, do NOT use gh CLI.', 'Pull Request');
   });
 
   tabEl.addEventListener('click', (e) => {
@@ -400,9 +400,10 @@ function confirmCommit() {
   const msg = commitMessageInput.value.trim();
   hideCommitDialog();
 
+  const base = 'Run only these git commands in order: git add -A, git status to review changes, git commit with a descriptive message, git push. Do NOT run any other commands, do NOT modify files, do NOT run tests or builds.';
   const prompt = msg
-    ? `Commit and push all changes. Message: ${msg}`
-    : 'Commit and push all changes';
+    ? `${base} Commit message context: ${msg}`
+    : base;
   runClaudeCommand(tabEl, prompt, 'Commit & Push');
 }
 
@@ -471,7 +472,7 @@ contextMenu.addEventListener('click', (e) => {
   } else if (action === 'commit-push') {
     showCommitDialog(tabEl);
   } else if (action === 'pull-request') {
-    runClaudeCommand(tabEl, 'Create a pull request for the current branch', 'Pull Request');
+    runClaudeCommand(tabEl, 'Create a pull request for the current branch. Run only git commands (git log, git diff, git push) and az repos pr create. Do NOT modify files, do NOT run tests or builds, do NOT use gh CLI.', 'Pull Request');
   } else if (action === 'close-editor') {
     if (tabEl._workspaceId !== null) {
       closeWorkspace(tabEl._workspaceId);
