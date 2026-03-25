@@ -1,12 +1,8 @@
 import { setTabStatus } from './claude-poll.js';
 import { openWorktree, closeWorkspace } from './workspace-manager.js';
-import { createTerminal, showTerminal, showCloseButton, setTitle, closeTerminal } from './terminal-panel.js';
 
 const BIN_ICON_SVG = '<svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2 4h12M5.3 4V2.7a1 1 0 011-1h3.4a1 1 0 011 1V4M6.5 7.3v4.4M9.5 7.3v4.4"/><path d="M3.5 4l.7 9.3a1 1 0 001 .9h5.6a1 1 0 001-.9L12.5 4"/></svg>';
 const SWITCH_ICON_SVG = '<svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M11 1l3 3-3 3"/><path d="M14 4H5"/><path d="M5 15l-3-3 3-3"/><path d="M2 12h9"/></svg>';
-const COMMIT_ICON_SVG = '<svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M8 1v4M8 11v4"/><circle cx="8" cy="8" r="3"/></svg>';
-const PR_ICON_SVG = '<svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="4" cy="4" r="2"/><circle cx="12" cy="12" r="2"/><path d="M4 6v6c0 1.1.9 2 2 2h4"/><path d="M12 10V4c0-1.1-.9-2-2-2H6"/></svg>';
-
 const repoGroupsEl = document.getElementById('repo-groups');
 const collapsedDotsEl = document.getElementById('collapsed-dots');
 const sidebar = document.getElementById('sidebar');
@@ -174,8 +170,6 @@ function createWorktreeTab(wt) {
     <span class="workspace-tab-label">${formatBranchLabel(wt.branch)}</span>
     <button class="workspace-tab-switch" title="Switch Worktree">${SWITCH_ICON_SVG}</button>
     <button class="workspace-tab-remove" title="Remove Worktree">${BIN_ICON_SVG}</button>
-    <button class="workspace-tab-commit" title="Commit &amp; Push" style="display:none">${COMMIT_ICON_SVG}</button>
-    <button class="workspace-tab-pr" title="Pull Request" style="display:none">${PR_ICON_SVG}</button>
     <button class="workspace-tab-close" title="Close" style="display:none">&times;</button>
   `;
 
@@ -211,18 +205,8 @@ function createWorktreeTab(wt) {
     }
   });
 
-  tabEl.querySelector('.workspace-tab-commit').addEventListener('click', (e) => {
-    e.stopPropagation();
-    showCommitDialog(tabEl);
-  });
-
-  tabEl.querySelector('.workspace-tab-pr').addEventListener('click', (e) => {
-    e.stopPropagation();
-    showPrDialog(tabEl);
-  });
-
   tabEl.addEventListener('click', (e) => {
-    if (e.target.closest('.workspace-tab-close') || e.target.closest('.workspace-tab-switch') || e.target.closest('.workspace-tab-remove') || e.target.closest('.workspace-tab-commit') || e.target.closest('.workspace-tab-pr')) return;
+    if (e.target.closest('.workspace-tab-close') || e.target.closest('.workspace-tab-switch') || e.target.closest('.workspace-tab-remove')) return;
     openWorktree(tabEl, wt);
   });
 
@@ -245,26 +229,18 @@ function createWorktreeTab(wt) {
 function showTabCloseButton(tabEl) {
   const switchBtn = tabEl.querySelector('.workspace-tab-switch');
   const removeBtn = tabEl.querySelector('.workspace-tab-remove');
-  const commitBtn = tabEl.querySelector('.workspace-tab-commit');
-  const prBtn = tabEl.querySelector('.workspace-tab-pr');
   const closeBtn = tabEl.querySelector('.workspace-tab-close');
   if (switchBtn) switchBtn.style.display = 'none';
   if (removeBtn) removeBtn.style.display = 'none';
-  if (commitBtn) commitBtn.style.display = '';
-  if (prBtn) prBtn.style.display = '';
   if (closeBtn) closeBtn.style.display = '';
 }
 
 function showTabRemoveButton(tabEl) {
   const switchBtn = tabEl.querySelector('.workspace-tab-switch');
   const removeBtn = tabEl.querySelector('.workspace-tab-remove');
-  const commitBtn = tabEl.querySelector('.workspace-tab-commit');
-  const prBtn = tabEl.querySelector('.workspace-tab-pr');
   const closeBtn = tabEl.querySelector('.workspace-tab-close');
   if (switchBtn) switchBtn.style.display = '';
   if (removeBtn) removeBtn.style.display = '';
-  if (commitBtn) commitBtn.style.display = 'none';
-  if (prBtn) prBtn.style.display = 'none';
   if (closeBtn) closeBtn.style.display = 'none';
 }
 
@@ -358,267 +334,6 @@ function rebuildCollapsedDots() {
   });
 }
 
-// ===== Terminal Helpers =====
-
-function runPtyCommand(api, title, opts) {
-  showTerminal(title);
-  const xterm = createTerminal();
-
-  api.resize(xterm.cols, xterm.rows);
-  api.removeListeners();
-  api.onData((data) => xterm.write(data));
-  api.onExit(({ exitCode }) => {
-    if (exitCode === 0) {
-      xterm.writeln('');
-      xterm.writeln(`\x1b[32m${title} completed successfully!\x1b[0m`);
-    } else {
-      xterm.writeln('');
-      xterm.writeln(`\x1b[31m${title} failed with exit code ${exitCode}\x1b[0m`);
-      setTitle(`${title} failed`);
-    }
-    showCloseButton();
-  });
-
-  api.start(opts).catch((err) => {
-    xterm.writeln(`\x1b[31m${err.message || err}\x1b[0m`);
-    setTitle(`${title} failed`);
-    showCloseButton();
-  });
-}
-
-// ===== Commit & Push Dialog =====
-
-const commitDialogOverlay = document.getElementById('commit-dialog-overlay');
-const commitMessageInput = document.getElementById('commit-message-input');
-const commitDescInput = document.getElementById('commit-desc-input');
-let _commitTabEl = null;
-
-function showCommitDialog(tabEl) {
-  _commitTabEl = tabEl;
-  commitMessageInput.value = '';
-  commitDescInput.value = '';
-  commitDialogOverlay.classList.add('visible');
-  setTimeout(() => commitMessageInput.focus(), 50);
-}
-
-function hideCommitDialog() {
-  commitDialogOverlay.classList.remove('visible');
-  _commitTabEl = null;
-}
-
-function confirmCommit() {
-  if (!_commitTabEl) return;
-  const msg = commitMessageInput.value.trim();
-  if (!msg) return;
-  const tabEl = _commitTabEl;
-  const desc = commitDescInput.value.trim();
-  hideCommitDialog();
-
-  runPtyCommand(window.commitPushAPI, `Commit & Push: ${tabEl._wtBranch}`, {
-    wtPath: tabEl._wtPath,
-    message: msg,
-    description: desc || undefined
-  });
-}
-
-commitDialogOverlay.addEventListener('click', (e) => {
-  if (e.target === commitDialogOverlay) hideCommitDialog();
-});
-document.getElementById('commit-cancel-btn').addEventListener('click', hideCommitDialog);
-document.getElementById('commit-confirm-btn').addEventListener('click', confirmCommit);
-commitMessageInput.addEventListener('keydown', (e) => {
-  if (e.key === 'Enter') confirmCommit();
-  if (e.key === 'Escape') hideCommitDialog();
-});
-
-// ===== Pull Request Dialog =====
-
-const prDialogOverlay = document.getElementById('pr-dialog-overlay');
-const prBranchSearch = document.getElementById('pr-branch-search');
-const prBranchList = document.getElementById('pr-branch-list');
-const prTitleInput = document.getElementById('pr-title-input');
-const prDescInput = document.getElementById('pr-desc-input');
-
-let prAllBranches = [];
-let prSelectedBranch = null;
-let prHighlightIndex = -1;
-let _prTabEl = null;
-
-function getPrFilteredBranches() {
-  const q = (prBranchSearch.value || '').toLowerCase();
-  return prAllBranches.filter(b => b.toLowerCase().includes(q));
-}
-
-function renderPrBranchList(filter) {
-  prBranchList.innerHTML = '';
-  const q = (filter || '').toLowerCase();
-  const filtered = prAllBranches.filter(b => b.toLowerCase().includes(q));
-  if (filtered.length === 0) {
-    prBranchList.classList.remove('open');
-    prHighlightIndex = -1;
-    return;
-  }
-  filtered.forEach((b, i) => {
-    const item = document.createElement('div');
-    item.className = 'combobox-item';
-    if (b === prSelectedBranch) item.classList.add('selected');
-    if (i === prHighlightIndex) item.classList.add('highlighted');
-    item.textContent = b;
-    item.addEventListener('mousedown', (e) => {
-      e.preventDefault();
-      selectPrBranch(b);
-    });
-    prBranchList.appendChild(item);
-  });
-  prBranchList.classList.add('open');
-}
-
-function selectPrBranch(b) {
-  prSelectedBranch = b;
-  prBranchSearch.value = b;
-  prBranchList.classList.remove('open');
-  prHighlightIndex = -1;
-}
-
-function showPrDialog(tabEl) {
-  _prTabEl = tabEl;
-  prSelectedBranch = null;
-  prAllBranches = [];
-  prBranchSearch.value = '';
-  prBranchSearch.placeholder = 'Fetching branches...';
-  prBranchSearch.disabled = true;
-  prTitleInput.value = '';
-  prDescInput.value = '';
-  prBranchList.innerHTML = '';
-  prBranchList.classList.remove('open');
-  prHighlightIndex = -1;
-
-  prDialogOverlay.classList.add('visible');
-
-  const groupEl = tabEl.closest('.repo-group');
-  const barePath = groupEl._barePath;
-  const preselect = tabEl._wtSourceBranch || null;
-  const repoName = groupEl.dataset.repoName;
-
-  // Use cached branches for instant display
-  const stateCache = _getCachedBranches ? _getCachedBranches(repoName) : [];
-  if (stateCache.length > 0) {
-    prAllBranches = stateCache;
-    if (preselect && stateCache.includes(preselect)) {
-      prSelectedBranch = preselect;
-      prBranchSearch.value = preselect;
-    }
-    prBranchSearch.placeholder = 'Search branches...';
-    prBranchSearch.disabled = false;
-    prTitleInput.focus();
-  }
-
-  window.reposAPI.cachedBranches(barePath).then((cached) => {
-    if (cached.length > 0 && stateCache.length === 0) {
-      prAllBranches = cached;
-      if (preselect && cached.includes(preselect)) {
-        prSelectedBranch = preselect;
-        prBranchSearch.value = preselect;
-      }
-      prBranchSearch.placeholder = 'Search branches...';
-      prBranchSearch.disabled = false;
-      prTitleInput.focus();
-    }
-
-    window.reposAPI.fetchBranches(barePath).then((fetched) => {
-      if (!prDialogOverlay.classList.contains('visible')) return;
-      prAllBranches = fetched;
-      if (_saveBranchCache) _saveBranchCache(repoName, fetched);
-      if (!prSelectedBranch && preselect && fetched.includes(preselect)) {
-        prSelectedBranch = preselect;
-        prBranchSearch.value = preselect;
-      }
-      prBranchSearch.placeholder = 'Search branches...';
-      prBranchSearch.disabled = false;
-      if (prBranchList.classList.contains('open')) {
-        renderPrBranchList(prBranchSearch.value);
-      }
-    });
-  });
-}
-
-function hidePrDialog() {
-  prDialogOverlay.classList.remove('visible');
-  prBranchList.classList.remove('open');
-  _prTabEl = null;
-}
-
-function confirmPr() {
-  if (!_prTabEl || !prSelectedBranch || !prTitleInput.value.trim()) return;
-  const tabEl = _prTabEl;
-  const title = prTitleInput.value.trim();
-  const desc = prDescInput.value.trim();
-  hidePrDialog();
-
-  runPtyCommand(window.pullRequestAPI, `Pull Request: ${tabEl._wtBranch}`, {
-    wtPath: tabEl._wtPath,
-    targetBranch: prSelectedBranch,
-    title,
-    description: desc || undefined
-  });
-}
-
-prDialogOverlay.addEventListener('click', (e) => {
-  if (e.target === prDialogOverlay) hidePrDialog();
-});
-document.getElementById('pr-cancel-btn').addEventListener('click', hidePrDialog);
-document.getElementById('pr-confirm-btn').addEventListener('click', confirmPr);
-
-prBranchSearch.addEventListener('input', () => {
-  prSelectedBranch = null;
-  prHighlightIndex = -1;
-  renderPrBranchList(prBranchSearch.value);
-});
-prBranchSearch.addEventListener('focus', () => {
-  prBranchSearch.value = '';
-  prHighlightIndex = -1;
-  renderPrBranchList('');
-});
-prBranchSearch.addEventListener('blur', () => {
-  setTimeout(() => {
-    prBranchList.classList.remove('open');
-    if (prSelectedBranch) prBranchSearch.value = prSelectedBranch;
-  }, 200);
-});
-document.querySelector('#pr-branch-combobox .combobox-arrow').addEventListener('click', () => {
-  if (prBranchList.classList.contains('open')) {
-    prBranchList.classList.remove('open');
-  } else {
-    prBranchSearch.value = '';
-    prHighlightIndex = -1;
-    renderPrBranchList('');
-    prBranchSearch.focus();
-  }
-});
-prBranchSearch.addEventListener('keydown', (e) => {
-  if (e.key === 'Escape') { hidePrDialog(); return; }
-  const filtered = getPrFilteredBranches();
-  if (e.key === 'ArrowDown') {
-    e.preventDefault();
-    prHighlightIndex = Math.min(prHighlightIndex + 1, filtered.length - 1);
-    renderPrBranchList(prBranchSearch.value);
-    scrollHighlightedIntoView(prBranchList);
-  } else if (e.key === 'ArrowUp') {
-    e.preventDefault();
-    prHighlightIndex = Math.max(prHighlightIndex - 1, 0);
-    renderPrBranchList(prBranchSearch.value);
-    scrollHighlightedIntoView(prBranchList);
-  } else if (e.key === 'Enter' && prHighlightIndex >= 0 && prHighlightIndex < filtered.length) {
-    e.preventDefault();
-    selectPrBranch(filtered[prHighlightIndex]);
-    prTitleInput.focus();
-  }
-});
-prTitleInput.addEventListener('keydown', (e) => {
-  if (e.key === 'Enter') confirmPr();
-  if (e.key === 'Escape') hidePrDialog();
-});
-
 // ===== Context Menu =====
 
 let _contextMenuTabEl = null;
@@ -628,8 +343,6 @@ function showContextMenu(x, y, tabEl) {
   _contextMenuTabEl = tabEl;
 
   const isOpen = tabEl._workspaceId !== null;
-  contextMenu.querySelector('[data-action="commit-push"]').style.display = isOpen ? '' : 'none';
-  contextMenu.querySelector('[data-action="pull-request"]').style.display = isOpen ? '' : 'none';
   contextMenu.querySelector('[data-action="close-editor"]').style.display = isOpen ? '' : 'none';
   contextMenu.querySelector('[data-action="switch"]').style.display = isOpen ? 'none' : '';
   contextMenu.querySelector('[data-action="remove"]').style.display = isOpen ? 'none' : '';
@@ -671,10 +384,6 @@ contextMenu.addEventListener('click', (e) => {
 
   if (action === 'open-explorer') {
     window.shellAPI.openInExplorer(tabEl._wtPath);
-  } else if (action === 'commit-push') {
-    showCommitDialog(tabEl);
-  } else if (action === 'pull-request') {
-    showPrDialog(tabEl);
   } else if (action === 'close-editor') {
     if (tabEl._workspaceId !== null) {
       closeWorkspace(tabEl._workspaceId);

@@ -1,15 +1,13 @@
 const { ipcMain, dialog, shell } = require('electron');
 const vscode = require('./vscode-server');
 const { scanDirectory, checkClaudeActive, getCachedBranches, fetchAndListBranches, getGitUser } = require('./repo-scanner');
-const { createWorktreePty, createClonePty, createDeletePty, createWorktreeRemovePty, createWorktreeSwitchPty, createCommitPushPty, createPullRequestPty } = require('./pty-manager');
+const { createWorktreePty, createClonePty, createDeletePty, createWorktreeRemovePty, createWorktreeSwitchPty } = require('./pty-manager');
 
 let worktreePty = null;
 let clonePty = null;
 let deletePty = null;
 let worktreeRemovePty = null;
 let worktreeSwitchPty = null;
-let commitPushPty = null;
-let pullRequestPty = null;
 
 function register(mainWindow, getServerPort) {
   ipcMain.handle('codeserver:openFolder', (event, folderPath) => {
@@ -98,28 +96,6 @@ function register(mainWindow, getServerPort) {
 
   ipcMain.on('worktreeSwitch:resize', (event, { cols, rows }) => {
     try { if (worktreeSwitchPty) worktreeSwitchPty.resize(cols, rows); } catch {}
-  });
-
-  // Commit & Push PTY
-  ipcMain.handle('commitPush:start', (event, opts) => {
-    const result = createCommitPushPty(mainWindow, opts);
-    commitPushPty = result.proc;
-    return {};
-  });
-
-  ipcMain.on('commitPush:resize', (event, { cols, rows }) => {
-    try { if (commitPushPty) commitPushPty.resize(cols, rows); } catch {}
-  });
-
-  // Pull Request PTY
-  ipcMain.handle('pullRequest:start', (event, opts) => {
-    const result = createPullRequestPty(mainWindow, opts);
-    pullRequestPty = result.proc;
-    return {};
-  });
-
-  ipcMain.on('pullRequest:resize', (event, { cols, rows }) => {
-    try { if (pullRequestPty) pullRequestPty.resize(cols, rows); } catch {}
   });
 
   // Shell
