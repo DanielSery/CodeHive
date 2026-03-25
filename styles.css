@@ -244,7 +244,6 @@ html, body {
 .collapsed-dot[data-status="working"] .collapsed-dot-indicator {
   background: var(--yellow);
   box-shadow: 0 0 6px var(--yellow);
-  animation: pulse 1.5s ease-in-out infinite;
 }
 
 .collapsed-dot[data-status="done"] .collapsed-dot-indicator {
@@ -261,6 +260,7 @@ html, body {
 .collapsed-dot[data-status="error"] .collapsed-dot-indicator {
   background: var(--red);
   box-shadow: 0 0 4px var(--red);
+  animation: pulse 1.5s ease-in-out infinite;
 }
 
 #btn-open-directory,
