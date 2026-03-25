@@ -1,8 +1,11 @@
 import { setTabStatus } from './claude-poll.js';
 import { openWorktree, closeWorkspace } from './workspace-manager.js';
+import { createTerminal, showTerminal, showCloseButton, setTitle, closeTerminal } from './terminal-panel.js';
 
 const BIN_ICON_SVG = '<svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2 4h12M5.3 4V2.7a1 1 0 011-1h3.4a1 1 0 011 1V4M6.5 7.3v4.4M9.5 7.3v4.4"/><path d="M3.5 4l.7 9.3a1 1 0 001 .9h5.6a1 1 0 001-.9L12.5 4"/></svg>';
 const SWITCH_ICON_SVG = '<svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M11 1l3 3-3 3"/><path d="M14 4H5"/><path d="M5 15l-3-3 3-3"/><path d="M2 12h9"/></svg>';
+const COMMIT_ICON_SVG = '<svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M8 1v4M8 11v4"/><circle cx="8" cy="8" r="3"/></svg>';
+const PR_ICON_SVG = '<svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="4" cy="4" r="2"/><circle cx="12" cy="12" r="2"/><path d="M4 6v6c0 1.1.9 2 2 2h4"/><path d="M12 10V4c0-1.1-.9-2-2-2H6"/></svg>';
 
 const repoGroupsEl = document.getElementById('repo-groups');
 const collapsedDotsEl = document.getElementById('collapsed-dots');
@@ -159,6 +162,8 @@ function createWorktreeTab(wt) {
     <span class="workspace-tab-label">${formatBranchLabel(wt.branch)}</span>
     <button class="workspace-tab-switch" title="Switch Worktree">${SWITCH_ICON_SVG}</button>
     <button class="workspace-tab-remove" title="Remove Worktree">${BIN_ICON_SVG}</button>
+    <button class="workspace-tab-commit" title="Commit &amp; Push" style="display:none">${COMMIT_ICON_SVG}</button>
+    <button class="workspace-tab-pr" title="Pull Request" style="display:none">${PR_ICON_SVG}</button>
     <button class="workspace-tab-close" title="Close" style="display:none">&times;</button>
   `;
 
@@ -193,8 +198,18 @@ function createWorktreeTab(wt) {
     }
   });
 
+  tabEl.querySelector('.workspace-tab-commit').addEventListener('click', (e) => {
+    e.stopPropagation();
+    runClaudeCommand(tabEl, 'Commit and push all changes', 'Commit & Push');
+  });
+
+  tabEl.querySelector('.workspace-tab-pr').addEventListener('click', (e) => {
+    e.stopPropagation();
+    runClaudeCommand(tabEl, 'Create a pull request for the current branch', 'Pull Request');
+  });
+
   tabEl.addEventListener('click', (e) => {
-    if (e.target.closest('.workspace-tab-close') || e.target.closest('.workspace-tab-switch') || e.target.closest('.workspace-tab-remove')) return;
+    if (e.target.closest('.workspace-tab-close') || e.target.closest('.workspace-tab-switch') || e.target.closest('.workspace-tab-remove') || e.target.closest('.workspace-tab-commit') || e.target.closest('.workspace-tab-pr')) return;
     openWorktree(tabEl, wt);
   });
 
@@ -217,18 +232,26 @@ function createWorktreeTab(wt) {
 function showTabCloseButton(tabEl) {
   const switchBtn = tabEl.querySelector('.workspace-tab-switch');
   const removeBtn = tabEl.querySelector('.workspace-tab-remove');
+  const commitBtn = tabEl.querySelector('.workspace-tab-commit');
+  const prBtn = tabEl.querySelector('.workspace-tab-pr');
   const closeBtn = tabEl.querySelector('.workspace-tab-close');
   if (switchBtn) switchBtn.style.display = 'none';
   if (removeBtn) removeBtn.style.display = 'none';
+  if (commitBtn) commitBtn.style.display = '';
+  if (prBtn) prBtn.style.display = '';
   if (closeBtn) closeBtn.style.display = '';
 }
 
 function showTabRemoveButton(tabEl) {
   const switchBtn = tabEl.querySelector('.workspace-tab-switch');
   const removeBtn = tabEl.querySelector('.workspace-tab-remove');
+  const commitBtn = tabEl.querySelector('.workspace-tab-commit');
+  const prBtn = tabEl.querySelector('.workspace-tab-pr');
   const closeBtn = tabEl.querySelector('.workspace-tab-close');
   if (switchBtn) switchBtn.style.display = '';
   if (removeBtn) removeBtn.style.display = '';
+  if (commitBtn) commitBtn.style.display = 'none';
+  if (prBtn) prBtn.style.display = 'none';
   if (closeBtn) closeBtn.style.display = 'none';
 }
 
@@ -322,6 +345,37 @@ function rebuildCollapsedDots() {
   });
 }
 
+// ===== Claude Commands =====
+
+function runClaudeCommand(tabEl, prompt, title) {
+  showTerminal(`${title}: ${tabEl._wtBranch}`);
+  const xterm = createTerminal();
+
+  window.claudeAPI.resize(xterm.cols, xterm.rows);
+  window.claudeAPI.removeListeners();
+  window.claudeAPI.onData((data) => {
+    xterm.write(data);
+  });
+
+  window.claudeAPI.onExit(({ exitCode }) => {
+    if (exitCode === 0) {
+      xterm.writeln('');
+      xterm.writeln(`\x1b[32m${title} completed successfully!\x1b[0m`);
+    } else {
+      xterm.writeln('');
+      xterm.writeln(`\x1b[31m${title} failed with exit code ${exitCode}\x1b[0m`);
+      setTitle(`${title} failed`);
+    }
+    showCloseButton();
+  });
+
+  window.claudeAPI.start({ wtPath: tabEl._wtPath, prompt }).catch((err) => {
+    xterm.writeln(`\x1b[31m${err.message || err}\x1b[0m`);
+    setTitle(`${title} failed`);
+    showCloseButton();
+  });
+}
+
 // ===== Context Menu =====
 
 let _contextMenuTabEl = null;
@@ -331,10 +385,11 @@ function showContextMenu(x, y, tabEl) {
   _contextMenuTabEl = tabEl;
 
   const isOpen = tabEl._workspaceId !== null;
+  contextMenu.querySelector('[data-action="commit-push"]').style.display = isOpen ? '' : 'none';
+  contextMenu.querySelector('[data-action="pull-request"]').style.display = isOpen ? '' : 'none';
   contextMenu.querySelector('[data-action="close-editor"]').style.display = isOpen ? '' : 'none';
   contextMenu.querySelector('[data-action="switch"]').style.display = isOpen ? 'none' : '';
   contextMenu.querySelector('[data-action="remove"]').style.display = isOpen ? 'none' : '';
-  // Hide separator when editor is open (no danger items shown)
   const sep = contextMenu.querySelector('.context-menu-separator');
   if (sep) sep.style.display = isOpen ? 'none' : '';
 
@@ -373,6 +428,10 @@ contextMenu.addEventListener('click', (e) => {
 
   if (action === 'open-explorer') {
     window.shellAPI.openInExplorer(tabEl._wtPath);
+  } else if (action === 'commit-push') {
+    runClaudeCommand(tabEl, 'Commit and push all changes', 'Commit & Push');
+  } else if (action === 'pull-request') {
+    runClaudeCommand(tabEl, 'Create a pull request for the current branch', 'Pull Request');
   } else if (action === 'close-editor') {
     if (tabEl._workspaceId !== null) {
       closeWorkspace(tabEl._workspaceId);

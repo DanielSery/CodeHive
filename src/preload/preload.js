@@ -69,6 +69,17 @@ contextBridge.exposeInMainWorld('worktreeSwitchAPI', {
   }
 });
 
+contextBridge.exposeInMainWorld('claudeAPI', {
+  start: (opts) => ipcRenderer.invoke('claude:start', opts),
+  onData: (cb) => ipcRenderer.on('claude:data', (_, data) => cb(data)),
+  onExit: (cb) => ipcRenderer.on('claude:exit', (_, info) => cb(info)),
+  resize: (cols, rows) => ipcRenderer.send('claude:resize', { cols, rows }),
+  removeListeners: () => {
+    ipcRenderer.removeAllListeners('claude:data');
+    ipcRenderer.removeAllListeners('claude:exit');
+  }
+});
+
 contextBridge.exposeInMainWorld('shellAPI', {
   openInExplorer: (folderPath) => ipcRenderer.invoke('shell:openInExplorer', folderPath),
 });

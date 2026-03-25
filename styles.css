@@ -535,6 +535,36 @@ html, body {
   color: #1e1e2e;
 }
 
+.workspace-tab-commit,
+.workspace-tab-pr {
+  width: 18px;
+  height: 18px;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  border-radius: 3px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: all 0.15s;
+  margin-left: 4px;
+  padding: 0;
+}
+
+.workspace-tab:hover .workspace-tab-commit,
+.workspace-tab:hover .workspace-tab-pr {
+  opacity: 0.6;
+}
+
+.workspace-tab:hover .workspace-tab-commit:hover,
+.workspace-tab:hover .workspace-tab-pr:hover {
+  opacity: 1;
+  background: var(--accent);
+  color: #1e1e2e;
+}
+
 .workspace-tab-label {
   flex: 1;
   font-size: 12px;

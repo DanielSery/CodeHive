@@ -1,13 +1,14 @@
 const { ipcMain, dialog, shell } = require('electron');
 const vscode = require('./vscode-server');
 const { scanDirectory, checkClaudeActive, getCachedBranches, fetchAndListBranches, getGitUser, getWorktreeSourceBranch } = require('./repo-scanner');
-const { createWorktreePty, createClonePty, createDeletePty, createWorktreeRemovePty, createWorktreeSwitchPty } = require('./pty-manager');
+const { createWorktreePty, createClonePty, createDeletePty, createWorktreeRemovePty, createWorktreeSwitchPty, createClaudePty } = require('./pty-manager');
 
 let worktreePty = null;
 let clonePty = null;
 let deletePty = null;
 let worktreeRemovePty = null;
 let worktreeSwitchPty = null;
+let claudePty = null;
 
 function register(mainWindow, getServerPort) {
   ipcMain.handle('codeserver:openFolder', (event, folderPath) => {
@@ -99,6 +100,17 @@ function register(mainWindow, getServerPort) {
 
   ipcMain.on('worktreeSwitch:resize', (event, { cols, rows }) => {
     try { if (worktreeSwitchPty) worktreeSwitchPty.resize(cols, rows); } catch {}
+  });
+
+  // Claude PTY
+  ipcMain.handle('claude:start', (event, opts) => {
+    const result = createClaudePty(mainWindow, opts);
+    claudePty = result.proc;
+    return {};
+  });
+
+  ipcMain.on('claude:resize', (event, { cols, rows }) => {
+    try { if (claudePty) claudePty.resize(cols, rows); } catch {}
   });
 
   // Shell

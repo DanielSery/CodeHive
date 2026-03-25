@@ -240,4 +240,25 @@ function createWorktreeSwitchPty(mainWindow, { barePath, oldWtPath, branchName, 
   return { proc, wtPath: oldWtForGit, branchName, dirName };
 }
 
-module.exports = { createWorktreePty, createClonePty, createDeletePty, createWorktreeRemovePty, createWorktreeSwitchPty };
+function createClaudePty(mainWindow, { wtPath, prompt }) {
+  const cwd = path.resolve(wtPath);
+  const escaped = prompt.replace(/"/g, '\\"');
+  const cmd = `claude -p "${escaped}"`;
+  const proc = spawnPty(cmd, cwd);
+
+  proc.onData((data) => {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('claude:data', data);
+    }
+  });
+
+  proc.onExit(({ exitCode }) => {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('claude:exit', { exitCode, wtPath });
+    }
+  });
+
+  return { proc };
+}
+
+module.exports = { createWorktreePty, createClonePty, createDeletePty, createWorktreeRemovePty, createWorktreeSwitchPty, createClaudePty };
