@@ -1,6 +1,6 @@
-import { addRepoGroup, createWorktreeTab, registerWorktreeDialog, registerDeleteDialog, registerWorktreeRemoveDialog, registerWorktreeSwitchDialog, registerOnStateChange, removeRepoGroup, showTabCloseButton, showTabRemoveButton, getRepoOrder, getOpenWorktreePaths } from './sidebar.js';
+import { addRepoGroup, createWorktreeTab, registerWorktreeDialog, registerDeleteDialog, registerWorktreeRemoveDialog, registerWorktreeSwitchDialog, registerOnStateChange, removeRepoGroup, showTabCloseButton, showTabRemoveButton, getRepoOrder } from './sidebar.js';
 import { showWorktreeDialog, showCloneDialog, showDeleteDialog, showWorktreeRemoveDialog, showWorktreeSwitchDialog, registerSidebarFns, registerRemoveRepoGroup, registerOnCloneComplete, registerBranchCache } from './dialogs.js';
-import { cycleWorkspace, openWorktree, registerTabButtonFns } from './workspace-manager.js';
+import { cycleWorkspace, registerTabButtonFns } from './workspace-manager.js';
 
 // Wire cross-module dependencies (avoids circular imports)
 registerWorktreeDialog(showWorktreeDialog);
@@ -24,7 +24,6 @@ function saveState() {
   const state = {
     directories: prev.directories || [],
     repoOrder: getRepoOrder(),
-    openWorktrees: getOpenWorktreePaths(),
     branchCache: prev.branchCache || {}
   };
   localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
@@ -57,15 +56,6 @@ registerOnCloneComplete((reposDir) => {
   saveState();
 });
 
-// Save when workspaces are opened/closed (poll every 2s for simplicity)
-let _lastOpenPaths = '';
-setInterval(() => {
-  const current = JSON.stringify(getOpenWorktreePaths());
-  if (current !== _lastOpenPaths) {
-    _lastOpenPaths = current;
-    saveState();
-  }
-}, 2000);
 
 async function restoreState() {
   const raw = localStorage.getItem(STORAGE_KEY);
@@ -105,18 +95,6 @@ async function restoreState() {
 
   document.getElementById('btn-clone-repo').classList.add('visible');
 
-  // Re-open workspaces
-  if (state.openWorktrees && state.openWorktrees.length > 0) {
-    const openSet = new Set(state.openWorktrees.map(p => p.replace(/\\/g, '/')));
-    const tabs = document.querySelectorAll('.workspace-tab');
-    for (const tab of tabs) {
-      const normalized = tab._wtPath.replace(/\\/g, '/');
-      if (openSet.has(normalized)) {
-        const wt = { path: tab._wtPath, branch: tab._wtBranch, name: tab._wtPath.split(/[\\/]/).pop() };
-        await openWorktree(tab, wt);
-      }
-    }
-  }
 }
 
 // ===== Open Directory =====
