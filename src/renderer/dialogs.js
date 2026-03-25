@@ -544,22 +544,16 @@ async function showWorktreeSwitchDialog(tabEl, groupEl) {
 
   wtSwitchDialogOverlay.classList.add('visible');
 
-  // Determine current source branch from the worktree's branch name
-  // The wt branch is stored as e.g. "dsery/feature-name"
-  // We try to find if the base branch name (before the /) matches a remote branch
   const wtBranch = tabEl._wtBranch || '';
 
-  const [cached, user] = await Promise.all([
+  const [cached, user, sourceBranch] = await Promise.all([
     window.reposAPI.cachedBranches(groupEl._barePath),
-    window.reposAPI.gitUser(groupEl._barePath)
+    window.reposAPI.gitUser(groupEl._barePath),
+    window.reposAPI.worktreeSourceBranch(groupEl._barePath, wtBranch)
   ]);
   wtSwitchGitUser = user || 'user';
 
-  // Try to preselect the source branch - check if the full branch name exists as remote
-  let preselect = null;
-  if (cached.includes(wtBranch)) {
-    preselect = wtBranch;
-  }
+  let preselect = sourceBranch || null;
 
   if (cached.length > 0) {
     applySwitchBranches(cached, preselect);
@@ -570,11 +564,7 @@ async function showWorktreeSwitchDialog(tabEl, groupEl) {
   window.reposAPI.fetchBranches(groupEl._barePath).then((fetched) => {
     if (!wtSwitchDialogOverlay.classList.contains('visible')) return;
     if (wtSwitchGroupEl !== groupEl) return;
-    let pre = preselect;
-    if (!pre && fetched.includes(wtBranch)) {
-      pre = wtBranch;
-    }
-    applySwitchBranches(fetched, pre);
+    applySwitchBranches(fetched, preselect);
     if (wtSwitchBranchList.classList.contains('open')) {
       renderSwitchBranchList(wtSwitchBranchSearch.value);
     }
