@@ -188,7 +188,6 @@ async function confirmCreateWorktree() {
   showTerminal(`Creating worktree: ${branchName}`);
   const xterm = createTerminal();
 
-  window.worktreeAPI.resize(xterm.cols, xterm.rows);
 
   window.worktreeAPI.removeListeners();
   window.worktreeAPI.onData((data) => {
@@ -336,7 +335,6 @@ async function startClone() {
   showTerminal(`Cloning ${repoName}...`);
   const xterm = createTerminal();
 
-  window.cloneAPI.resize(xterm.cols, xterm.rows);
 
   window.cloneAPI.removeListeners();
   window.cloneAPI.onData((data) => {
@@ -419,7 +417,6 @@ async function confirmDeleteRepo() {
   showTerminal(`Deleting ${repoName}...`);
   const xterm = createTerminal();
 
-  window.deleteAPI.resize(xterm.cols, xterm.rows);
 
   window.deleteAPI.removeListeners();
   window.deleteAPI.onData((data) => {
@@ -490,7 +487,6 @@ async function confirmRemoveWorktree() {
   showTerminal(`Removing worktree: ${branchLabel}`);
   const xterm = createTerminal();
 
-  window.worktreeRemoveAPI.resize(xterm.cols, xterm.rows);
 
   window.worktreeRemoveAPI.removeListeners();
   window.worktreeRemoveAPI.onData((data) => {
@@ -685,7 +681,6 @@ async function confirmSwitchWorktree() {
   showTerminal(`Switching worktree: ${branchName}`);
   const xterm = createTerminal();
 
-  window.worktreeSwitchAPI.resize(xterm.cols, xterm.rows);
 
   window.worktreeSwitchAPI.removeListeners();
   window.worktreeSwitchAPI.onData((data) => {

@@ -137,11 +137,6 @@ sidebarTab.addEventListener('click', toggleTerminal);
 window.addEventListener('resize', () => {
   if (!isActive()) return;
   fit();
-  if (xterm) {
-    window.cloneAPI.resize(xterm.cols, xterm.rows);
-    window.worktreeAPI.resize(xterm.cols, xterm.rows);
-    window.deleteAPI.resize(xterm.cols, xterm.rows);
-  }
 });
 
 export { createTerminal, showTerminal, showCloseButton, setTitle, deactivateTerminalTab, closeTerminal, getXterm, fit };
