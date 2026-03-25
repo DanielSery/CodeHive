@@ -5,40 +5,43 @@ const { spawn, execSync } = require('child_process');
 const shell = process.platform === 'win32' ? 'cmd.exe' : '/bin/bash';
 
 function spawnProc(cmd, cwd) {
-  const proc = spawn(cmd, [], {
-    cwd,
-    env: process.env,
-    shell: true,
-    stdio: ['pipe', 'pipe', 'pipe']
-  });
-
-  // Provide node-pty compatible interface
   const listeners = { data: [], exit: [] };
 
-  proc.stdout.on('data', (data) => {
-    const str = data.toString().replace(/\r?\n/g, '\r\n');
-    for (const cb of listeners.data) cb(str);
-  });
+  // Delay spawn to next tick so callers can attach listeners first
+  let proc = null;
+  process.nextTick(() => {
+    proc = spawn(cmd, [], {
+      cwd,
+      env: process.env,
+      shell: true,
+      stdio: ['pipe', 'pipe', 'pipe']
+    });
 
-  proc.stderr.on('data', (data) => {
-    const str = data.toString().replace(/\r?\n/g, '\r\n');
-    for (const cb of listeners.data) cb(str);
-  });
+    proc.stdout.on('data', (data) => {
+      const str = data.toString().replace(/\r?\n/g, '\r\n');
+      for (const cb of listeners.data) cb(str);
+    });
 
-  proc.on('close', (code) => {
-    for (const cb of listeners.exit) cb({ exitCode: code || 0 });
-  });
+    proc.stderr.on('data', (data) => {
+      const str = data.toString().replace(/\r?\n/g, '\r\n');
+      for (const cb of listeners.data) cb(str);
+    });
 
-  proc.on('error', (err) => {
-    for (const cb of listeners.data) cb(`Error: ${err.message}\r\n`);
-    for (const cb of listeners.exit) cb({ exitCode: 1 });
+    proc.on('close', (code) => {
+      for (const cb of listeners.exit) cb({ exitCode: code || 0 });
+    });
+
+    proc.on('error', (err) => {
+      for (const cb of listeners.data) cb(`Error: ${err.message}\r\n`);
+      for (const cb of listeners.exit) cb({ exitCode: 1 });
+    });
   });
 
   return {
     onData: (cb) => listeners.data.push(cb),
     onExit: (cb) => listeners.exit.push(cb),
-    resize: () => {}, // no-op without PTY
-    kill: () => proc.kill()
+    resize: () => {},
+    kill: () => { if (proc) proc.kill(); }
   };
 }
 
