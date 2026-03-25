@@ -22,7 +22,21 @@ function register(mainWindow, getServerPort) {
     return result.filePaths[0];
   });
 
-  ipcMain.handle('repos:scanDirectory', (event, dirPath) => {
+  ipcMain.handle('repos:scanDirectory', async (event, dirPath) => {
+    if (!vscode.isTrustedFolder(dirPath)) {
+      const { response } = await dialog.showMessageBox(mainWindow, {
+        type: 'question',
+        buttons: ['Trust', 'Don\'t Trust'],
+        defaultId: 0,
+        cancelId: 1,
+        title: 'Trust Folder',
+        message: `Do you trust the authors of the files in this folder?\n\n${dirPath}`,
+        detail: 'Trusting a folder allows VS Code extensions to run with full functionality for workspaces inside it.'
+      });
+      if (response === 0) {
+        await vscode.seedTrustedFolders([dirPath]);
+      }
+    }
     return scanDirectory(dirPath);
   });
 
@@ -50,9 +64,7 @@ function register(mainWindow, getServerPort) {
     return { wtPath: result.wtPath, branchName: result.branchName, dirName: result.dirName };
   });
 
-  ipcMain.on('worktree:resize', (event, { cols, rows }) => {
-    try { if (worktreePty) worktreePty.resize(cols, rows); } catch {}
-  });
+  ipcMain.on('worktree:ready', () => { if (worktreePty) worktreePty.flush(); });
 
   // Clone PTY
   ipcMain.handle('clone:start', (event, { url, reposDir }) => {
@@ -61,9 +73,7 @@ function register(mainWindow, getServerPort) {
     return { repoName: result.repoName, repoDir: result.repoDir, bareDir: result.bareDir };
   });
 
-  ipcMain.on('clone:resize', (event, { cols, rows }) => {
-    try { if (clonePty) clonePty.resize(cols, rows); } catch {}
-  });
+  ipcMain.on('clone:ready', () => { if (clonePty) clonePty.flush(); });
 
   // Delete PTY
   ipcMain.handle('delete:start', (event, { repoDir }) => {
@@ -72,9 +82,7 @@ function register(mainWindow, getServerPort) {
     return {};
   });
 
-  ipcMain.on('delete:resize', (event, { cols, rows }) => {
-    try { if (deletePty) deletePty.resize(cols, rows); } catch {}
-  });
+  ipcMain.on('delete:ready', () => { if (deletePty) deletePty.flush(); });
 
   // Worktree Remove PTY
   ipcMain.handle('worktreeRemove:start', (event, opts) => {
@@ -83,9 +91,7 @@ function register(mainWindow, getServerPort) {
     return {};
   });
 
-  ipcMain.on('worktreeRemove:resize', (event, { cols, rows }) => {
-    try { if (worktreeRemovePty) worktreeRemovePty.resize(cols, rows); } catch {}
-  });
+  ipcMain.on('worktreeRemove:ready', () => { if (worktreeRemovePty) worktreeRemovePty.flush(); });
 
   // Worktree Switch PTY
   ipcMain.handle('worktreeSwitch:start', (event, opts) => {
@@ -94,9 +100,7 @@ function register(mainWindow, getServerPort) {
     return { wtPath: result.wtPath, branchName: result.branchName, dirName: result.dirName };
   });
 
-  ipcMain.on('worktreeSwitch:resize', (event, { cols, rows }) => {
-    try { if (worktreeSwitchPty) worktreeSwitchPty.resize(cols, rows); } catch {}
-  });
+  ipcMain.on('worktreeSwitch:ready', () => { if (worktreeSwitchPty) worktreeSwitchPty.flush(); });
 
   // Shell
   ipcMain.handle('shell:openInExplorer', (event, folderPath) => {

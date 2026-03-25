@@ -232,6 +232,7 @@ async function confirmCreateWorktree() {
       dirName,
       sourceBranch: wtSelectedBranch
     });
+    window.worktreeAPI.ready();
   } catch (err) {
     xterm.writeln(`\x1b[31m${err.message || err}\x1b[0m`);
     setTitle(`Worktree creation failed`);
@@ -366,6 +367,7 @@ async function startClone() {
 
   try {
     await window.cloneAPI.start(url, reposDir);
+    window.cloneAPI.ready();
   } catch (err) {
     xterm.writeln(`\x1b[31m${err.message || err}\x1b[0m`);
     setTitle(`Clone failed: ${repoName}`);
@@ -441,6 +443,7 @@ async function confirmDeleteRepo() {
 
   try {
     await window.deleteAPI.start(groupEl._repoDir);
+    window.deleteAPI.ready();
   } catch (err) {
     xterm.writeln(`\x1b[31m${err.message || err}\x1b[0m`);
     setTitle(`Delete failed: ${repoName}`);
@@ -516,6 +519,7 @@ async function confirmRemoveWorktree() {
       barePath: groupEl._barePath,
       wtPath
     });
+    window.worktreeRemoveAPI.ready();
   } catch (err) {
     xterm.writeln(`\x1b[31m${err.message || err}\x1b[0m`);
     setTitle(`Worktree removal failed`);
@@ -728,6 +732,7 @@ async function confirmSwitchWorktree() {
       branchName,
       sourceBranch: wtSwitchSelectedBranch
     });
+    window.worktreeSwitchAPI.ready();
   } catch (err) {
     xterm.writeln(`\x1b[31m${err.message || err}\x1b[0m`);
     setTitle(`Worktree switch failed`);

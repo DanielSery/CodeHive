@@ -15,9 +15,9 @@ contextBridge.exposeInMainWorld('reposAPI', {
 
 contextBridge.exposeInMainWorld('worktreeAPI', {
   start: (opts) => ipcRenderer.invoke('worktree:start', opts),
+  ready: () => ipcRenderer.send('worktree:ready'),
   onData: (cb) => ipcRenderer.on('worktree:data', (_, data) => cb(data)),
   onExit: (cb) => ipcRenderer.on('worktree:exit', (_, info) => cb(info)),
-  resize: (cols, rows) => ipcRenderer.send('worktree:resize', { cols, rows }),
   removeListeners: () => {
     ipcRenderer.removeAllListeners('worktree:data');
     ipcRenderer.removeAllListeners('worktree:exit');
@@ -26,9 +26,9 @@ contextBridge.exposeInMainWorld('worktreeAPI', {
 
 contextBridge.exposeInMainWorld('cloneAPI', {
   start: (url, reposDir) => ipcRenderer.invoke('clone:start', { url, reposDir }),
+  ready: () => ipcRenderer.send('clone:ready'),
   onData: (cb) => ipcRenderer.on('clone:data', (_, data) => cb(data)),
   onExit: (cb) => ipcRenderer.on('clone:exit', (_, info) => cb(info)),
-  resize: (cols, rows) => ipcRenderer.send('clone:resize', { cols, rows }),
   removeListeners: () => {
     ipcRenderer.removeAllListeners('clone:data');
     ipcRenderer.removeAllListeners('clone:exit');
@@ -37,9 +37,9 @@ contextBridge.exposeInMainWorld('cloneAPI', {
 
 contextBridge.exposeInMainWorld('deleteAPI', {
   start: (repoDir) => ipcRenderer.invoke('delete:start', { repoDir }),
+  ready: () => ipcRenderer.send('delete:ready'),
   onData: (cb) => ipcRenderer.on('delete:data', (_, data) => cb(data)),
   onExit: (cb) => ipcRenderer.on('delete:exit', (_, info) => cb(info)),
-  resize: (cols, rows) => ipcRenderer.send('delete:resize', { cols, rows }),
   removeListeners: () => {
     ipcRenderer.removeAllListeners('delete:data');
     ipcRenderer.removeAllListeners('delete:exit');
@@ -48,9 +48,9 @@ contextBridge.exposeInMainWorld('deleteAPI', {
 
 contextBridge.exposeInMainWorld('worktreeRemoveAPI', {
   start: (opts) => ipcRenderer.invoke('worktreeRemove:start', opts),
+  ready: () => ipcRenderer.send('worktreeRemove:ready'),
   onData: (cb) => ipcRenderer.on('worktreeRemove:data', (_, data) => cb(data)),
   onExit: (cb) => ipcRenderer.on('worktreeRemove:exit', (_, info) => cb(info)),
-  resize: (cols, rows) => ipcRenderer.send('worktreeRemove:resize', { cols, rows }),
   removeListeners: () => {
     ipcRenderer.removeAllListeners('worktreeRemove:data');
     ipcRenderer.removeAllListeners('worktreeRemove:exit');
@@ -59,9 +59,9 @@ contextBridge.exposeInMainWorld('worktreeRemoveAPI', {
 
 contextBridge.exposeInMainWorld('worktreeSwitchAPI', {
   start: (opts) => ipcRenderer.invoke('worktreeSwitch:start', opts),
+  ready: () => ipcRenderer.send('worktreeSwitch:ready'),
   onData: (cb) => ipcRenderer.on('worktreeSwitch:data', (_, data) => cb(data)),
   onExit: (cb) => ipcRenderer.on('worktreeSwitch:exit', (_, info) => cb(info)),
-  resize: (cols, rows) => ipcRenderer.send('worktreeSwitch:resize', { cols, rows }),
   removeListeners: () => {
     ipcRenderer.removeAllListeners('worktreeSwitch:data');
     ipcRenderer.removeAllListeners('worktreeSwitch:exit');

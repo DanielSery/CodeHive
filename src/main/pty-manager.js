@@ -5,43 +5,65 @@ const { spawn, execSync } = require('child_process');
 const shell = process.platform === 'win32' ? 'cmd.exe' : '/bin/bash';
 
 function spawnProc(cmd, cwd) {
+  const buffer = [];
+  let exitInfo = null;
+  let ready = false;
   const listeners = { data: [], exit: [] };
 
-  // Delay spawn to next tick so callers can attach listeners first
-  let proc = null;
-  process.nextTick(() => {
-    proc = spawn(cmd, [], {
-      cwd,
-      env: process.env,
-      shell: true,
-      stdio: ['pipe', 'pipe', 'pipe']
-    });
+  const proc = spawn(cmd, [], {
+    cwd,
+    env: process.env,
+    shell: true,
+    stdio: ['pipe', 'pipe', 'pipe']
+  });
 
-    proc.stdout.on('data', (data) => {
-      const str = data.toString().replace(/\r?\n/g, '\r\n');
+  proc.stdout.on('data', (data) => {
+    const str = data.toString().replace(/\r?\n/g, '\r\n');
+    if (ready) {
       for (const cb of listeners.data) cb(str);
-    });
+    } else {
+      buffer.push(str);
+    }
+  });
 
-    proc.stderr.on('data', (data) => {
-      const str = data.toString().replace(/\r?\n/g, '\r\n');
+  proc.stderr.on('data', (data) => {
+    const str = data.toString().replace(/\r?\n/g, '\r\n');
+    if (ready) {
       for (const cb of listeners.data) cb(str);
-    });
+    } else {
+      buffer.push(str);
+    }
+  });
 
-    proc.on('close', (code) => {
-      for (const cb of listeners.exit) cb({ exitCode: code || 0 });
-    });
+  proc.on('close', (code) => {
+    const info = { exitCode: code || 0 };
+    if (ready) {
+      for (const cb of listeners.exit) cb(info);
+    } else {
+      exitInfo = info;
+    }
+  });
 
-    proc.on('error', (err) => {
-      for (const cb of listeners.data) cb(`Error: ${err.message}\r\n`);
-      for (const cb of listeners.exit) cb({ exitCode: 1 });
-    });
+  proc.on('error', (err) => {
+    buffer.push(`Error: ${err.message}\r\n`);
+    exitInfo = { exitCode: 1 };
   });
 
   return {
     onData: (cb) => listeners.data.push(cb),
     onExit: (cb) => listeners.exit.push(cb),
+    flush: () => {
+      ready = true;
+      for (const str of buffer) {
+        for (const cb of listeners.data) cb(str);
+      }
+      buffer.length = 0;
+      if (exitInfo) {
+        for (const cb of listeners.exit) cb(exitInfo);
+      }
+    },
     resize: () => {},
-    kill: () => { if (proc) proc.kill(); }
+    kill: () => proc.kill()
   };
 }
 
