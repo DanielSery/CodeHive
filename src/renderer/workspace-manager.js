@@ -32,6 +32,19 @@ async function openWorktree(tabEl, wt) {
   webview.setAttribute('disableblinkfeatures', 'Auxclick');
   editorArea.appendChild(webview);
 
+  // Suppress popups that navigate to external URLs (e.g. Azure CDN 404s when opening diffs)
+  webview.addEventListener('new-window', (e) => {
+    const popupUrl = e.url || '';
+    // Allow local VS Code server URLs to open inside the webview
+    if (popupUrl.startsWith(`http://127.0.0.1:`)) {
+      e.preventDefault();
+      webview.loadURL(popupUrl);
+      return;
+    }
+    // Block all other popups (external CDN requests that cause 404 errors)
+    e.preventDefault();
+  });
+
   webview.addEventListener('did-finish-load', () => {
     webview.insertCSS(`
       .activitybar .actions-container .action-item {
