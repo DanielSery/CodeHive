@@ -304,6 +304,15 @@ let _contextMenuTabEl = null;
 function showContextMenu(x, y, tabEl) {
   hideProjectContextMenu();
   _contextMenuTabEl = tabEl;
+
+  const isOpen = tabEl._workspaceId !== null;
+  contextMenu.querySelector('[data-action="close-editor"]').style.display = isOpen ? '' : 'none';
+  contextMenu.querySelector('[data-action="switch"]').style.display = isOpen ? 'none' : '';
+  contextMenu.querySelector('[data-action="remove"]').style.display = isOpen ? 'none' : '';
+  // Hide separator when editor is open (no danger items shown)
+  const sep = contextMenu.querySelector('.context-menu-separator');
+  if (sep) sep.style.display = isOpen ? 'none' : '';
+
   contextMenu.style.left = x + 'px';
   contextMenu.style.top = y + 'px';
   contextMenu.classList.add('visible');
@@ -339,6 +348,10 @@ contextMenu.addEventListener('click', (e) => {
 
   if (action === 'open-explorer') {
     window.shellAPI.openInExplorer(tabEl._wtPath);
+  } else if (action === 'close-editor') {
+    if (tabEl._workspaceId !== null) {
+      closeWorkspace(tabEl._workspaceId);
+    }
   } else if (action === 'switch') {
     if (_showWorktreeSwitchDialog) {
       const groupEl = tabEl.closest('.repo-group');
