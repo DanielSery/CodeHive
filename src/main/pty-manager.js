@@ -221,8 +221,9 @@ function createWorktreeSwitchPty(mainWindow, { barePath, oldWtPath, branchName, 
   const dirName = path.basename(oldWtPath);
 
   // Run checkout from within the worktree directory to avoid cmd.exe quoting issues with git -C
+  const cwd = path.resolve(oldWtPath);
   const cmd = `git checkout -B ${branchName} ${startPoint}`;
-  const proc = spawnPty(cmd, oldWtPath);
+  const proc = spawnPty(cmd, cwd);
 
   proc.onData((data) => {
     if (mainWindow && !mainWindow.isDestroyed()) {
