@@ -7,7 +7,7 @@ const REQUIRED_EXTENSIONS = [
   'Catppuccin.catppuccin-vsc',
   'Catppuccin.catppuccin-vsc-icons',
   'anthropic.claude-code',
-  'ms-dotnettools.csharp'
+  'ms-dotnettools.csdevkit'
 ];
 
 const SERVER_DATA_DIR = path.join(__dirname, '..', '..', 'vscode-data');
