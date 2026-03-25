@@ -39,13 +39,13 @@ function seedDefaultSettings() {
 }
 
 function findPort(startPort) {
-  return new Promise((resolve) => {
+  return new Promise((resolve, reject) => {
     const server = net.createServer();
     server.listen(startPort, '127.0.0.1', () => {
       server.close(() => resolve(startPort));
     });
     server.on('error', () => {
-      resolve(findPort(startPort + 1));
+      reject(new Error(`Port ${startPort} is already in use`));
     });
   });
 }
@@ -99,23 +99,23 @@ function installExtensions(sendStatus) {
   });
 }
 
-function isTrustedFolder(folderPath) {
+function isTrustedFolder(folderPath, port) {
   const dbPath = path.join(getServerDataDir(), 'data', 'User', 'globalStorage', 'state.vscdb');
   if (!fs.existsSync(dbPath)) return false;
 
   try {
-    const initSqlJs = require('sql.js');
-    // sql.js init is async, but we cache the check with a sync file read + parse
     const data = fs.readFileSync(dbPath);
-    // Use a simple regex check on the raw DB bytes for the normalized path
-    const normalized = '/' + folderPath.replace(/\\/g, '/');
-    return data.toString().includes(normalized);
+    let normalized = folderPath.replace(/\\/g, '/');
+    if (/^[A-Za-z]:/.test(normalized)) normalized = '/' + normalized;
+    // Check for the vscode-remote trust entry with the correct authority
+    const content = data.toString();
+    return content.includes(`localhost:${port}`) && content.includes(normalized);
   } catch {
     return false;
   }
 }
 
-async function seedTrustedFolders(trustedPaths) {
+async function seedTrustedFolders(trustedPaths, port) {
   const initSqlJs = require('sql.js');
   const stateDir = path.join(getServerDataDir(), 'data', 'User', 'globalStorage');
   const dbPath = path.join(stateDir, 'state.vscdb');
@@ -136,15 +136,16 @@ async function seedTrustedFolders(trustedPaths) {
     try { existing = JSON.parse(rows[0].values[0][0]).uriTrustInfo || []; } catch {}
   }
 
+  const authority = `localhost:${port}`;
   const newEntries = trustedPaths.map(p => {
-    const normalized = p.replace(/\\/g, '/');
-    const lower = normalized.toLowerCase();
+    let normalized = p.replace(/\\/g, '/');
+    if (/^[A-Za-z]:/.test(normalized)) normalized = '/' + normalized;
     return {
       uri: {
         $mid: 1,
-        external: `file:///${encodeURI(lower).replace(/%3A/i, ':')}`,
-        path: `/${normalized}`,
-        scheme: 'file'
+        path: normalized,
+        scheme: 'vscode-remote',
+        authority
       },
       trusted: true
     };
