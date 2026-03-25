@@ -1,16 +1,52 @@
 {
-  "name": "electron-terminal",
-  "version": "1.0.0",
-  "description": "CodeHive - VS Code workspace manager",
+  "name": "codehive",
+  "version": "0.1.0",
+  "description": "CodeHive - VS Code workspace manager with bare repo/worktree workflow",
   "main": "src/main/main.js",
   "scripts": {
     "start": "electron .",
-    "dev": "electron . --dev"
+    "dev": "electron . --dev",
+    "build": "electron-builder --win",
+    "build:portable": "electron-builder --win portable"
+  },
+  "build": {
+    "appId": "com.codehive.app",
+    "productName": "CodeHive",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "src/**/*",
+      "index.html",
+      "styles.css",
+      "node_modules/**/*",
+      "vscode-data/**/*",
+      "CodeHive.ico"
+    ],
+    "win": {
+      "target": [
+        "nsis",
+        "portable"
+      ],
+      "icon": "CodeHive.ico"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "installerIcon": "CodeHive.ico",
+      "uninstallerIcon": "CodeHive.ico"
+    },
+    "portable": {
+      "artifactName": "CodeHive-${version}-portable.exe"
+    }
   },
   "dependencies": {
     "@xterm/addon-fit": "^0.11.0",
     "@xterm/xterm": "^6.0.0",
-    "electron": "^33.0.0",
     "sql.js": "^1.14.1"
+  },
+  "devDependencies": {
+    "electron": "^33.0.0",
+    "electron-builder": "^26.8.1"
   }
 }
