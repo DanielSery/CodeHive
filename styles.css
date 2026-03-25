@@ -817,7 +817,8 @@ html, body {
 }
 
 .combobox-item:hover,
-.combobox-item.selected {
+.combobox-item.selected,
+.combobox-item.highlighted {
   background: var(--tab-active-bg);
 }
 

@@ -23,6 +23,7 @@ let wtSelectedBranch = null;
 let wtCurrentGroupEl = null;
 let wtCurrentTabsEl = null;
 let wtGitUser = '';
+let wtHighlightIndex = -1;
 
 function nameToSlug(name) {
   return name.trim().replace(/\s+/g, '-').substring(0, 15);
@@ -50,29 +51,46 @@ function updateWtPreview() {
   wtPreview.textContent = `Branch: ${branch}  |  Dir: ${slug}`;
 }
 
+function getFilteredBranches() {
+  const q = (wtBranchSearch.value || '').toLowerCase();
+  return wtAllBranches.filter(b => b.toLowerCase().includes(q));
+}
+
 function renderBranchList(filter) {
   wtBranchList.innerHTML = '';
   const q = (filter || '').toLowerCase();
   const filtered = wtAllBranches.filter(b => b.toLowerCase().includes(q));
   if (filtered.length === 0) {
     wtBranchList.classList.remove('open');
+    wtHighlightIndex = -1;
     return;
   }
-  for (const b of filtered) {
+  filtered.forEach((b, i) => {
     const item = document.createElement('div');
     item.className = 'combobox-item';
     if (b === wtSelectedBranch) item.classList.add('selected');
+    if (i === wtHighlightIndex) item.classList.add('highlighted');
     item.textContent = b;
     item.addEventListener('mousedown', (e) => {
       e.preventDefault();
-      wtSelectedBranch = b;
-      wtBranchSearch.value = b;
-      wtBranchList.classList.remove('open');
-      updateWtPreview();
+      selectWtBranch(b);
     });
     wtBranchList.appendChild(item);
-  }
+  });
   wtBranchList.classList.add('open');
+}
+
+function selectWtBranch(b) {
+  wtSelectedBranch = b;
+  wtBranchSearch.value = b;
+  wtBranchList.classList.remove('open');
+  wtHighlightIndex = -1;
+  updateWtPreview();
+}
+
+function scrollHighlightedIntoView(listEl) {
+  const el = listEl.querySelector('.highlighted');
+  if (el) el.scrollIntoView({ block: 'nearest' });
 }
 
 function applyBranches(branches) {
@@ -210,28 +228,52 @@ async function confirmCreateWorktree() {
 // Worktree dialog event listeners
 wtBranchSearch.addEventListener('input', () => {
   wtSelectedBranch = null;
+  wtHighlightIndex = -1;
   renderBranchList(wtBranchSearch.value);
 });
 
 wtBranchSearch.addEventListener('focus', () => {
-  renderBranchList(wtBranchSearch.value);
+  wtBranchSearch.value = '';
+  wtHighlightIndex = -1;
+  renderBranchList('');
 });
 
 wtBranchSearch.addEventListener('blur', () => {
-  setTimeout(() => wtBranchList.classList.remove('open'), 200);
+  setTimeout(() => {
+    wtBranchList.classList.remove('open');
+    if (wtSelectedBranch) wtBranchSearch.value = wtSelectedBranch;
+  }, 200);
 });
 
 document.querySelector('#worktree-dialog-overlay .combobox-arrow').addEventListener('click', () => {
   if (wtBranchList.classList.contains('open')) {
     wtBranchList.classList.remove('open');
   } else {
-    renderBranchList(wtBranchSearch.value);
+    wtBranchSearch.value = '';
+    wtHighlightIndex = -1;
+    renderBranchList('');
     wtBranchSearch.focus();
   }
 });
 
 wtBranchSearch.addEventListener('keydown', (e) => {
-  if (e.key === 'Escape') hideWorktreeDialog();
+  if (e.key === 'Escape') { hideWorktreeDialog(); return; }
+  const filtered = getFilteredBranches();
+  if (e.key === 'ArrowDown') {
+    e.preventDefault();
+    wtHighlightIndex = Math.min(wtHighlightIndex + 1, filtered.length - 1);
+    renderBranchList(wtBranchSearch.value);
+    scrollHighlightedIntoView(wtBranchList);
+  } else if (e.key === 'ArrowUp') {
+    e.preventDefault();
+    wtHighlightIndex = Math.max(wtHighlightIndex - 1, 0);
+    renderBranchList(wtBranchSearch.value);
+    scrollHighlightedIntoView(wtBranchList);
+  } else if (e.key === 'Enter' && wtHighlightIndex >= 0 && wtHighlightIndex < filtered.length) {
+    e.preventDefault();
+    selectWtBranch(filtered[wtHighlightIndex]);
+    wtNameInput.focus();
+  }
 });
 
 wtNameInput.addEventListener('input', updateWtPreview);
@@ -486,6 +528,7 @@ let wtSwitchSelectedBranch = null;
 let wtSwitchTabEl = null;
 let wtSwitchGroupEl = null;
 let wtSwitchGitUser = '';
+let wtSwitchHighlightIndex = -1;
 
 function updateWtSwitchPreview() {
   const name = wtSwitchNameInput.value.trim();
@@ -497,29 +540,41 @@ function updateWtSwitchPreview() {
   wtSwitchPreview.textContent = `Branch: ${branch}`;
 }
 
+function getSwitchFilteredBranches() {
+  const q = (wtSwitchBranchSearch.value || '').toLowerCase();
+  return wtSwitchAllBranches.filter(b => b.toLowerCase().includes(q));
+}
+
 function renderSwitchBranchList(filter) {
   wtSwitchBranchList.innerHTML = '';
   const q = (filter || '').toLowerCase();
   const filtered = wtSwitchAllBranches.filter(b => b.toLowerCase().includes(q));
   if (filtered.length === 0) {
     wtSwitchBranchList.classList.remove('open');
+    wtSwitchHighlightIndex = -1;
     return;
   }
-  for (const b of filtered) {
+  filtered.forEach((b, i) => {
     const item = document.createElement('div');
     item.className = 'combobox-item';
     if (b === wtSwitchSelectedBranch) item.classList.add('selected');
+    if (i === wtSwitchHighlightIndex) item.classList.add('highlighted');
     item.textContent = b;
     item.addEventListener('mousedown', (e) => {
       e.preventDefault();
-      wtSwitchSelectedBranch = b;
-      wtSwitchBranchSearch.value = b;
-      wtSwitchBranchList.classList.remove('open');
-      updateWtSwitchPreview();
+      selectWtSwitchBranch(b);
     });
     wtSwitchBranchList.appendChild(item);
-  }
+  });
   wtSwitchBranchList.classList.add('open');
+}
+
+function selectWtSwitchBranch(b) {
+  wtSwitchSelectedBranch = b;
+  wtSwitchBranchSearch.value = b;
+  wtSwitchBranchList.classList.remove('open');
+  wtSwitchHighlightIndex = -1;
+  updateWtSwitchPreview();
 }
 
 function applySwitchBranches(branches, preselect) {
@@ -664,28 +719,52 @@ async function confirmSwitchWorktree() {
 // Switch dialog event listeners
 wtSwitchBranchSearch.addEventListener('input', () => {
   wtSwitchSelectedBranch = null;
+  wtSwitchHighlightIndex = -1;
   renderSwitchBranchList(wtSwitchBranchSearch.value);
 });
 
 wtSwitchBranchSearch.addEventListener('focus', () => {
-  renderSwitchBranchList(wtSwitchBranchSearch.value);
+  wtSwitchBranchSearch.value = '';
+  wtSwitchHighlightIndex = -1;
+  renderSwitchBranchList('');
 });
 
 wtSwitchBranchSearch.addEventListener('blur', () => {
-  setTimeout(() => wtSwitchBranchList.classList.remove('open'), 200);
+  setTimeout(() => {
+    wtSwitchBranchList.classList.remove('open');
+    if (wtSwitchSelectedBranch) wtSwitchBranchSearch.value = wtSwitchSelectedBranch;
+  }, 200);
 });
 
 document.querySelector('#wt-switch-combobox .combobox-arrow').addEventListener('click', () => {
   if (wtSwitchBranchList.classList.contains('open')) {
     wtSwitchBranchList.classList.remove('open');
   } else {
-    renderSwitchBranchList(wtSwitchBranchSearch.value);
+    wtSwitchBranchSearch.value = '';
+    wtSwitchHighlightIndex = -1;
+    renderSwitchBranchList('');
     wtSwitchBranchSearch.focus();
   }
 });
 
 wtSwitchBranchSearch.addEventListener('keydown', (e) => {
-  if (e.key === 'Escape') hideWorktreeSwitchDialog();
+  if (e.key === 'Escape') { hideWorktreeSwitchDialog(); return; }
+  const filtered = getSwitchFilteredBranches();
+  if (e.key === 'ArrowDown') {
+    e.preventDefault();
+    wtSwitchHighlightIndex = Math.min(wtSwitchHighlightIndex + 1, filtered.length - 1);
+    renderSwitchBranchList(wtSwitchBranchSearch.value);
+    scrollHighlightedIntoView(wtSwitchBranchList);
+  } else if (e.key === 'ArrowUp') {
+    e.preventDefault();
+    wtSwitchHighlightIndex = Math.max(wtSwitchHighlightIndex - 1, 0);
+    renderSwitchBranchList(wtSwitchBranchSearch.value);
+    scrollHighlightedIntoView(wtSwitchBranchList);
+  } else if (e.key === 'Enter' && wtSwitchHighlightIndex >= 0 && wtSwitchHighlightIndex < filtered.length) {
+    e.preventDefault();
+    selectWtSwitchBranch(filtered[wtSwitchHighlightIndex]);
+    wtSwitchNameInput.focus();
+  }
 });
 
 wtSwitchNameInput.addEventListener('input', updateWtSwitchPreview);
