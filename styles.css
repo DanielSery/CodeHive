@@ -302,19 +302,9 @@ html, body {
 }
 
 .sidebar-terminal-tab.active {
-  color: var(--accent);
-}
-
-.sidebar-terminal-tab.has-output {
-  color: var(--yellow);
-}
-
-.sidebar-terminal-tab.has-output.success {
-  color: var(--green);
-}
-
-.sidebar-terminal-tab.has-output.error {
-  color: var(--red);
+  color: var(--text);
+  border-left: 2px solid var(--accent);
+  padding-left: 10px;
 }
 
 /* Repo groups */

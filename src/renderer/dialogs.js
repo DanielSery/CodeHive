@@ -1,5 +1,5 @@
 import { openWorktree } from './workspace-manager.js';
-import { createTerminal, showTerminal, showCloseButton, setTitle, setTerminalStatus, closeTerminal } from './terminal-panel.js';
+import { createTerminal, showTerminal, showCloseButton, setTitle, closeTerminal } from './terminal-panel.js';
 
 // Injected by renderer.js to avoid circular dependency
 let _addRepoGroup = null;
@@ -186,7 +186,7 @@ async function confirmCreateWorktree() {
       xterm.writeln('');
       xterm.writeln(`\x1b[31mWorktree creation failed with exit code ${exitCode}\x1b[0m`);
       setTitle(`Worktree creation failed`);
-      setTerminalStatus('error');
+
       showCloseButton();
     }
   });
@@ -290,7 +290,7 @@ async function startClone() {
       xterm.writeln('');
       xterm.writeln('\x1b[32mRepository cloned successfully!\x1b[0m');
       setTitle(`Clone complete: ${name}`);
-      setTerminalStatus('success');
+
 
       const repos = await window.reposAPI.scanDirectory(rDir);
       const newRepo = repos.find(r => r.name === name);
@@ -301,7 +301,7 @@ async function startClone() {
       xterm.writeln('');
       xterm.writeln(`\x1b[31mClone failed with exit code ${exitCode}\x1b[0m`);
       setTitle(`Clone failed: ${name}`);
-      setTerminalStatus('error');
+
     }
     showCloseButton();
   });
@@ -376,7 +376,7 @@ async function confirmDeleteRepo() {
       xterm.writeln('');
       xterm.writeln(`\x1b[31mDelete failed with exit code ${exitCode}\x1b[0m`);
       setTitle(`Delete failed: ${repoName}`);
-      setTerminalStatus('error');
+
       showCloseButton();
     }
   });
@@ -448,7 +448,7 @@ async function confirmRemoveWorktree() {
       xterm.writeln('');
       xterm.writeln(`\x1b[31mWorktree removal failed with exit code ${exitCode}\x1b[0m`);
       setTitle(`Worktree removal failed`);
-      setTerminalStatus('error');
+
       showCloseButton();
     }
   });
@@ -640,7 +640,7 @@ async function confirmSwitchWorktree() {
       xterm.writeln('');
       xterm.writeln(`\x1b[31mWorktree switch failed with exit code ${exitCode}\x1b[0m`);
       setTitle(`Worktree switch failed`);
-      setTerminalStatus('error');
+
       showCloseButton();
     }
   });

@@ -1,5 +1,6 @@
 import { getWorkspace, getActive, getActiveId, setActiveId, nextId, addWorkspace, removeWorkspace, getAllIds } from './state.js';
 import { setTabStatus, startClaudePoll, stopClaudePoll } from './claude-poll.js';
+import { deactivateTerminalTab } from './terminal-panel.js';
 
 let _showTabCloseButton = null;
 let _showTabRemoveButton = null;
@@ -80,6 +81,13 @@ function switchWorkspace(id) {
 
   const ws = getWorkspace(id);
   if (ws) {
+    // Hide terminal panel if showing
+    const terminalPanel = document.getElementById('clone-terminal');
+    if (terminalPanel.classList.contains('active')) {
+      terminalPanel.classList.remove('active');
+    }
+    deactivateTerminalTab();
+
     ws.webview.classList.add('active');
     ws.tabEl.classList.add('active');
     if (ws.tabEl._dotEl) ws.tabEl._dotEl.classList.add('active');

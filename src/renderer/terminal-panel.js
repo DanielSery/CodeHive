@@ -47,11 +47,14 @@ function showTerminal(title) {
   terminalEl.classList.add('active');
   placeholder.style.display = 'none';
   sidebarTab.classList.add('active');
-  sidebarTab.className = 'sidebar-terminal-tab active has-output';
 
-  // Hide active workspace webview
+  // Deselect active worktree tab visually
   const ws = getActive();
-  if (ws) ws.webview.classList.remove('active');
+  if (ws) {
+    ws.webview.classList.remove('active');
+    ws.tabEl.classList.remove('active');
+    if (ws.tabEl._dotEl) ws.tabEl._dotEl.classList.remove('active');
+  }
 }
 
 function showCloseButton() {
@@ -62,10 +65,8 @@ function setTitle(title) {
   titleEl.textContent = title;
 }
 
-function setTerminalStatus(status) {
-  sidebarTab.classList.remove('success', 'error');
-  if (status === 'success') sidebarTab.classList.add('success');
-  if (status === 'error') sidebarTab.classList.add('error');
+function deactivateTerminalTab() {
+  sidebarTab.classList.remove('active');
 }
 
 function closeTerminal() {
@@ -79,6 +80,8 @@ function closeTerminal() {
   const ws = getActive();
   if (ws) {
     ws.webview.classList.add('active');
+    ws.tabEl.classList.add('active');
+    if (ws.tabEl._dotEl) ws.tabEl._dotEl.classList.add('active');
   } else {
     placeholder.style.display = 'flex';
   }
@@ -92,6 +95,8 @@ function toggleTerminal() {
     const ws = getActive();
     if (ws) {
       ws.webview.classList.add('active');
+      ws.tabEl.classList.add('active');
+      if (ws.tabEl._dotEl) ws.tabEl._dotEl.classList.add('active');
     } else {
       placeholder.style.display = 'flex';
     }
@@ -101,8 +106,13 @@ function toggleTerminal() {
     terminalEl.classList.add('active');
     sidebarTab.classList.add('active');
     placeholder.style.display = 'none';
+    // Deselect active worktree tab visually
     const ws = getActive();
-    if (ws) ws.webview.classList.remove('active');
+    if (ws) {
+      ws.webview.classList.remove('active');
+      ws.tabEl.classList.remove('active');
+      if (ws.tabEl._dotEl) ws.tabEl._dotEl.classList.remove('active');
+    }
     fit();
   }
 }
@@ -134,4 +144,4 @@ window.addEventListener('resize', () => {
   }
 });
 
-export { createTerminal, showTerminal, showCloseButton, setTitle, setTerminalStatus, closeTerminal, getXterm, fit };
+export { createTerminal, showTerminal, showCloseButton, setTitle, deactivateTerminalTab, closeTerminal, getXterm, fit };
