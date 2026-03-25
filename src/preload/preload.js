@@ -69,6 +69,10 @@ contextBridge.exposeInMainWorld('worktreeSwitchAPI', {
   }
 });
 
+contextBridge.exposeInMainWorld('shellAPI', {
+  openInExplorer: (folderPath) => ipcRenderer.invoke('shell:openInExplorer', folderPath),
+});
+
 contextBridge.exposeInMainWorld('windowAPI', {
   minimize: () => ipcRenderer.send('window:minimize'),
   maximize: () => ipcRenderer.send('window:maximize'),

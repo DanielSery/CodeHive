@@ -499,60 +499,6 @@ html, body {
   color: #1e1e2e;
 }
 
-.workspace-tab-switch {
-  width: 18px;
-  height: 18px;
-  border: none;
-  background: transparent;
-  color: var(--text-muted);
-  cursor: pointer;
-  border-radius: 3px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  opacity: 0;
-  transition: all 0.15s;
-  margin-left: 4px;
-  padding: 0;
-}
-
-.workspace-tab:hover .workspace-tab-switch {
-  opacity: 0.6;
-}
-
-.workspace-tab:hover .workspace-tab-switch:hover {
-  opacity: 1;
-  background: var(--accent);
-  color: #1e1e2e;
-}
-
-.workspace-tab-remove {
-  width: 18px;
-  height: 18px;
-  border: none;
-  background: transparent;
-  color: var(--text-muted);
-  cursor: pointer;
-  border-radius: 3px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  opacity: 0;
-  transition: all 0.15s;
-  margin-left: 4px;
-  padding: 0;
-}
-
-.workspace-tab:hover .workspace-tab-remove {
-  opacity: 0.6;
-}
-
-.workspace-tab:hover .workspace-tab-remove:hover {
-  opacity: 1;
-  background: var(--red);
-  color: #1e1e2e;
-}
-
 /* ===== Main Content ===== */
 #main-content {
   flex: 1;
@@ -843,5 +789,54 @@ html, body {
 #clone-terminal-xterm {
   flex: 1;
   padding: 8px;
+}
+
+/* ===== Context Menu ===== */
+.context-menu {
+  display: none;
+  position: fixed;
+  z-index: 10001;
+  background: var(--sidebar-bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 4px 0;
+  min-width: 180px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
+}
+
+.context-menu.visible {
+  display: block;
+}
+
+.context-menu-item {
+  display: block;
+  width: 100%;
+  padding: 6px 14px;
+  border: none;
+  background: transparent;
+  color: var(--text);
+  font-size: 12px;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.1s;
+}
+
+.context-menu-item:hover {
+  background: var(--tab-active-bg);
+}
+
+.context-menu-item-danger {
+  color: var(--red);
+}
+
+.context-menu-item-danger:hover {
+  background: var(--red);
+  color: #1e1e2e;
+}
+
+.context-menu-separator {
+  border: none;
+  border-top: 1px solid var(--border);
+  margin: 4px 8px;
 }
 

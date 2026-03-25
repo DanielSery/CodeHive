@@ -1,4 +1,4 @@
-const { ipcMain, dialog } = require('electron');
+const { ipcMain, dialog, shell } = require('electron');
 const vscode = require('./vscode-server');
 const { scanDirectory, checkClaudeActive, getCachedBranches, fetchAndListBranches, getGitUser, getWorktreeSourceBranch } = require('./repo-scanner');
 const { createWorktreePty, createClonePty, createDeletePty, createWorktreeRemovePty, createWorktreeSwitchPty } = require('./pty-manager');
@@ -99,6 +99,11 @@ function register(mainWindow, getServerPort) {
 
   ipcMain.on('worktreeSwitch:resize', (event, { cols, rows }) => {
     try { if (worktreeSwitchPty) worktreeSwitchPty.resize(cols, rows); } catch {}
+  });
+
+  // Shell
+  ipcMain.handle('shell:openInExplorer', (event, folderPath) => {
+    return shell.openPath(folderPath);
   });
 
   // Window controls
