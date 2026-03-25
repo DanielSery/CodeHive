@@ -220,10 +220,9 @@ function createWorktreeSwitchPty(mainWindow, { barePath, oldWtPath, branchName, 
   const oldWtForGit = oldWtPath.replace(/\\/g, '/');
   const dirName = path.basename(oldWtPath);
 
-  // Just switch the branch in-place — no directory rename needed.
-  // The tab label shows the branch name, not the directory name.
-  const cmd = `git -C "${oldWtForGit}" checkout -B ${branchName} ${startPoint}`;
-  const proc = spawnPty(cmd, barePath);
+  // Run checkout from within the worktree directory to avoid cmd.exe quoting issues with git -C
+  const cmd = `git checkout -B ${branchName} ${startPoint}`;
+  const proc = spawnPty(cmd, oldWtPath);
 
   proc.onData((data) => {
     if (mainWindow && !mainWindow.isDestroyed()) {
