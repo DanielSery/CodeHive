@@ -128,37 +128,29 @@ function getGitUser(barePath) {
 }
 
 function getWorktreeSourceBranch(barePath, wtBranch) {
+  // Walk back from the branch and find the first commit referenced by a remote branch.
+  // --decorate-refs limits decoration to remote tracking refs, --first-parent keeps it linear.
   return new Promise((resolve) => {
-    exec('git branch -r', { cwd: barePath, encoding: 'utf8', timeout: 10000 }, (err, stdout) => {
-      if (err || !stdout) { resolve(null); return; }
-      const remoteBranches = stdout.trim().split('\n')
-        .map(b => b.trim())
-        .filter(b => b && !b.includes('->'));
-
-      if (remoteBranches.length === 0) { resolve(null); return; }
-
-      let bestBranch = null;
-      let bestAhead = Infinity;
-      let pending = remoteBranches.length;
-
-      for (const rb of remoteBranches) {
-        exec(
-          `git rev-list --count ${rb}..refs/heads/${wtBranch}`,
-          { cwd: barePath, encoding: 'utf8', timeout: 5000 },
-          (err2, countOut) => {
-            if (!err2 && countOut) {
-              const ahead = parseInt(countOut.trim(), 10);
-              if (!isNaN(ahead) && ahead < bestAhead) {
-                bestAhead = ahead;
-                bestBranch = rb.replace(/^origin\//, '');
-              }
+    exec(
+      `git log refs/heads/${wtBranch} --decorate-refs=refs/remotes/origin/ --format=%D --first-parent`,
+      { cwd: barePath, encoding: 'utf8', timeout: 10000 },
+      (err, stdout) => {
+        if (err || !stdout) { resolve(null); return; }
+        for (const line of stdout.split('\n')) {
+          const trimmed = line.trim();
+          if (!trimmed) continue;
+          // Each line may have multiple refs comma-separated, e.g. "origin/master, origin/HEAD"
+          for (const ref of trimmed.split(',')) {
+            const r = ref.trim();
+            if (r.startsWith('origin/') && !r.includes('HEAD')) {
+              resolve(r.replace(/^origin\//, ''));
+              return;
             }
-            pending--;
-            if (pending === 0) resolve(bestBranch);
           }
-        );
+        }
+        resolve(null);
       }
-    });
+    );
   });
 }
 
