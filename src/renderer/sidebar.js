@@ -205,7 +205,7 @@ function createWorktreeTab(wt) {
 
   tabEl.querySelector('.workspace-tab-pr').addEventListener('click', (e) => {
     e.stopPropagation();
-    runClaudeCommand(tabEl, 'Create a pull request for the current branch. Run only git commands (git log, git diff, git push) and az repos pr create. Do NOT modify files, do NOT run tests or builds, do NOT use gh CLI.', 'Pull Request');
+    showPrDialog(tabEl);
   });
 
   tabEl.addEventListener('click', (e) => {
@@ -345,19 +345,16 @@ function rebuildCollapsedDots() {
   });
 }
 
-// ===== Claude Commands =====
+// ===== Terminal Helpers =====
 
-function runClaudeCommand(tabEl, prompt, title) {
-  showTerminal(`${title}: ${tabEl._wtBranch}`);
+function runPtyCommand(api, title, opts) {
+  showTerminal(title);
   const xterm = createTerminal();
 
-  window.claudeAPI.resize(xterm.cols, xterm.rows);
-  window.claudeAPI.removeListeners();
-  window.claudeAPI.onData((data) => {
-    xterm.write(data);
-  });
-
-  window.claudeAPI.onExit(({ exitCode }) => {
+  api.resize(xterm.cols, xterm.rows);
+  api.removeListeners();
+  api.onData((data) => xterm.write(data));
+  api.onExit(({ exitCode }) => {
     if (exitCode === 0) {
       xterm.writeln('');
       xterm.writeln(`\x1b[32m${title} completed successfully!\x1b[0m`);
@@ -369,22 +366,24 @@ function runClaudeCommand(tabEl, prompt, title) {
     showCloseButton();
   });
 
-  window.claudeAPI.start({ wtPath: tabEl._wtPath, prompt }).catch((err) => {
+  api.start(opts).catch((err) => {
     xterm.writeln(`\x1b[31m${err.message || err}\x1b[0m`);
     setTitle(`${title} failed`);
     showCloseButton();
   });
 }
 
-// ===== Commit Dialog =====
+// ===== Commit & Push Dialog =====
 
 const commitDialogOverlay = document.getElementById('commit-dialog-overlay');
 const commitMessageInput = document.getElementById('commit-message-input');
+const commitDescInput = document.getElementById('commit-desc-input');
 let _commitTabEl = null;
 
 function showCommitDialog(tabEl) {
   _commitTabEl = tabEl;
   commitMessageInput.value = '';
+  commitDescInput.value = '';
   commitDialogOverlay.classList.add('visible');
   setTimeout(() => commitMessageInput.focus(), 50);
 }
@@ -396,15 +395,17 @@ function hideCommitDialog() {
 
 function confirmCommit() {
   if (!_commitTabEl) return;
-  const tabEl = _commitTabEl;
   const msg = commitMessageInput.value.trim();
+  if (!msg) return;
+  const tabEl = _commitTabEl;
+  const desc = commitDescInput.value.trim();
   hideCommitDialog();
 
-  const base = 'Run only these git commands in order: 1) git add . 2) git status to review changes 3) git commit with a descriptive message 4) git push. Do NOT run any other commands. Do NOT modify files. Do NOT run tests or builds.';
-  const prompt = msg
-    ? `${base} Commit message context: ${msg}`
-    : base;
-  runClaudeCommand(tabEl, prompt, 'Commit & Push');
+  runPtyCommand(window.commitPushAPI, `Commit & Push: ${tabEl._wtBranch}`, {
+    wtPath: tabEl._wtPath,
+    message: msg,
+    description: desc || undefined
+  });
 }
 
 commitDialogOverlay.addEventListener('click', (e) => {
@@ -415,6 +416,185 @@ document.getElementById('commit-confirm-btn').addEventListener('click', confirmC
 commitMessageInput.addEventListener('keydown', (e) => {
   if (e.key === 'Enter') confirmCommit();
   if (e.key === 'Escape') hideCommitDialog();
+});
+
+// ===== Pull Request Dialog =====
+
+const prDialogOverlay = document.getElementById('pr-dialog-overlay');
+const prBranchSearch = document.getElementById('pr-branch-search');
+const prBranchList = document.getElementById('pr-branch-list');
+const prTitleInput = document.getElementById('pr-title-input');
+const prDescInput = document.getElementById('pr-desc-input');
+
+let prAllBranches = [];
+let prSelectedBranch = null;
+let prHighlightIndex = -1;
+let _prTabEl = null;
+
+function getPrFilteredBranches() {
+  const q = (prBranchSearch.value || '').toLowerCase();
+  return prAllBranches.filter(b => b.toLowerCase().includes(q));
+}
+
+function renderPrBranchList(filter) {
+  prBranchList.innerHTML = '';
+  const q = (filter || '').toLowerCase();
+  const filtered = prAllBranches.filter(b => b.toLowerCase().includes(q));
+  if (filtered.length === 0) {
+    prBranchList.classList.remove('open');
+    prHighlightIndex = -1;
+    return;
+  }
+  filtered.forEach((b, i) => {
+    const item = document.createElement('div');
+    item.className = 'combobox-item';
+    if (b === prSelectedBranch) item.classList.add('selected');
+    if (i === prHighlightIndex) item.classList.add('highlighted');
+    item.textContent = b;
+    item.addEventListener('mousedown', (e) => {
+      e.preventDefault();
+      selectPrBranch(b);
+    });
+    prBranchList.appendChild(item);
+  });
+  prBranchList.classList.add('open');
+}
+
+function selectPrBranch(b) {
+  prSelectedBranch = b;
+  prBranchSearch.value = b;
+  prBranchList.classList.remove('open');
+  prHighlightIndex = -1;
+}
+
+function showPrDialog(tabEl) {
+  _prTabEl = tabEl;
+  prSelectedBranch = null;
+  prAllBranches = [];
+  prBranchSearch.value = '';
+  prBranchSearch.placeholder = 'Fetching branches...';
+  prBranchSearch.disabled = true;
+  prTitleInput.value = '';
+  prDescInput.value = '';
+  prBranchList.innerHTML = '';
+  prBranchList.classList.remove('open');
+  prHighlightIndex = -1;
+
+  prDialogOverlay.classList.add('visible');
+
+  const groupEl = tabEl.closest('.repo-group');
+  const barePath = groupEl._barePath;
+
+  // Use source branch detection to prefill target
+  const wtBranch = tabEl._wtBranch || '';
+  window.reposAPI.worktreeSourceBranch(barePath, wtBranch).then((source) => {
+    const preselect = source || null;
+
+    window.reposAPI.cachedBranches(barePath).then((cached) => {
+      if (cached.length > 0) {
+        prAllBranches = cached;
+        if (preselect && cached.includes(preselect)) {
+          prSelectedBranch = preselect;
+          prBranchSearch.value = preselect;
+        }
+        prBranchSearch.placeholder = 'Search branches...';
+        prBranchSearch.disabled = false;
+        prTitleInput.focus();
+      }
+
+      window.reposAPI.fetchBranches(barePath).then((fetched) => {
+        if (!prDialogOverlay.classList.contains('visible')) return;
+        prAllBranches = fetched;
+        if (!prSelectedBranch && preselect && fetched.includes(preselect)) {
+          prSelectedBranch = preselect;
+          prBranchSearch.value = preselect;
+        }
+        prBranchSearch.placeholder = 'Search branches...';
+        prBranchSearch.disabled = false;
+        if (prBranchList.classList.contains('open')) {
+          renderPrBranchList(prBranchSearch.value);
+        }
+        if (cached.length === 0) prTitleInput.focus();
+      });
+    });
+  });
+}
+
+function hidePrDialog() {
+  prDialogOverlay.classList.remove('visible');
+  prBranchList.classList.remove('open');
+  _prTabEl = null;
+}
+
+function confirmPr() {
+  if (!_prTabEl || !prSelectedBranch || !prTitleInput.value.trim()) return;
+  const tabEl = _prTabEl;
+  const title = prTitleInput.value.trim();
+  const desc = prDescInput.value.trim();
+  hidePrDialog();
+
+  runPtyCommand(window.pullRequestAPI, `Pull Request: ${tabEl._wtBranch}`, {
+    wtPath: tabEl._wtPath,
+    targetBranch: prSelectedBranch,
+    title,
+    description: desc || undefined
+  });
+}
+
+prDialogOverlay.addEventListener('click', (e) => {
+  if (e.target === prDialogOverlay) hidePrDialog();
+});
+document.getElementById('pr-cancel-btn').addEventListener('click', hidePrDialog);
+document.getElementById('pr-confirm-btn').addEventListener('click', confirmPr);
+
+prBranchSearch.addEventListener('input', () => {
+  prSelectedBranch = null;
+  prHighlightIndex = -1;
+  renderPrBranchList(prBranchSearch.value);
+});
+prBranchSearch.addEventListener('focus', () => {
+  prBranchSearch.value = '';
+  prHighlightIndex = -1;
+  renderPrBranchList('');
+});
+prBranchSearch.addEventListener('blur', () => {
+  setTimeout(() => {
+    prBranchList.classList.remove('open');
+    if (prSelectedBranch) prBranchSearch.value = prSelectedBranch;
+  }, 200);
+});
+document.querySelector('#pr-branch-combobox .combobox-arrow').addEventListener('click', () => {
+  if (prBranchList.classList.contains('open')) {
+    prBranchList.classList.remove('open');
+  } else {
+    prBranchSearch.value = '';
+    prHighlightIndex = -1;
+    renderPrBranchList('');
+    prBranchSearch.focus();
+  }
+});
+prBranchSearch.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') { hidePrDialog(); return; }
+  const filtered = getPrFilteredBranches();
+  if (e.key === 'ArrowDown') {
+    e.preventDefault();
+    prHighlightIndex = Math.min(prHighlightIndex + 1, filtered.length - 1);
+    renderPrBranchList(prBranchSearch.value);
+    scrollHighlightedIntoView(prBranchList);
+  } else if (e.key === 'ArrowUp') {
+    e.preventDefault();
+    prHighlightIndex = Math.max(prHighlightIndex - 1, 0);
+    renderPrBranchList(prBranchSearch.value);
+    scrollHighlightedIntoView(prBranchList);
+  } else if (e.key === 'Enter' && prHighlightIndex >= 0 && prHighlightIndex < filtered.length) {
+    e.preventDefault();
+    selectPrBranch(filtered[prHighlightIndex]);
+    prTitleInput.focus();
+  }
+});
+prTitleInput.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') confirmPr();
+  if (e.key === 'Escape') hidePrDialog();
 });
 
 // ===== Context Menu =====
@@ -472,7 +652,7 @@ contextMenu.addEventListener('click', (e) => {
   } else if (action === 'commit-push') {
     showCommitDialog(tabEl);
   } else if (action === 'pull-request') {
-    runClaudeCommand(tabEl, 'Create a pull request for the current branch. Run only git commands (git log, git diff, git push) and az repos pr create. Do NOT modify files, do NOT run tests or builds, do NOT use gh CLI.', 'Pull Request');
+    showPrDialog(tabEl);
   } else if (action === 'close-editor') {
     if (tabEl._workspaceId !== null) {
       closeWorkspace(tabEl._workspaceId);

@@ -68,11 +68,36 @@
   <div id="commit-dialog-overlay" class="dialog-overlay">
     <div class="dialog-box">
       <h3 class="dialog-title">Commit &amp; Push</h3>
-      <p class="dialog-desc">Optional message to guide the commit</p>
-      <input id="commit-message-input" type="text" class="dialog-input" placeholder="e.g. Fix login bug, Update styles..." spellcheck="false" />
+      <p class="dialog-desc">Stage all changes, commit and push to remote</p>
+      <label class="dialog-label">Commit Message</label>
+      <input id="commit-message-input" type="text" class="dialog-input" placeholder="e.g. Fix login validation bug" spellcheck="false" />
+      <label class="dialog-label">Description <span style="color: var(--text-muted); font-weight: 400;">(optional)</span></label>
+      <textarea id="commit-desc-input" class="dialog-input" rows="3" placeholder="Additional details about the changes..." spellcheck="false"></textarea>
       <div class="dialog-buttons">
         <button id="commit-cancel-btn" class="dialog-btn dialog-btn-cancel">Cancel</button>
         <button id="commit-confirm-btn" class="dialog-btn dialog-btn-confirm">Commit &amp; Push</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Pull Request dialog -->
+  <div id="pr-dialog-overlay" class="dialog-overlay">
+    <div class="dialog-box">
+      <h3 class="dialog-title">Create Pull Request</h3>
+      <p class="dialog-desc">Create a pull request on Azure DevOps</p>
+      <label class="dialog-label">Target Branch</label>
+      <div class="combobox" id="pr-branch-combobox">
+        <input id="pr-branch-search" type="text" class="dialog-input combobox-input" placeholder="Search branches..." spellcheck="false" autocomplete="off" />
+        <span class="combobox-arrow">&#x25BC;</span>
+        <div id="pr-branch-list" class="combobox-list"></div>
+      </div>
+      <label class="dialog-label">Title</label>
+      <input id="pr-title-input" type="text" class="dialog-input" placeholder="e.g. Add user authentication" spellcheck="false" />
+      <label class="dialog-label">Description <span style="color: var(--text-muted); font-weight: 400;">(optional)</span></label>
+      <textarea id="pr-desc-input" class="dialog-input" rows="3" placeholder="Describe the changes..." spellcheck="false"></textarea>
+      <div class="dialog-buttons">
+        <button id="pr-cancel-btn" class="dialog-btn dialog-btn-cancel">Cancel</button>
+        <button id="pr-confirm-btn" class="dialog-btn dialog-btn-confirm">Create PR</button>
       </div>
     </div>
   </div>

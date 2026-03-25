@@ -69,14 +69,25 @@ contextBridge.exposeInMainWorld('worktreeSwitchAPI', {
   }
 });
 
-contextBridge.exposeInMainWorld('claudeAPI', {
-  start: (opts) => ipcRenderer.invoke('claude:start', opts),
-  onData: (cb) => ipcRenderer.on('claude:data', (_, data) => cb(data)),
-  onExit: (cb) => ipcRenderer.on('claude:exit', (_, info) => cb(info)),
-  resize: (cols, rows) => ipcRenderer.send('claude:resize', { cols, rows }),
+contextBridge.exposeInMainWorld('commitPushAPI', {
+  start: (opts) => ipcRenderer.invoke('commitPush:start', opts),
+  onData: (cb) => ipcRenderer.on('commitPush:data', (_, data) => cb(data)),
+  onExit: (cb) => ipcRenderer.on('commitPush:exit', (_, info) => cb(info)),
+  resize: (cols, rows) => ipcRenderer.send('commitPush:resize', { cols, rows }),
   removeListeners: () => {
-    ipcRenderer.removeAllListeners('claude:data');
-    ipcRenderer.removeAllListeners('claude:exit');
+    ipcRenderer.removeAllListeners('commitPush:data');
+    ipcRenderer.removeAllListeners('commitPush:exit');
+  }
+});
+
+contextBridge.exposeInMainWorld('pullRequestAPI', {
+  start: (opts) => ipcRenderer.invoke('pullRequest:start', opts),
+  onData: (cb) => ipcRenderer.on('pullRequest:data', (_, data) => cb(data)),
+  onExit: (cb) => ipcRenderer.on('pullRequest:exit', (_, info) => cb(info)),
+  resize: (cols, rows) => ipcRenderer.send('pullRequest:resize', { cols, rows }),
+  removeListeners: () => {
+    ipcRenderer.removeAllListeners('pullRequest:data');
+    ipcRenderer.removeAllListeners('pullRequest:exit');
   }
 });
 

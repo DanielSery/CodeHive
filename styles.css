@@ -720,6 +720,12 @@ html, body {
   transition: border-color 0.15s;
 }
 
+textarea.dialog-input {
+  resize: vertical;
+  font-family: 'Segoe UI', -apple-system, sans-serif;
+  line-height: 1.4;
+}
+
 .dialog-input:focus {
   border-color: var(--accent);
 }
