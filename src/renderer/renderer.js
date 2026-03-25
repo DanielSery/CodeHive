@@ -1,5 +1,5 @@
-import { addRepoGroup, createWorktreeTab, registerWorktreeDialog, registerDeleteDialog, registerWorktreeRemoveDialog, registerWorktreeSwitchDialog, registerOnStateChange, registerSidebarBranchCache, removeRepoGroup, showTabCloseButton, showTabRemoveButton, getRepoOrder } from './sidebar.js';
-import { showWorktreeDialog, showCloneDialog, showDeleteDialog, showWorktreeRemoveDialog, showWorktreeSwitchDialog, registerSidebarFns, registerRemoveRepoGroup, registerOnCloneComplete, registerBranchCache } from './dialogs.js';
+import { addRepoGroup, createWorktreeTab, registerWorktreeDialog, registerDeleteDialog, registerWorktreeRemoveDialog, registerWorktreeSwitchDialog, registerOnStateChange, registerSidebarBranchCache, registerSourceBranchLookup, removeRepoGroup, showTabCloseButton, showTabRemoveButton, getRepoOrder } from './sidebar.js';
+import { showWorktreeDialog, showCloneDialog, showDeleteDialog, showWorktreeRemoveDialog, showWorktreeSwitchDialog, registerSidebarFns, registerRemoveRepoGroup, registerOnCloneComplete, registerBranchCache, registerSaveSourceBranch } from './dialogs.js';
 import { cycleWorkspace, registerTabButtonFns } from './workspace-manager.js';
 
 // Wire cross-module dependencies (avoids circular imports)
@@ -24,9 +24,22 @@ function saveState() {
   const state = {
     directories: prev.directories || [],
     repoOrder: getRepoOrder(),
-    branchCache: prev.branchCache || {}
+    branchCache: prev.branchCache || {},
+    sourceBranches: prev.sourceBranches || {}
   };
   localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+}
+
+function saveSourceBranch(wtPath, sourceBranch) {
+  const state = getState();
+  if (!state.sourceBranches) state.sourceBranches = {};
+  state.sourceBranches[wtPath.replace(/\\/g, '/')] = sourceBranch;
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+}
+
+function getSourceBranch(wtPath) {
+  const state = getState();
+  return (state.sourceBranches && state.sourceBranches[wtPath.replace(/\\/g, '/')]) || null;
 }
 
 function saveBranchCache(repoName, branches) {
@@ -52,6 +65,8 @@ function saveDirectories(dirPath) {
 registerOnStateChange(saveState);
 registerBranchCache(getCachedBranchesFromState, saveBranchCache);
 registerSidebarBranchCache(getCachedBranchesFromState, saveBranchCache);
+registerSourceBranchLookup(getSourceBranch);
+registerSaveSourceBranch(saveSourceBranch);
 registerOnCloneComplete((reposDir) => {
   saveDirectories(reposDir);
   saveState();

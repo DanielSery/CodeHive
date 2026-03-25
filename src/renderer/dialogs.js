@@ -202,6 +202,7 @@ async function confirmCreateWorktree() {
       xterm.writeln('\x1b[32mWorktree created successfully!\x1b[0m');
 
       const wt = { path: wtPath, branch, name: dir, sourceBranch };
+      if (_saveSourceBranch) _saveSourceBranch(wtPath, sourceBranch);
       const tabEl = _createWorktreeTab(wt);
       tabsEl.appendChild(tabEl);
 
@@ -697,7 +698,9 @@ async function confirmSwitchWorktree() {
       tabEl.remove();
 
       // Create new tab — same directory, new branch
-      const wt = { path: wtPath, branch, name: dir, sourceBranch: wtSwitchSelectedBranch };
+      const switchSource = wtSwitchSelectedBranch;
+      const wt = { path: wtPath, branch, name: dir, sourceBranch: switchSource };
+      if (_saveSourceBranch) _saveSourceBranch(wtPath, switchSource);
       const newTabEl = _createWorktreeTab(wt);
       tabsEl.appendChild(newTabEl);
 
@@ -799,6 +802,7 @@ document.getElementById('wt-switch-confirm-btn').addEventListener('click', confi
 let _onCloneComplete = null;
 let _getCachedBranches = null;
 let _saveBranchCache = null;
+let _saveSourceBranch = null;
 
 function registerOnCloneComplete(fn) {
   _onCloneComplete = fn;
@@ -809,4 +813,8 @@ function registerBranchCache(getCached, saveCached) {
   _saveBranchCache = saveCached;
 }
 
-export { showWorktreeDialog, showCloneDialog, showDeleteDialog, showWorktreeRemoveDialog, showWorktreeSwitchDialog, registerSidebarFns, registerRemoveRepoGroup, registerOnCloneComplete, registerBranchCache };
+function registerSaveSourceBranch(fn) {
+  _saveSourceBranch = fn;
+}
+
+export { showWorktreeDialog, showCloneDialog, showDeleteDialog, showWorktreeRemoveDialog, showWorktreeSwitchDialog, registerSidebarFns, registerRemoveRepoGroup, registerOnCloneComplete, registerBranchCache, registerSaveSourceBranch };
