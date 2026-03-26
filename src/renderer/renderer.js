@@ -1,6 +1,7 @@
 import { addRepoGroup, clearAllGroups, createWorktreeTab, rebuildCollapsedDots, registerWorktreeDialog, registerDeleteDialog, registerWorktreeRemoveDialog, registerWorktreeSwitchDialog, registerCommitPushDialog, registerCreatePrDialog, registerOnStateChange, registerSidebarBranchCache, registerSourceBranchLookup, removeRepoGroup, showTabCloseButton, showTabRemoveButton, getRepoOrder } from './sidebar.js';
 import { showWorktreeDialog, showCloneDialog, showDeleteDialog, showWorktreeRemoveDialog, showWorktreeSwitchDialog, showCommitPushDialog, showCreatePrDialog, setCloneReposDir, registerSidebarFns, registerRemoveRepoGroup, registerOnCloneComplete, registerBranchCache, registerSaveSourceBranch } from './dialogs.js';
 import { cycleWorkspace, registerTabButtonFns } from './workspace-manager.js';
+import { getActive } from './state.js';
 
 // Wire cross-module dependencies (avoids circular imports)
 registerWorktreeDialog(showWorktreeDialog);
@@ -151,6 +152,15 @@ async function openDirectory() {
 
 document.getElementById('btn-open-directory').addEventListener('click', openDirectory);
 document.getElementById('btn-clone-repo').addEventListener('click', showCloneDialog);
+
+document.getElementById('btn-titlebar-commit').addEventListener('click', () => {
+  const ws = getActive();
+  if (ws) showCommitPushDialog(ws.tabEl, ws.tabEl.closest('.repo-group'));
+});
+document.getElementById('btn-titlebar-pr').addEventListener('click', () => {
+  const ws = getActive();
+  if (ws) showCreatePrDialog(ws.tabEl, ws.tabEl.closest('.repo-group'));
+});
 
 document.getElementById('btn-minimize').addEventListener('click', () => window.windowAPI.minimize());
 document.getElementById('btn-maximize').addEventListener('click', () => window.windowAPI.maximize());

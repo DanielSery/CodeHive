@@ -12,6 +12,13 @@ function registerTabButtonFns(showClose, showRemove) {
 
 const editorArea = document.getElementById('editor-area');
 const placeholder = document.getElementById('editor-placeholder');
+const titlebarCommitBtn = document.getElementById('btn-titlebar-commit');
+const titlebarPrBtn = document.getElementById('btn-titlebar-pr');
+
+function updateTitlebarActions(hasActive) {
+  titlebarCommitBtn.classList.toggle('visible', hasActive);
+  titlebarPrBtn.classList.toggle('visible', hasActive);
+}
 
 async function openWorktree(tabEl, wt) {
   // If already opened, just switch to it
@@ -121,6 +128,7 @@ function switchWorkspace(id) {
       setTabStatus(ws.tabEl, 'open');
     }
     document.querySelector('.titlebar-title').textContent = `CodeHive — ${ws.name}`;
+    updateTitlebarActions(true);
   }
 }
 
@@ -145,6 +153,7 @@ function closeWorkspace(id) {
     } else {
       placeholder.style.display = 'flex';
       document.querySelector('.titlebar-title').textContent = 'CodeHive';
+      updateTitlebarActions(false);
     }
   }
 }

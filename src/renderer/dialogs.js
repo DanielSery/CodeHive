@@ -860,12 +860,13 @@ async function confirmCommitPush() {
       xterm.writeln('');
       xterm.writeln('\x1b[32mCommit & push completed successfully!\x1b[0m');
       setTitle('Commit & push complete');
+      setTimeout(() => closeTerminal(), 1200);
     } else {
       xterm.writeln('');
       xterm.writeln(`\x1b[31mCommit & push failed with exit code ${exitCode}\x1b[0m`);
       setTitle('Commit & push failed');
+      showCloseButton();
     }
-    showCloseButton();
   });
 
   try {
@@ -1082,13 +1083,14 @@ async function confirmCreatePr() {
       xterm.writeln('');
       xterm.writeln('\x1b[32mPull request created successfully!\x1b[0m');
       setTitle('Pull request created');
+      setTimeout(() => closeTerminal(), 1200);
     } else {
       localStorage.removeItem(AZURE_PAT_KEY);
       xterm.writeln('');
       xterm.writeln(`\x1b[31mPull request creation failed with exit code ${exitCode}\x1b[0m`);
       setTitle('Pull request creation failed');
+      showCloseButton();
     }
-    showCloseButton();
   });
 
   try {
