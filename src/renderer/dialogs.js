@@ -32,6 +32,13 @@ let wtCurrentTabsEl = null;
 let wtGitUser = '';
 let wtHighlightIndex = -1;
 
+// Task combobox state
+const wtTaskSearch = document.getElementById('wt-task-search');
+const wtTaskList = document.getElementById('wt-task-list');
+let wtAllTasks = [];
+let wtSelectedTask = null;
+let wtTaskHighlightIndex = -1;
+
 function nameToSlug(name) {
   return name.trim().replace(/\s+/g, '-').substring(0, 15);
 }
@@ -47,15 +54,157 @@ function nameToBranch(user, name) {
   return `${userToPrefix(user)}/${name.trim().replace(/\s+/g, '-')}`;
 }
 
+function buildWtNames(name) {
+  const namePart = name.trim().replace(/\s+/g, '-');
+  if (wtSelectedTask) {
+    const prefix = `${wtSelectedTask.id}-`;
+    return {
+      dirName: (prefix + namePart).substring(0, 15),
+      branchName: `${userToPrefix(wtGitUser)}/${prefix}${namePart}`
+    };
+  }
+  return {
+    dirName: nameToSlug(name),
+    branchName: nameToBranch(wtGitUser, name)
+  };
+}
+
 function updateWtPreview() {
   const name = wtNameInput.value.trim();
   if (!name || !wtSelectedBranch) {
     wtPreview.textContent = '';
     return;
   }
-  const slug = nameToSlug(name);
-  const branch = nameToBranch(wtGitUser, name);
-  wtPreview.textContent = `Branch: ${branch}  |  Dir: ${slug}`;
+  const { dirName, branchName } = buildWtNames(name);
+  wtPreview.textContent = `Branch: ${branchName}  |  Dir: ${dirName}`;
+}
+
+function parseAzureRemoteUrl(url) {
+  if (!url) return null;
+  // https://dev.azure.com/org/project/_git/repo  (with optional user@ prefix)
+  const m = url.match(/https?:\/\/(?:[^@/]+@)?dev\.azure\.com\/([^/]+)\/([^/]+)\/_git\//);
+  if (m) return { org: decodeURIComponent(m[1]), project: decodeURIComponent(m[2]) };
+  // https://org.visualstudio.com/project/_git/repo
+  const m2 = url.match(/https?:\/\/(?:[^@/]+@)?([^.]+)\.visualstudio\.com\/([^/]+)\/_git\//);
+  if (m2) return { org: m2[1], project: decodeURIComponent(m2[2]) };
+  return null;
+}
+
+function truncateToWords(str, maxLen) {
+  if (str.length <= maxLen) return str;
+  const cut = str.substring(0, maxLen);
+  const lastSpace = cut.lastIndexOf(' ');
+  return lastSpace > maxLen * 0.6 ? cut.substring(0, lastSpace) : cut;
+}
+
+function getFilteredTasks() {
+  const q = (wtTaskSearch.value || '').toLowerCase();
+  return wtAllTasks.filter(t => `#${t.id} ${t.title}`.toLowerCase().includes(q));
+}
+
+function renderTaskList(filter) {
+  wtTaskList.innerHTML = '';
+  const q = (filter || '').toLowerCase();
+  const filtered = wtAllTasks.filter(t => `#${t.id} ${t.title}`.toLowerCase().includes(q));
+  if (filtered.length === 0) {
+    wtTaskList.classList.remove('open');
+    wtTaskHighlightIndex = -1;
+    return;
+  }
+  filtered.forEach((t, i) => {
+    const item = document.createElement('div');
+    item.className = 'combobox-item';
+    if (wtSelectedTask && t.id === wtSelectedTask.id) item.classList.add('selected');
+    if (i === wtTaskHighlightIndex) item.classList.add('highlighted');
+    item.textContent = `#${t.id} ${t.title}`;
+    item.addEventListener('mousedown', (e) => {
+      e.preventDefault();
+      selectWtTask(t);
+    });
+    wtTaskList.appendChild(item);
+  });
+  wtTaskList.classList.add('open');
+}
+
+function selectWtTask(task) {
+  wtSelectedTask = task;
+  wtTaskSearch.value = task ? `#${task.id} ${task.title}` : '';
+  wtTaskList.classList.remove('open');
+  wtTaskHighlightIndex = -1;
+  if (task && !wtNameInput.value.trim()) {
+    wtNameInput.value = truncateToWords(task.title, 40);
+    updateWtPreview();
+  }
+}
+
+async function fetchTasksForDialog(barePath) {
+  const pat = loadStoredPat();
+  if (!pat) {
+    wtTaskSearch.placeholder = 'Enter PAT to load tasks';
+    wtTaskSearch.disabled = false;
+    return;
+  }
+
+  let remoteUrl;
+  try { remoteUrl = await window.reposAPI.remoteUrl(barePath); } catch {}
+
+  const parsed = parseAzureRemoteUrl(remoteUrl);
+  if (!parsed) {
+    wtTaskSearch.placeholder = 'Not an Azure DevOps repository';
+    wtTaskSearch.disabled = false;
+    return;
+  }
+
+  try {
+    const auth = btoa(':' + pat);
+    const apiBase = `https://dev.azure.com/${encodeURIComponent(parsed.org)}/${encodeURIComponent(parsed.project)}/_apis`;
+
+    const wiqlResp = await fetch(`${apiBase}/wit/wiql?api-version=7.0`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Basic ${auth}` },
+      body: JSON.stringify({ query: `SELECT [System.Id] FROM WorkItems WHERE [System.State] NOT IN ('Closed', 'Done', 'Resolved', 'Removed') ORDER BY [System.ChangedDate] DESC` })
+    });
+
+    if (!wiqlResp.ok) {
+      wtTaskSearch.placeholder = 'Could not load tasks';
+      wtTaskSearch.disabled = false;
+      return;
+    }
+
+    const wiqlData = await wiqlResp.json();
+    const ids = (wiqlData.workItems || []).slice(0, 100).map(wi => wi.id);
+
+    if (ids.length === 0) {
+      wtAllTasks = [];
+      wtTaskSearch.placeholder = 'No active tasks found';
+      wtTaskSearch.disabled = false;
+      return;
+    }
+
+    const itemsResp = await fetch(
+      `${apiBase}/wit/workitems?ids=${ids.join(',')}&fields=System.Id,System.Title,System.WorkItemType&api-version=7.0`,
+      { headers: { 'Authorization': `Basic ${auth}` } }
+    );
+
+    if (!itemsResp.ok) {
+      wtTaskSearch.placeholder = 'Could not load tasks';
+      wtTaskSearch.disabled = false;
+      return;
+    }
+
+    const itemsData = await itemsResp.json();
+    wtAllTasks = (itemsData.value || []).map(wi => ({
+      id: wi.id,
+      title: wi.fields['System.Title'] || '',
+      type: wi.fields['System.WorkItemType'] || ''
+    }));
+
+    wtTaskSearch.placeholder = 'Search tasks...';
+    wtTaskSearch.disabled = false;
+  } catch {
+    wtTaskSearch.placeholder = 'Could not load tasks';
+    wtTaskSearch.disabled = false;
+  }
 }
 
 function getFilteredBranches() {
@@ -124,6 +273,15 @@ async function showWorktreeDialog(groupEl, tabsEl) {
   wtBranchList.innerHTML = '';
   wtBranchList.classList.remove('open');
 
+  // Reset task state
+  wtSelectedTask = null;
+  wtAllTasks = [];
+  wtTaskSearch.value = '';
+  wtTaskSearch.placeholder = 'Loading tasks...';
+  wtTaskSearch.disabled = true;
+  wtTaskList.innerHTML = '';
+  wtTaskList.classList.remove('open');
+
   wtDialogOverlay.classList.add('visible');
 
   // Use app state cache for instant display
@@ -174,21 +332,25 @@ async function showWorktreeDialog(groupEl, tabsEl) {
       }
     }
   });
+
+  // Fetch Azure tasks in background (non-blocking)
+  fetchTasksForDialog(groupEl._barePath);
 }
 
 function hideWorktreeDialog() {
   wtDialogOverlay.classList.remove('visible');
   wtBranchList.classList.remove('open');
+  wtTaskList.classList.remove('open');
 }
 
 async function confirmCreateWorktree() {
   if (!wtSelectedBranch || !wtNameInput.value.trim()) return;
 
   const name = wtNameInput.value.trim();
-  const dirName = nameToSlug(name);
-  const branchName = nameToBranch(wtGitUser, name);
+  const { dirName, branchName } = buildWtNames(name);
   const groupEl = wtCurrentGroupEl;
   const tabsEl = wtCurrentTabsEl;
+  const taskId = wtSelectedTask ? wtSelectedTask.id : null;
 
   hideWorktreeDialog();
 
@@ -207,8 +369,9 @@ async function confirmCreateWorktree() {
       xterm.writeln('');
       xterm.writeln('\x1b[32mWorktree created successfully!\x1b[0m');
 
-      const wt = { path: wtPath, branch, name: dir, sourceBranch };
+      const wt = { path: wtPath, branch, name: dir, sourceBranch, taskId };
       if (_saveSourceBranch) _saveSourceBranch(wtPath, sourceBranch);
+      if (_saveTaskId && taskId) _saveTaskId(wtPath, taskId);
       const tabEl = _createWorktreeTab(wt);
       tabsEl.appendChild(tabEl);
       if (_rebuildCollapsedDots) _rebuildCollapsedDots();
@@ -303,6 +466,57 @@ wtNameInput.addEventListener('input', updateWtPreview);
 wtNameInput.addEventListener('keydown', (e) => {
   if (e.key === 'Enter') confirmCreateWorktree();
   if (e.key === 'Escape') hideWorktreeDialog();
+});
+
+// Task combobox event listeners
+wtTaskSearch.addEventListener('input', () => {
+  wtTaskHighlightIndex = -1;
+  renderTaskList(wtTaskSearch.value);
+});
+
+wtTaskSearch.addEventListener('focus', () => {
+  if (wtAllTasks.length > 0) {
+    wtTaskHighlightIndex = -1;
+    renderTaskList(wtTaskSearch.value);
+  }
+});
+
+wtTaskSearch.addEventListener('blur', () => {
+  setTimeout(() => {
+    wtTaskList.classList.remove('open');
+    if (wtSelectedTask) wtTaskSearch.value = `#${wtSelectedTask.id} ${wtSelectedTask.title}`;
+  }, 200);
+});
+
+document.querySelector('#wt-task-combobox .combobox-arrow').addEventListener('click', () => {
+  if (wtTaskList.classList.contains('open')) {
+    wtTaskList.classList.remove('open');
+  } else if (wtAllTasks.length > 0) {
+    wtTaskSearch.value = '';
+    wtTaskHighlightIndex = -1;
+    renderTaskList('');
+    wtTaskSearch.focus();
+  }
+});
+
+wtTaskSearch.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') { hideWorktreeDialog(); return; }
+  const filtered = getFilteredTasks();
+  if (e.key === 'ArrowDown') {
+    e.preventDefault();
+    wtTaskHighlightIndex = Math.min(wtTaskHighlightIndex + 1, filtered.length - 1);
+    renderTaskList(wtTaskSearch.value);
+    scrollHighlightedIntoView(wtTaskList);
+  } else if (e.key === 'ArrowUp') {
+    e.preventDefault();
+    wtTaskHighlightIndex = Math.max(wtTaskHighlightIndex - 1, 0);
+    renderTaskList(wtTaskSearch.value);
+    scrollHighlightedIntoView(wtTaskList);
+  } else if (e.key === 'Enter' && wtTaskHighlightIndex >= 0 && wtTaskHighlightIndex < filtered.length) {
+    e.preventDefault();
+    selectWtTask(filtered[wtTaskHighlightIndex]);
+    wtBranchSearch.focus();
+  }
 });
 
 wtDialogOverlay.addEventListener('click', (e) => {
@@ -557,14 +771,134 @@ let wtSwitchGroupEl = null;
 let wtSwitchGitUser = '';
 let wtSwitchHighlightIndex = -1;
 
+// Switch task combobox state
+const wtSwitchTaskSearch = document.getElementById('wt-switch-task-search');
+const wtSwitchTaskList = document.getElementById('wt-switch-task-list');
+let wtSwitchAllTasks = [];
+let wtSwitchSelectedTask = null;
+let wtSwitchTaskHighlightIndex = -1;
+
 function updateWtSwitchPreview() {
   const name = wtSwitchNameInput.value.trim();
   if (!name || !wtSwitchSelectedBranch) {
     wtSwitchPreview.textContent = '';
     return;
   }
-  const branch = nameToBranch(wtSwitchGitUser, name);
+  const namePart = name.trim().replace(/\s+/g, '-');
+  const branch = wtSwitchSelectedTask
+    ? `${userToPrefix(wtSwitchGitUser)}/${wtSwitchSelectedTask.id}-${namePart}`
+    : nameToBranch(wtSwitchGitUser, name);
   wtSwitchPreview.textContent = `Branch: ${branch}`;
+}
+
+function getFilteredSwitchTasks() {
+  const q = (wtSwitchTaskSearch.value || '').toLowerCase();
+  return wtSwitchAllTasks.filter(t => `#${t.id} ${t.title}`.toLowerCase().includes(q));
+}
+
+function renderSwitchTaskList(filter) {
+  wtSwitchTaskList.innerHTML = '';
+  const q = (filter || '').toLowerCase();
+  const filtered = wtSwitchAllTasks.filter(t => `#${t.id} ${t.title}`.toLowerCase().includes(q));
+  if (filtered.length === 0) {
+    wtSwitchTaskList.classList.remove('open');
+    wtSwitchTaskHighlightIndex = -1;
+    return;
+  }
+  filtered.forEach((t, i) => {
+    const item = document.createElement('div');
+    item.className = 'combobox-item';
+    if (wtSwitchSelectedTask && t.id === wtSwitchSelectedTask.id) item.classList.add('selected');
+    if (i === wtSwitchTaskHighlightIndex) item.classList.add('highlighted');
+    item.textContent = `#${t.id} ${t.title}`;
+    item.addEventListener('mousedown', (e) => {
+      e.preventDefault();
+      selectWtSwitchTask(t);
+    });
+    wtSwitchTaskList.appendChild(item);
+  });
+  wtSwitchTaskList.classList.add('open');
+}
+
+function selectWtSwitchTask(task) {
+  wtSwitchSelectedTask = task;
+  wtSwitchTaskSearch.value = task ? `#${task.id} ${task.title}` : '';
+  wtSwitchTaskList.classList.remove('open');
+  wtSwitchTaskHighlightIndex = -1;
+  if (task && !wtSwitchNameInput.value.trim()) {
+    wtSwitchNameInput.value = truncateToWords(task.title, 40);
+    updateWtSwitchPreview();
+  }
+}
+
+async function fetchSwitchTasksForDialog(barePath) {
+  const pat = loadStoredPat();
+  if (!pat) {
+    wtSwitchTaskSearch.placeholder = 'Enter PAT to load tasks';
+    wtSwitchTaskSearch.disabled = false;
+    return;
+  }
+
+  let remoteUrl;
+  try { remoteUrl = await window.reposAPI.remoteUrl(barePath); } catch {}
+
+  const parsed = parseAzureRemoteUrl(remoteUrl);
+  if (!parsed) {
+    wtSwitchTaskSearch.placeholder = 'Not an Azure DevOps repository';
+    wtSwitchTaskSearch.disabled = false;
+    return;
+  }
+
+  try {
+    const auth = btoa(':' + pat);
+    const apiBase = `https://dev.azure.com/${encodeURIComponent(parsed.org)}/${encodeURIComponent(parsed.project)}/_apis`;
+
+    const wiqlResp = await fetch(`${apiBase}/wit/wiql?api-version=7.0`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Basic ${auth}` },
+      body: JSON.stringify({ query: `SELECT [System.Id] FROM WorkItems WHERE [System.State] NOT IN ('Closed', 'Done', 'Resolved', 'Removed') ORDER BY [System.ChangedDate] DESC` })
+    });
+
+    if (!wiqlResp.ok) {
+      wtSwitchTaskSearch.placeholder = 'Could not load tasks';
+      wtSwitchTaskSearch.disabled = false;
+      return;
+    }
+
+    const wiqlData = await wiqlResp.json();
+    const ids = (wiqlData.workItems || []).slice(0, 100).map(wi => wi.id);
+
+    if (ids.length === 0) {
+      wtSwitchAllTasks = [];
+      wtSwitchTaskSearch.placeholder = 'No active tasks found';
+      wtSwitchTaskSearch.disabled = false;
+      return;
+    }
+
+    const itemsResp = await fetch(
+      `${apiBase}/wit/workitems?ids=${ids.join(',')}&fields=System.Id,System.Title,System.WorkItemType&api-version=7.0`,
+      { headers: { 'Authorization': `Basic ${auth}` } }
+    );
+
+    if (!itemsResp.ok) {
+      wtSwitchTaskSearch.placeholder = 'Could not load tasks';
+      wtSwitchTaskSearch.disabled = false;
+      return;
+    }
+
+    const itemsData = await itemsResp.json();
+    wtSwitchAllTasks = (itemsData.value || []).map(wi => ({
+      id: wi.id,
+      title: wi.fields['System.Title'] || '',
+      type: wi.fields['System.WorkItemType'] || ''
+    }));
+
+    wtSwitchTaskSearch.placeholder = 'Search tasks...';
+    wtSwitchTaskSearch.disabled = false;
+  } catch {
+    wtSwitchTaskSearch.placeholder = 'Could not load tasks';
+    wtSwitchTaskSearch.disabled = false;
+  }
 }
 
 function getSwitchFilteredBranches() {
@@ -633,6 +967,15 @@ async function showWorktreeSwitchDialog(tabEl, groupEl) {
   wtSwitchBranchList.innerHTML = '';
   wtSwitchBranchList.classList.remove('open');
 
+  // Reset task state
+  wtSwitchSelectedTask = null;
+  wtSwitchAllTasks = [];
+  wtSwitchTaskSearch.value = '';
+  wtSwitchTaskSearch.placeholder = 'Loading tasks...';
+  wtSwitchTaskSearch.disabled = true;
+  wtSwitchTaskList.innerHTML = '';
+  wtSwitchTaskList.classList.remove('open');
+
   wtSwitchDialogOverlay.classList.add('visible');
 
   const repoName = groupEl.dataset.repoName;
@@ -670,11 +1013,15 @@ async function showWorktreeSwitchDialog(tabEl, groupEl) {
       }
     }
   });
+
+  // Fetch Azure tasks in background (non-blocking)
+  fetchSwitchTasksForDialog(groupEl._barePath);
 }
 
 function hideWorktreeSwitchDialog() {
   wtSwitchDialogOverlay.classList.remove('visible');
   wtSwitchBranchList.classList.remove('open');
+  wtSwitchTaskList.classList.remove('open');
 }
 
 async function confirmSwitchWorktree() {
@@ -682,7 +1029,11 @@ async function confirmSwitchWorktree() {
   if (!wtSwitchTabEl || !wtSwitchGroupEl) return;
 
   const name = wtSwitchNameInput.value.trim();
-  const branchName = nameToBranch(wtSwitchGitUser, name);
+  const namePart = name.trim().replace(/\s+/g, '-');
+  const branchName = wtSwitchSelectedTask
+    ? `${userToPrefix(wtSwitchGitUser)}/${wtSwitchSelectedTask.id}-${namePart}`
+    : nameToBranch(wtSwitchGitUser, name);
+  const taskId = wtSwitchSelectedTask ? wtSwitchSelectedTask.id : null;
   const tabEl = wtSwitchTabEl;
   const groupEl = wtSwitchGroupEl;
   const oldWtPath = tabEl._wtPath;
@@ -710,8 +1061,9 @@ async function confirmSwitchWorktree() {
 
       // Create new tab — same directory, new branch
       const switchSource = wtSwitchSelectedBranch;
-      const wt = { path: wtPath, branch, name: dir, sourceBranch: switchSource };
+      const wt = { path: wtPath, branch, name: dir, sourceBranch: switchSource, taskId };
       if (_saveSourceBranch) _saveSourceBranch(wtPath, switchSource);
+      if (_saveTaskId && taskId) _saveTaskId(wtPath, taskId);
       const newTabEl = _createWorktreeTab(wt);
       tabsEl.appendChild(newTabEl);
       if (_rebuildCollapsedDots) _rebuildCollapsedDots();
@@ -804,6 +1156,57 @@ wtSwitchNameInput.addEventListener('input', updateWtSwitchPreview);
 wtSwitchNameInput.addEventListener('keydown', (e) => {
   if (e.key === 'Enter') confirmSwitchWorktree();
   if (e.key === 'Escape') hideWorktreeSwitchDialog();
+});
+
+// Switch task combobox event listeners
+wtSwitchTaskSearch.addEventListener('input', () => {
+  wtSwitchTaskHighlightIndex = -1;
+  renderSwitchTaskList(wtSwitchTaskSearch.value);
+});
+
+wtSwitchTaskSearch.addEventListener('focus', () => {
+  if (wtSwitchAllTasks.length > 0) {
+    wtSwitchTaskHighlightIndex = -1;
+    renderSwitchTaskList(wtSwitchTaskSearch.value);
+  }
+});
+
+wtSwitchTaskSearch.addEventListener('blur', () => {
+  setTimeout(() => {
+    wtSwitchTaskList.classList.remove('open');
+    if (wtSwitchSelectedTask) wtSwitchTaskSearch.value = `#${wtSwitchSelectedTask.id} ${wtSwitchSelectedTask.title}`;
+  }, 200);
+});
+
+document.querySelector('#wt-switch-task-combobox .combobox-arrow').addEventListener('click', () => {
+  if (wtSwitchTaskList.classList.contains('open')) {
+    wtSwitchTaskList.classList.remove('open');
+  } else if (wtSwitchAllTasks.length > 0) {
+    wtSwitchTaskSearch.value = '';
+    wtSwitchTaskHighlightIndex = -1;
+    renderSwitchTaskList('');
+    wtSwitchTaskSearch.focus();
+  }
+});
+
+wtSwitchTaskSearch.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') { hideWorktreeSwitchDialog(); return; }
+  const filtered = getFilteredSwitchTasks();
+  if (e.key === 'ArrowDown') {
+    e.preventDefault();
+    wtSwitchTaskHighlightIndex = Math.min(wtSwitchTaskHighlightIndex + 1, filtered.length - 1);
+    renderSwitchTaskList(wtSwitchTaskSearch.value);
+    scrollHighlightedIntoView(wtSwitchTaskList);
+  } else if (e.key === 'ArrowUp') {
+    e.preventDefault();
+    wtSwitchTaskHighlightIndex = Math.max(wtSwitchTaskHighlightIndex - 1, 0);
+    renderSwitchTaskList(wtSwitchTaskSearch.value);
+    scrollHighlightedIntoView(wtSwitchTaskList);
+  } else if (e.key === 'Enter' && wtSwitchTaskHighlightIndex >= 0 && wtSwitchTaskHighlightIndex < filtered.length) {
+    e.preventDefault();
+    selectWtSwitchTask(filtered[wtSwitchTaskHighlightIndex]);
+    wtSwitchNameInput.focus();
+  }
 });
 
 wtSwitchDialogOverlay.addEventListener('click', (e) => {
@@ -1067,6 +1470,7 @@ async function confirmCreatePr() {
   const wtPath = tabEl._wtPath;
   const sourceBranch = tabEl._wtBranch;
   const targetBranch = prSelectedBranch;
+  const workItemId = tabEl._wtTaskId || null;
 
   hideCreatePrDialog();
 
@@ -1094,7 +1498,7 @@ async function confirmCreatePr() {
   });
 
   try {
-    await window.prCreateAPI.start({ wtPath, sourceBranch, targetBranch, title, description: desc, pat });
+    await window.prCreateAPI.start({ wtPath, sourceBranch, targetBranch, title, description: desc, pat, workItemId });
     window.prCreateAPI.ready();
   } catch (err) {
     xterm.writeln(`\x1b[31m${err.message || err}\x1b[0m`);
@@ -1188,4 +1592,10 @@ function registerSaveSourceBranch(fn) {
   _saveSourceBranch = fn;
 }
 
-export { showWorktreeDialog, showCloneDialog, showDeleteDialog, showWorktreeRemoveDialog, showWorktreeSwitchDialog, showCommitPushDialog, showCreatePrDialog, setCloneReposDir, registerSidebarFns, registerRemoveRepoGroup, registerOnCloneComplete, registerBranchCache, registerSaveSourceBranch };
+let _saveTaskId = null;
+
+function registerSaveTaskId(fn) {
+  _saveTaskId = fn;
+}
+
+export { showWorktreeDialog, showCloneDialog, showDeleteDialog, showWorktreeRemoveDialog, showWorktreeSwitchDialog, showCommitPushDialog, showCreatePrDialog, setCloneReposDir, registerSidebarFns, registerRemoveRepoGroup, registerOnCloneComplete, registerBranchCache, registerSaveSourceBranch, registerSaveTaskId };

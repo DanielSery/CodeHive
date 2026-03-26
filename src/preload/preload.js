@@ -11,6 +11,7 @@ contextBridge.exposeInMainWorld('reposAPI', {
   cachedBranches: (barePath) => ipcRenderer.invoke('repos:cachedBranches', barePath),
   fetchBranches: (barePath) => ipcRenderer.invoke('repos:fetchBranches', barePath),
   gitUser: (barePath) => ipcRenderer.invoke('repos:gitUser', barePath),
+  remoteUrl: (barePath) => ipcRenderer.invoke('repos:remoteUrl', barePath),
 });
 
 contextBridge.exposeInMainWorld('worktreeAPI', {

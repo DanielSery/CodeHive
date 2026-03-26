@@ -365,7 +365,7 @@ function createCommitPushPty(mainWindow, { wtPath, title, description, branch })
   return { proc };
 }
 
-function createPrCreatePty(mainWindow, { wtPath, sourceBranch, targetBranch, title, description, pat }) {
+function createPrCreatePty(mainWindow, { wtPath, sourceBranch, targetBranch, title, description, pat, workItemId }) {
   const isWin = process.platform === 'win32';
   const os = require('os');
   const scriptExt = isWin ? '.ps1' : '.sh';
@@ -375,9 +375,9 @@ function createPrCreatePty(mainWindow, { wtPath, sourceBranch, targetBranch, tit
   if (isWin) {
     const escapedTitle = title.replace(/'/g, "''");
     const escapedDesc = (description || '').replace(/'/g, "''");
-    const azPrCmd = description
-      ? `az repos pr create --open --source-branch '${sourceBranch}' --target-branch '${targetBranch}' --title '${escapedTitle}' --description '${escapedDesc}'`
-      : `az repos pr create --open --source-branch '${sourceBranch}' --target-branch '${targetBranch}' --title '${escapedTitle}'`;
+    let azPrCmd = `az repos pr create --open --source-branch '${sourceBranch}' --target-branch '${targetBranch}' --title '${escapedTitle}'`;
+    if (description) azPrCmd += ` --description '${escapedDesc}'`;
+    if (workItemId) azPrCmd += ` --work-items ${workItemId}`;
     if (pat) lines.push(`$env:AZURE_DEVOPS_EXT_PAT = '${pat.replace(/'/g, "''")}'`);
     lines.push(`Write-Host "Creating pull request: ${sourceBranch} -> ${targetBranch}"`);
     lines.push('Write-Host ""');
@@ -388,9 +388,9 @@ function createPrCreatePty(mainWindow, { wtPath, sourceBranch, targetBranch, tit
   } else {
     const escapedTitle = title.replace(/"/g, '\\"');
     const escapedDesc = (description || '').replace(/"/g, '\\"');
-    const azPrCmd = description
-      ? `az repos pr create --open --source-branch "${sourceBranch}" --target-branch "${targetBranch}" --title "${escapedTitle}" --description "${escapedDesc}"`
-      : `az repos pr create --open --source-branch "${sourceBranch}" --target-branch "${targetBranch}" --title "${escapedTitle}"`;
+    let azPrCmd = `az repos pr create --open --source-branch "${sourceBranch}" --target-branch "${targetBranch}" --title "${escapedTitle}"`;
+    if (description) azPrCmd += ` --description "${escapedDesc}"`;
+    if (workItemId) azPrCmd += ` --work-items ${workItemId}`;
     lines.push('#!/bin/sh');
     lines.push('set -e');
     if (pat) lines.push(`export AZURE_DEVOPS_EXT_PAT='${pat.replace(/'/g, "'\\''")}'`);

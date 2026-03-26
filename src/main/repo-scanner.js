@@ -200,4 +200,16 @@ function getGitUser(barePath) {
   }
 }
 
-module.exports = { scanDirectory, checkClaudeActive, getCachedBranches, fetchAndListBranches, getGitUser };
+function getRemoteUrl(barePath) {
+  try {
+    return execSync('git remote get-url origin', {
+      cwd: barePath,
+      encoding: 'utf8',
+      timeout: 5000
+    }).trim();
+  } catch {
+    return null;
+  }
+}
+
+module.exports = { scanDirectory, checkClaudeActive, getCachedBranches, fetchAndListBranches, getGitUser, getRemoteUrl };

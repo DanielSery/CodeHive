@@ -23,6 +23,7 @@ let _onStateChange = null;
 let _getCachedBranches = null;
 let _saveBranchCache = null;
 let _getSourceBranch = null;
+let _getTaskId = null;
 
 function registerOnStateChange(fn) {
   _onStateChange = fn;
@@ -35,6 +36,10 @@ function registerSidebarBranchCache(getCached, saveCached) {
 
 function registerSourceBranchLookup(fn) {
   _getSourceBranch = fn;
+}
+
+function registerTaskIdLookup(fn) {
+  _getTaskId = fn;
 }
 
 function registerWorktreeDialog(fn) {
@@ -190,6 +195,7 @@ function createWorktreeTab(wt) {
   tabEl._wtPath = wt.path;
   tabEl._wtBranch = wt.branch;
   tabEl._wtSourceBranch = wt.sourceBranch || (_getSourceBranch ? _getSourceBranch(wt.path) : null);
+  tabEl._wtTaskId = wt.taskId || (_getTaskId ? _getTaskId(wt.path) : null);
   tabEl._workspaceId = null;
   tabEl._pollTimer = null;
   tabEl._wasWorking = false;
@@ -546,4 +552,4 @@ function getOpenWorktreePaths() {
   return paths;
 }
 
-export { addRepoGroup, clearAllGroups, createWorktreeTab, rebuildCollapsedDots, registerWorktreeDialog, registerDeleteDialog, registerWorktreeRemoveDialog, registerWorktreeSwitchDialog, registerCommitPushDialog, registerCreatePrDialog, registerOnStateChange, registerSidebarBranchCache, registerSourceBranchLookup, removeRepoGroup, showTabCloseButton, showTabRemoveButton, getRepoOrder, getOpenWorktreePaths };
+export { addRepoGroup, clearAllGroups, createWorktreeTab, rebuildCollapsedDots, registerWorktreeDialog, registerDeleteDialog, registerWorktreeRemoveDialog, registerWorktreeSwitchDialog, registerCommitPushDialog, registerCreatePrDialog, registerOnStateChange, registerSidebarBranchCache, registerSourceBranchLookup, registerTaskIdLookup, removeRepoGroup, showTabCloseButton, showTabRemoveButton, getRepoOrder, getOpenWorktreePaths };

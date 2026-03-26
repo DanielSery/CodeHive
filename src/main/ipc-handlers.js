@@ -1,6 +1,6 @@
 const { ipcMain, dialog, shell } = require('electron');
 const vscode = require('./vscode-server');
-const { scanDirectory, checkClaudeActive, getCachedBranches, fetchAndListBranches, getGitUser } = require('./repo-scanner');
+const { scanDirectory, checkClaudeActive, getCachedBranches, fetchAndListBranches, getGitUser, getRemoteUrl } = require('./repo-scanner');
 const { createWorktreePty, createClonePty, createDeletePty, createWorktreeRemovePty, createWorktreeSwitchPty, createCommitPushPty, createPrCreatePty } = require('./pty-manager');
 
 let worktreePty = null;
@@ -42,6 +42,10 @@ function register(mainWindow, getServerPort) {
 
   ipcMain.handle('repos:gitUser', (event, barePath) => {
     return getGitUser(barePath);
+  });
+
+  ipcMain.handle('repos:remoteUrl', (event, barePath) => {
+    return getRemoteUrl(barePath);
   });
 
 

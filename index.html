@@ -97,8 +97,14 @@
         <span class="combobox-arrow">&#x25BC;</span>
         <div id="wt-branch-list" class="combobox-list"></div>
       </div>
+      <label class="dialog-label">Azure Task <span style="color: var(--text-muted); font-weight: 400;">(optional)</span></label>
+      <div class="combobox" id="wt-task-combobox">
+        <input id="wt-task-search" type="text" class="dialog-input combobox-input" placeholder="Loading tasks..." spellcheck="false" autocomplete="off" disabled />
+        <span class="combobox-arrow">&#x25BC;</span>
+        <div id="wt-task-list" class="combobox-list"></div>
+      </div>
       <label class="dialog-label">Worktree Name</label>
-      <input id="wt-name-input" type="text" class="dialog-input" placeholder="e.g. Test new features" spellcheck="false" />
+      <input id="wt-name-input" type="text" class="dialog-input" placeholder="e.g. Test new features" spellcheck="false" maxlength="50" />
       <div id="wt-preview" class="dialog-preview"></div>
       <div class="dialog-buttons">
         <button id="wt-cancel-btn" class="dialog-btn dialog-btn-cancel">Cancel</button>
@@ -118,8 +124,14 @@
         <span class="combobox-arrow">&#x25BC;</span>
         <div id="wt-switch-branch-list" class="combobox-list"></div>
       </div>
+      <label class="dialog-label">Azure Task <span style="color: var(--text-muted); font-weight: 400;">(optional)</span></label>
+      <div class="combobox" id="wt-switch-task-combobox">
+        <input id="wt-switch-task-search" type="text" class="dialog-input combobox-input" placeholder="Loading tasks..." spellcheck="false" autocomplete="off" disabled />
+        <span class="combobox-arrow">&#x25BC;</span>
+        <div id="wt-switch-task-list" class="combobox-list"></div>
+      </div>
       <label class="dialog-label">Worktree Name</label>
-      <input id="wt-switch-name-input" type="text" class="dialog-input" placeholder="e.g. Test new features" spellcheck="false" />
+      <input id="wt-switch-name-input" type="text" class="dialog-input" placeholder="e.g. Test new features" spellcheck="false" maxlength="50" />
       <div id="wt-switch-preview" class="dialog-preview"></div>
       <div class="dialog-buttons">
         <button id="wt-switch-cancel-btn" class="dialog-btn dialog-btn-cancel">Cancel</button>

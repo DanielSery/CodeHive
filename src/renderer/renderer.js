@@ -1,5 +1,5 @@
-import { addRepoGroup, clearAllGroups, createWorktreeTab, rebuildCollapsedDots, registerWorktreeDialog, registerDeleteDialog, registerWorktreeRemoveDialog, registerWorktreeSwitchDialog, registerCommitPushDialog, registerCreatePrDialog, registerOnStateChange, registerSidebarBranchCache, registerSourceBranchLookup, removeRepoGroup, showTabCloseButton, showTabRemoveButton, getRepoOrder } from './sidebar.js';
-import { showWorktreeDialog, showCloneDialog, showDeleteDialog, showWorktreeRemoveDialog, showWorktreeSwitchDialog, showCommitPushDialog, showCreatePrDialog, setCloneReposDir, registerSidebarFns, registerRemoveRepoGroup, registerOnCloneComplete, registerBranchCache, registerSaveSourceBranch } from './dialogs.js';
+import { addRepoGroup, clearAllGroups, createWorktreeTab, rebuildCollapsedDots, registerWorktreeDialog, registerDeleteDialog, registerWorktreeRemoveDialog, registerWorktreeSwitchDialog, registerCommitPushDialog, registerCreatePrDialog, registerOnStateChange, registerSidebarBranchCache, registerSourceBranchLookup, registerTaskIdLookup, removeRepoGroup, showTabCloseButton, showTabRemoveButton, getRepoOrder } from './sidebar.js';
+import { showWorktreeDialog, showCloneDialog, showDeleteDialog, showWorktreeRemoveDialog, showWorktreeSwitchDialog, showCommitPushDialog, showCreatePrDialog, setCloneReposDir, registerSidebarFns, registerRemoveRepoGroup, registerOnCloneComplete, registerBranchCache, registerSaveSourceBranch, registerSaveTaskId } from './dialogs.js';
 import { cycleWorkspace, registerTabButtonFns } from './workspace-manager.js';
 import { getActive } from './state.js';
 
@@ -28,7 +28,8 @@ function saveState() {
     directories: prev.directories || [],
     repoOrder: getRepoOrder(),
     branchCache: prev.branchCache || {},
-    sourceBranches: prev.sourceBranches || {}
+    sourceBranches: prev.sourceBranches || {},
+    taskIds: prev.taskIds || {}
   };
   localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
 }
@@ -43,6 +44,18 @@ function saveSourceBranch(wtPath, sourceBranch) {
 function getSourceBranch(wtPath) {
   const state = getState();
   return (state.sourceBranches && state.sourceBranches[wtPath.replace(/\\/g, '/')]) || null;
+}
+
+function saveTaskId(wtPath, taskId) {
+  const state = getState();
+  if (!state.taskIds) state.taskIds = {};
+  state.taskIds[wtPath.replace(/\\/g, '/')] = taskId;
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+}
+
+function getTaskId(wtPath) {
+  const state = getState();
+  return (state.taskIds && state.taskIds[wtPath.replace(/\\/g, '/')]) || null;
 }
 
 function saveBranchCache(repoName, branches) {
@@ -77,6 +90,8 @@ registerBranchCache(getCachedBranchesFromState, saveBranchCache);
 registerSidebarBranchCache(getCachedBranchesFromState, saveBranchCache);
 registerSourceBranchLookup(getSourceBranch);
 registerSaveSourceBranch(saveSourceBranch);
+registerTaskIdLookup(getTaskId);
+registerSaveTaskId(saveTaskId);
 registerOnCloneComplete((reposDir) => {
   saveDirectories(reposDir);
   saveState();
