@@ -67,7 +67,8 @@ function registerCreatePrDialog(fn) {
 }
 
 function formatBranchLabel(branch) {
-  const name = branch.includes('/') ? branch.substring(branch.indexOf('/') + 1) : branch;
+  let name = branch.includes('/') ? branch.substring(branch.indexOf('/') + 1) : branch;
+  name = name.replace(/^\d+-/, '');
   return name.replace(/-/g, ' ');
 }
 
@@ -176,6 +177,10 @@ function addRepoGroup(repo) {
   groupEl.appendChild(headerEl);
   groupEl.appendChild(tabsEl);
   repoGroupsEl.appendChild(groupEl);
+
+  for (const tab of tabsEl.querySelectorAll('.workspace-tab')) {
+    checkExistingPr(tab);
+  }
 }
 
 function createWorktreeTab(wt) {
@@ -186,10 +191,10 @@ function createWorktreeTab(wt) {
     <span class="workspace-tab-status"></span>
     <span class="workspace-tab-label">${formatBranchLabel(wt.branch)}</span>
     <button class="workspace-tab-switch" title="Switch Worktree">${SWITCH_ICON_SVG}</button>
-    <button class="workspace-tab-remove" title="Remove Worktree">${BIN_ICON_SVG}</button>
     <button class="workspace-tab-commit-push" title="Commit &amp; Push" style="display:none">${COMMIT_PUSH_ICON_SVG}</button>
     <button class="workspace-tab-create-pr" title="Create Pull Request" style="display:none">${PR_ICON_SVG}</button>
     <button class="workspace-tab-close" title="Close" style="display:none">&times;</button>
+    <button class="workspace-tab-remove" title="Remove Worktree">${BIN_ICON_SVG}</button>
   `;
 
   tabEl._wtPath = wt.path;
@@ -235,7 +240,9 @@ function createWorktreeTab(wt) {
 
   tabEl.querySelector('.workspace-tab-create-pr').addEventListener('click', (e) => {
     e.stopPropagation();
-    if (_showCreatePrDialog) {
+    if (tabEl._existingPrUrl) {
+      window.shellAPI.openExternal(tabEl._existingPrUrl);
+    } else if (_showCreatePrDialog) {
       const groupEl = tabEl.closest('.repo-group');
       _showCreatePrDialog(tabEl, groupEl);
     }
@@ -262,6 +269,85 @@ function createWorktreeTab(wt) {
   return tabEl;
 }
 
+async function checkExistingPr(tabEl) {
+  const groupEl = tabEl.closest('.repo-group');
+  if (!groupEl) return;
+  const barePath = groupEl._barePath;
+  const branch = tabEl._wtBranch;
+  if (!barePath || !branch) return;
+
+  let remoteUrl;
+  try { remoteUrl = await window.reposAPI.remoteUrl(barePath); } catch { return; }
+  if (!remoteUrl) return;
+
+  let org, project;
+  const m = remoteUrl.match(/https?:\/\/(?:[^@/]+@)?dev\.azure\.com\/([^/]+)\/([^/]+)\/_git\//);
+  if (m) { org = decodeURIComponent(m[1]); project = decodeURIComponent(m[2]); }
+  else {
+    const m2 = remoteUrl.match(/https?:\/\/(?:[^@/]+@)?([^.]+)\.visualstudio\.com\/([^/]+)\/_git\//);
+    if (m2) { org = m2[1]; project = decodeURIComponent(m2[2]); }
+  }
+  if (!org || !project) return;
+
+  const pat = localStorage.getItem('codehive-azure-pat');
+  if (!pat) return;
+
+  const auth = btoa(':' + pat);
+  const sourceRef = `refs/heads/${branch}`;
+  const apiUrl = `https://dev.azure.com/${encodeURIComponent(org)}/${encodeURIComponent(project)}/_apis/git/pullrequests?searchCriteria.sourceRefName=${encodeURIComponent(sourceRef)}&searchCriteria.status=active&api-version=7.0`;
+
+  let data;
+  try {
+    const resp = await fetch(apiUrl, { headers: { Authorization: `Basic ${auth}` } });
+    if (!resp.ok) return;
+    data = await resp.json();
+  } catch { return; }
+
+  if (!data.value || data.value.length === 0) return;
+
+  const pr = data.value[0];
+  const prUrl = `https://dev.azure.com/${encodeURIComponent(org)}/${encodeURIComponent(project)}/_git/${encodeURIComponent(pr.repository.name)}/pullrequest/${pr.pullRequestId}`;
+  tabEl._existingPrUrl = prUrl;
+
+  const createPrBtn = tabEl.querySelector('.workspace-tab-create-pr');
+  if (!createPrBtn) return;
+
+  // Determine status class: failed > approved > default
+  let statusClass = 'has-pr';
+
+  // Check pipeline statuses
+  const statusesUrl = `https://dev.azure.com/${encodeURIComponent(org)}/${encodeURIComponent(project)}/_apis/git/repositories/${encodeURIComponent(pr.repository.id)}/pullRequests/${pr.pullRequestId}/statuses?api-version=7.0`;
+  try {
+    const sResp = await fetch(statusesUrl, { headers: { Authorization: `Basic ${auth}` } });
+    if (sResp.ok) {
+      const sData = await sResp.json();
+      const statuses = sData.value || [];
+      // Deduplicate: keep latest status per context key
+      const latest = {};
+      for (const s of statuses) {
+        const key = `${s.context?.genre}/${s.context?.name}`;
+        if (!latest[key] || s.id > latest[key].id) latest[key] = s;
+      }
+      if (Object.values(latest).some(s => s.state === 'failed' || s.state === 'error')) {
+        statusClass = 'has-pr-failed';
+      }
+    }
+  } catch { /* ignore */ }
+
+  // Check reviewer approval (only if pipeline not failed)
+  if (statusClass === 'has-pr') {
+    const reviewers = pr.reviewers || [];
+    const approved = reviewers.some(r => r.vote >= 10);
+    const rejected = reviewers.some(r => r.vote <= -10);
+    if (approved && !rejected) statusClass = 'has-pr-approved';
+  }
+
+  createPrBtn.classList.remove('has-pr', 'has-pr-approved', 'has-pr-failed');
+  createPrBtn.classList.add(statusClass);
+  createPrBtn.style.display = '';
+  createPrBtn.title = `View Pull Request #${pr.pullRequestId}`;
+}
+
 function showTabCloseButton(tabEl) {
   const switchBtn = tabEl.querySelector('.workspace-tab-switch');
   const removeBtn = tabEl.querySelector('.workspace-tab-remove');
@@ -273,6 +359,7 @@ function showTabCloseButton(tabEl) {
   if (commitPushBtn) commitPushBtn.style.display = '';
   if (createPrBtn) createPrBtn.style.display = '';
   if (closeBtn) closeBtn.style.display = '';
+  checkExistingPr(tabEl);
 }
 
 function showTabRemoveButton(tabEl) {
@@ -284,8 +371,9 @@ function showTabRemoveButton(tabEl) {
   if (switchBtn) switchBtn.style.display = '';
   if (removeBtn) removeBtn.style.display = '';
   if (commitPushBtn) commitPushBtn.style.display = 'none';
-  if (createPrBtn) createPrBtn.style.display = 'none';
+  if (createPrBtn) createPrBtn.style.display = tabEl._existingPrUrl ? '' : 'none';
   if (closeBtn) closeBtn.style.display = 'none';
+  checkExistingPr(tabEl);
 }
 
 // ===== Sidebar Resize =====
@@ -387,14 +475,16 @@ function showContextMenu(x, y, tabEl) {
   _contextMenuTabEl = tabEl;
 
   const isOpen = tabEl._workspaceId !== null;
-  contextMenu.querySelector('[data-action="close-editor"]').style.display = isOpen ? '' : 'none';
+  const hasTask = !!tabEl._wtTaskId;
+  const hasPr = !!tabEl._existingPrUrl;
+
+  contextMenu.querySelector('[data-action="switch"]').style.display = isOpen ? 'none' : '';
   contextMenu.querySelector('[data-action="commit-push"]').style.display = isOpen ? '' : 'none';
   contextMenu.querySelector('[data-action="create-pr"]').style.display = isOpen ? '' : 'none';
-  contextMenu.querySelector('[data-action="switch"]').style.display = isOpen ? 'none' : '';
+  contextMenu.querySelector('[data-action="open-task"]').style.display = hasTask ? '' : 'none';
+  contextMenu.querySelector('[data-action="open-pr"]').style.display = hasPr ? '' : 'none';
+  contextMenu.querySelector('[data-action="close-editor"]').style.display = isOpen ? '' : 'none';
   contextMenu.querySelector('[data-action="remove"]').style.display = isOpen ? 'none' : '';
-  const seps = contextMenu.querySelectorAll('.context-menu-separator');
-  if (seps[0]) seps[0].style.display = isOpen ? '' : 'none';
-  if (seps[1]) seps[1].style.display = isOpen ? 'none' : '';
 
   contextMenu.style.left = x + 'px';
   contextMenu.style.top = y + 'px';
@@ -431,6 +521,32 @@ contextMenu.addEventListener('click', (e) => {
 
   if (action === 'open-explorer') {
     window.shellAPI.openInExplorer(tabEl._wtPath);
+  } else if (action === 'open-task') {
+    const taskId = tabEl._wtTaskId;
+    if (taskId) {
+      const groupEl = tabEl.closest('.repo-group');
+      const barePath = groupEl ? groupEl._barePath : null;
+      (async () => {
+        let url = null;
+        if (barePath) {
+          try {
+            const remoteUrl = await window.reposAPI.remoteUrl(barePath);
+            const m = remoteUrl && remoteUrl.match(/https?:\/\/(?:[^@/]+@)?dev\.azure\.com\/([^/]+)\/([^/]+)\/_git\//);
+            if (m) {
+              url = `https://dev.azure.com/${encodeURIComponent(decodeURIComponent(m[1]))}/${encodeURIComponent(decodeURIComponent(m[2]))}/_workitems/edit/${taskId}`;
+            } else {
+              const m2 = remoteUrl && remoteUrl.match(/https?:\/\/(?:[^@/]+@)?([^.]+)\.visualstudio\.com\/([^/]+)\/_git\//);
+              if (m2) {
+                url = `https://dev.azure.com/${encodeURIComponent(m2[1])}/${encodeURIComponent(decodeURIComponent(m2[2]))}/_workitems/edit/${taskId}`;
+              }
+            }
+          } catch {}
+        }
+        if (url) window.shellAPI.openExternal(url);
+      })();
+    }
+  } else if (action === 'open-pr') {
+    if (tabEl._existingPrUrl) window.shellAPI.openExternal(tabEl._existingPrUrl);
   } else if (action === 'close-editor') {
     if (tabEl._workspaceId !== null) {
       closeWorkspace(tabEl._workspaceId);
@@ -551,5 +667,14 @@ function getOpenWorktreePaths() {
   }
   return paths;
 }
+
+setInterval(() => {
+  for (const tab of document.querySelectorAll('.workspace-tab')) {
+    const btn = tab.querySelector('.workspace-tab-create-pr');
+    if (btn && (btn.classList.contains('has-pr') || btn.classList.contains('has-pr-approved') || btn.classList.contains('has-pr-failed'))) {
+      checkExistingPr(tab);
+    }
+  }
+}, 5 * 60 * 1000);
 
 export { addRepoGroup, clearAllGroups, createWorktreeTab, rebuildCollapsedDots, registerWorktreeDialog, registerDeleteDialog, registerWorktreeRemoveDialog, registerWorktreeSwitchDialog, registerCommitPushDialog, registerCreatePrDialog, registerOnStateChange, registerSidebarBranchCache, registerSourceBranchLookup, registerTaskIdLookup, removeRepoGroup, showTabCloseButton, showTabRemoveButton, getRepoOrder, getOpenWorktreePaths };

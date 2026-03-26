@@ -766,6 +766,36 @@ html, body {
   color: #1e1e2e;
 }
 
+.workspace-tab .workspace-tab-create-pr.has-pr {
+  opacity: 1;
+  color: var(--accent);
+}
+
+.workspace-tab .workspace-tab-create-pr.has-pr:hover {
+  background: var(--accent);
+  color: #1e1e2e;
+}
+
+.workspace-tab .workspace-tab-create-pr.has-pr-approved {
+  opacity: 1;
+  color: var(--green);
+}
+
+.workspace-tab .workspace-tab-create-pr.has-pr-approved:hover {
+  background: var(--green);
+  color: #1e1e2e;
+}
+
+.workspace-tab .workspace-tab-create-pr.has-pr-failed {
+  opacity: 1;
+  color: var(--red);
+}
+
+.workspace-tab .workspace-tab-create-pr.has-pr-failed:hover {
+  background: var(--red);
+  color: #1e1e2e;
+}
+
 .workspace-tab-close {
   width: 18px;
   height: 18px;

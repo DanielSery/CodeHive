@@ -1414,6 +1414,31 @@ async function showCreatePrDialog(tabEl, groupEl) {
 
   createPrDialogOverlay.classList.add('visible');
 
+  const taskId = tabEl._wtTaskId;
+  if (taskId) {
+    (async () => {
+      try {
+        const remoteUrl = await window.reposAPI.remoteUrl(groupEl._barePath);
+        const parsed = parseAzureRemoteUrl(remoteUrl);
+        const pat = loadStoredPat();
+        if (parsed && pat) {
+          const auth = btoa(':' + pat);
+          const resp = await fetch(
+            `https://dev.azure.com/${encodeURIComponent(parsed.org)}/${encodeURIComponent(parsed.project)}/_apis/wit/workitems/${taskId}?fields=System.Title&api-version=7.0`,
+            { headers: { Authorization: `Basic ${auth}` } }
+          );
+          if (resp.ok) {
+            const data = await resp.json();
+            const taskTitle = data.fields && data.fields['System.Title'];
+            if (taskTitle && !prTitleInput.value) {
+              prTitleInput.value = `#${taskId}: ${taskTitle}`;
+            }
+          }
+        }
+      } catch {}
+    })();
+  }
+
   const repoName = groupEl.dataset.repoName;
   const preselect = tabEl._wtSourceBranch || null;
 

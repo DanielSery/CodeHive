@@ -121,6 +121,10 @@ function register(mainWindow, getServerPort) {
     return shell.openPath(folderPath);
   });
 
+  ipcMain.handle('shell:openExternal', (event, url) => {
+    return shell.openExternal(url);
+  });
+
   // Window controls
   ipcMain.on('window:minimize', () => mainWindow.minimize());
   ipcMain.on('window:maximize', () => {
