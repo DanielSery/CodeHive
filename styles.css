@@ -617,6 +617,41 @@ html, body {
   color: var(--text);
 }
 
+.workspace-tab-commit-push,
+.workspace-tab-create-pr {
+  width: 18px;
+  height: 18px;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  border-radius: 3px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: all 0.15s;
+  margin-left: 4px;
+  padding: 0;
+}
+
+.workspace-tab:hover .workspace-tab-commit-push,
+.workspace-tab:hover .workspace-tab-create-pr {
+  opacity: 0.6;
+}
+
+.workspace-tab:hover .workspace-tab-commit-push:hover {
+  opacity: 1;
+  background: var(--green);
+  color: #1e1e2e;
+}
+
+.workspace-tab:hover .workspace-tab-create-pr:hover {
+  opacity: 1;
+  background: var(--accent);
+  color: #1e1e2e;
+}
+
 .workspace-tab-close {
   width: 18px;
   height: 18px;
@@ -767,6 +802,12 @@ html, body {
 
 .dialog-input:focus {
   border-color: var(--accent);
+}
+
+.dialog-textarea {
+  resize: vertical;
+  min-height: 60px;
+  font-family: 'Segoe UI', -apple-system, sans-serif;
 }
 
 .dialog-buttons {

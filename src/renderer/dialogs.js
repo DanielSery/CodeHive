@@ -4,15 +4,17 @@ import { createTerminal, showTerminal, showCloseButton, setTitle, closeTerminal 
 // Injected by renderer.js to avoid circular dependency
 let _addRepoGroup = null;
 let _createWorktreeTab = null;
+let _rebuildCollapsedDots = null;
 let _cloneReposDir = null;
 
 function setCloneReposDir(dir) {
   _cloneReposDir = dir;
 }
 
-function registerSidebarFns(addRepoGroup, createWorktreeTab) {
+function registerSidebarFns(addRepoGroup, createWorktreeTab, rebuildCollapsedDots) {
   _addRepoGroup = addRepoGroup;
   _createWorktreeTab = createWorktreeTab;
+  _rebuildCollapsedDots = rebuildCollapsedDots;
 }
 
 // ===== Worktree Dialog =====
@@ -209,6 +211,7 @@ async function confirmCreateWorktree() {
       if (_saveSourceBranch) _saveSourceBranch(wtPath, sourceBranch);
       const tabEl = _createWorktreeTab(wt);
       tabsEl.appendChild(tabEl);
+      if (_rebuildCollapsedDots) _rebuildCollapsedDots();
 
       setTimeout(async () => {
         closeTerminal();
@@ -711,6 +714,7 @@ async function confirmSwitchWorktree() {
       if (_saveSourceBranch) _saveSourceBranch(wtPath, switchSource);
       const newTabEl = _createWorktreeTab(wt);
       tabsEl.appendChild(newTabEl);
+      if (_rebuildCollapsedDots) _rebuildCollapsedDots();
 
       setTimeout(async () => {
         closeTerminal();
@@ -808,6 +812,319 @@ wtSwitchDialogOverlay.addEventListener('click', (e) => {
 document.getElementById('wt-switch-cancel-btn').addEventListener('click', hideWorktreeSwitchDialog);
 document.getElementById('wt-switch-confirm-btn').addEventListener('click', confirmSwitchWorktree);
 
+// ===== Commit & Push Dialog =====
+
+const commitPushDialogOverlay = document.getElementById('commit-push-dialog-overlay');
+const commitPushTitleInput = document.getElementById('commit-push-title-input');
+const commitPushDescInput = document.getElementById('commit-push-desc-input');
+
+let _commitPushTabEl = null;
+let _commitPushGroupEl = null;
+
+function showCommitPushDialog(tabEl, groupEl) {
+  _commitPushTabEl = tabEl;
+  _commitPushGroupEl = groupEl;
+  commitPushTitleInput.value = '';
+  commitPushDescInput.value = '';
+  commitPushDialogOverlay.classList.add('visible');
+  setTimeout(() => commitPushTitleInput.focus(), 50);
+}
+
+function hideCommitPushDialog() {
+  commitPushDialogOverlay.classList.remove('visible');
+  _commitPushTabEl = null;
+  _commitPushGroupEl = null;
+}
+
+async function confirmCommitPush() {
+  const title = commitPushTitleInput.value.trim();
+  if (!title || !_commitPushTabEl) return;
+
+  const desc = commitPushDescInput.value.trim();
+  const tabEl = _commitPushTabEl;
+  const wtPath = tabEl._wtPath;
+  const branch = tabEl._wtBranch;
+
+  hideCommitPushDialog();
+
+  showTerminal(`Commit & Push: ${branch}`);
+  const xterm = createTerminal();
+
+  window.commitPushAPI.removeListeners();
+  window.commitPushAPI.onData((data) => {
+    xterm.write(data);
+  });
+
+  window.commitPushAPI.onExit(({ exitCode }) => {
+    if (exitCode === 0) {
+      xterm.writeln('');
+      xterm.writeln('\x1b[32mCommit & push completed successfully!\x1b[0m');
+      setTitle('Commit & push complete');
+    } else {
+      xterm.writeln('');
+      xterm.writeln(`\x1b[31mCommit & push failed with exit code ${exitCode}\x1b[0m`);
+      setTitle('Commit & push failed');
+    }
+    showCloseButton();
+  });
+
+  try {
+    await window.commitPushAPI.start({ wtPath, title, description: desc, branch });
+    window.commitPushAPI.ready();
+  } catch (err) {
+    xterm.writeln(`\x1b[31m${err.message || err}\x1b[0m`);
+    setTitle('Commit & push failed');
+    showCloseButton();
+  }
+}
+
+commitPushDialogOverlay.addEventListener('click', (e) => {
+  if (e.target === commitPushDialogOverlay) hideCommitPushDialog();
+});
+document.getElementById('commit-push-cancel-btn').addEventListener('click', hideCommitPushDialog);
+document.getElementById('commit-push-confirm-btn').addEventListener('click', confirmCommitPush);
+
+commitPushTitleInput.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') confirmCommitPush();
+  if (e.key === 'Escape') hideCommitPushDialog();
+});
+commitPushDescInput.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') hideCommitPushDialog();
+});
+
+// ===== Create Pull Request Dialog =====
+
+const createPrDialogOverlay = document.getElementById('create-pr-dialog-overlay');
+const prBranchSearch = document.getElementById('pr-branch-search');
+const prBranchList = document.getElementById('pr-branch-list');
+const prTitleInput = document.getElementById('pr-title-input');
+const prDescInput = document.getElementById('pr-desc-input');
+
+let prAllBranches = [];
+let prSelectedBranch = null;
+let prHighlightIndex = -1;
+let _prTabEl = null;
+let _prGroupEl = null;
+
+function getPrFilteredBranches() {
+  const q = (prBranchSearch.value || '').toLowerCase();
+  return prAllBranches.filter(b => b.toLowerCase().includes(q));
+}
+
+function renderPrBranchList(filter) {
+  prBranchList.innerHTML = '';
+  const q = (filter || '').toLowerCase();
+  const filtered = prAllBranches.filter(b => b.toLowerCase().includes(q));
+  if (filtered.length === 0) {
+    prBranchList.classList.remove('open');
+    prHighlightIndex = -1;
+    return;
+  }
+  filtered.forEach((b, i) => {
+    const item = document.createElement('div');
+    item.className = 'combobox-item';
+    if (b === prSelectedBranch) item.classList.add('selected');
+    if (i === prHighlightIndex) item.classList.add('highlighted');
+    item.textContent = b;
+    item.addEventListener('mousedown', (e) => {
+      e.preventDefault();
+      selectPrBranch(b);
+    });
+    prBranchList.appendChild(item);
+  });
+  prBranchList.classList.add('open');
+}
+
+function selectPrBranch(b) {
+  prSelectedBranch = b;
+  prBranchSearch.value = b;
+  prBranchList.classList.remove('open');
+  prHighlightIndex = -1;
+}
+
+function applyPrBranches(branches, preselect) {
+  prAllBranches = branches;
+  if (preselect && branches.includes(preselect) && !prSelectedBranch) {
+    prSelectedBranch = preselect;
+    prBranchSearch.value = preselect;
+  } else if (!prSelectedBranch) {
+    const defaultBranch = ['master', 'main', 'develop'].find(b => branches.includes(b));
+    if (defaultBranch) {
+      prSelectedBranch = defaultBranch;
+      prBranchSearch.value = defaultBranch;
+    }
+  }
+  prBranchSearch.placeholder = 'Search branches...';
+  prBranchSearch.disabled = false;
+}
+
+async function showCreatePrDialog(tabEl, groupEl) {
+  _prTabEl = tabEl;
+  _prGroupEl = groupEl;
+  prSelectedBranch = null;
+  prAllBranches = [];
+  prBranchSearch.value = '';
+  prBranchSearch.placeholder = 'Fetching branches...';
+  prBranchSearch.disabled = true;
+  prTitleInput.value = '';
+  prDescInput.value = '';
+  prBranchList.innerHTML = '';
+  prBranchList.classList.remove('open');
+
+  createPrDialogOverlay.classList.add('visible');
+
+  const repoName = groupEl.dataset.repoName;
+  const preselect = tabEl._wtSourceBranch || null;
+
+  const stateCache = _getCachedBranches ? _getCachedBranches(repoName) : [];
+
+  const [cached, user] = await Promise.all([
+    window.reposAPI.cachedBranches(groupEl._barePath),
+    window.reposAPI.gitUser(groupEl._barePath)
+  ]);
+
+  const initialBranches = cached.length > 0 ? cached : stateCache;
+  if (initialBranches.length > 0) {
+    applyPrBranches(initialBranches, preselect);
+    prTitleInput.focus();
+  }
+
+  window.reposAPI.fetchBranches(groupEl._barePath).then((fetched) => {
+    if (!createPrDialogOverlay.classList.contains('visible')) return;
+    if (_prGroupEl !== groupEl) return;
+    applyPrBranches(fetched, preselect);
+    if (_saveBranchCache) _saveBranchCache(repoName, fetched);
+    if (prBranchList.classList.contains('open')) {
+      renderPrBranchList(prBranchSearch.value);
+    }
+    if (cached.length === 0) {
+      if (prSelectedBranch) {
+        prTitleInput.focus();
+      } else {
+        prBranchSearch.focus();
+      }
+    }
+  });
+}
+
+function hideCreatePrDialog() {
+  createPrDialogOverlay.classList.remove('visible');
+  prBranchList.classList.remove('open');
+  _prTabEl = null;
+  _prGroupEl = null;
+}
+
+async function confirmCreatePr() {
+  const title = prTitleInput.value.trim();
+  if (!title || !prSelectedBranch || !_prTabEl) return;
+
+  const desc = prDescInput.value.trim();
+  const tabEl = _prTabEl;
+  const groupEl = _prGroupEl;
+  const wtPath = tabEl._wtPath;
+  const sourceBranch = tabEl._wtBranch;
+  const targetBranch = prSelectedBranch;
+
+  hideCreatePrDialog();
+
+  showTerminal(`Creating PR: ${sourceBranch} → ${targetBranch}`);
+  const xterm = createTerminal();
+
+  window.prCreateAPI.removeListeners();
+  window.prCreateAPI.onData((data) => {
+    xterm.write(data);
+  });
+
+  window.prCreateAPI.onExit(({ exitCode }) => {
+    if (exitCode === 0) {
+      xterm.writeln('');
+      xterm.writeln('\x1b[32mPull request created successfully!\x1b[0m');
+      setTitle('Pull request created');
+    } else {
+      xterm.writeln('');
+      xterm.writeln(`\x1b[31mPull request creation failed with exit code ${exitCode}\x1b[0m`);
+      setTitle('Pull request creation failed');
+    }
+    showCloseButton();
+  });
+
+  try {
+    await window.prCreateAPI.start({ wtPath, sourceBranch, targetBranch, title, description: desc });
+    window.prCreateAPI.ready();
+  } catch (err) {
+    xterm.writeln(`\x1b[31m${err.message || err}\x1b[0m`);
+    setTitle('Pull request creation failed');
+    showCloseButton();
+  }
+}
+
+// PR dialog event listeners
+prBranchSearch.addEventListener('input', () => {
+  prSelectedBranch = null;
+  prHighlightIndex = -1;
+  renderPrBranchList(prBranchSearch.value);
+});
+
+prBranchSearch.addEventListener('focus', () => {
+  prBranchSearch.value = '';
+  prHighlightIndex = -1;
+  renderPrBranchList('');
+});
+
+prBranchSearch.addEventListener('blur', () => {
+  setTimeout(() => {
+    prBranchList.classList.remove('open');
+    if (prSelectedBranch) prBranchSearch.value = prSelectedBranch;
+  }, 200);
+});
+
+document.querySelector('#pr-branch-combobox .combobox-arrow').addEventListener('click', () => {
+  if (prBranchList.classList.contains('open')) {
+    prBranchList.classList.remove('open');
+  } else {
+    prBranchSearch.value = '';
+    prHighlightIndex = -1;
+    renderPrBranchList('');
+    prBranchSearch.focus();
+  }
+});
+
+prBranchSearch.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') { hideCreatePrDialog(); return; }
+  const filtered = getPrFilteredBranches();
+  if (e.key === 'ArrowDown') {
+    e.preventDefault();
+    prHighlightIndex = Math.min(prHighlightIndex + 1, filtered.length - 1);
+    renderPrBranchList(prBranchSearch.value);
+    const el = prBranchList.querySelector('.highlighted');
+    if (el) el.scrollIntoView({ block: 'nearest' });
+  } else if (e.key === 'ArrowUp') {
+    e.preventDefault();
+    prHighlightIndex = Math.max(prHighlightIndex - 1, 0);
+    renderPrBranchList(prBranchSearch.value);
+    const el = prBranchList.querySelector('.highlighted');
+    if (el) el.scrollIntoView({ block: 'nearest' });
+  } else if (e.key === 'Enter' && prHighlightIndex >= 0 && prHighlightIndex < filtered.length) {
+    e.preventDefault();
+    selectPrBranch(filtered[prHighlightIndex]);
+    prTitleInput.focus();
+  }
+});
+
+prTitleInput.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') confirmCreatePr();
+  if (e.key === 'Escape') hideCreatePrDialog();
+});
+prDescInput.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') hideCreatePrDialog();
+});
+
+createPrDialogOverlay.addEventListener('click', (e) => {
+  if (e.target === createPrDialogOverlay) hideCreatePrDialog();
+});
+document.getElementById('pr-cancel-btn').addEventListener('click', hideCreatePrDialog);
+document.getElementById('pr-confirm-btn').addEventListener('click', confirmCreatePr);
+
 let _onCloneComplete = null;
 let _getCachedBranches = null;
 let _saveBranchCache = null;
@@ -826,4 +1143,4 @@ function registerSaveSourceBranch(fn) {
   _saveSourceBranch = fn;
 }
 
-export { showWorktreeDialog, showCloneDialog, showDeleteDialog, showWorktreeRemoveDialog, showWorktreeSwitchDialog, setCloneReposDir, registerSidebarFns, registerRemoveRepoGroup, registerOnCloneComplete, registerBranchCache, registerSaveSourceBranch };
+export { showWorktreeDialog, showCloneDialog, showDeleteDialog, showWorktreeRemoveDialog, showWorktreeSwitchDialog, showCommitPushDialog, showCreatePrDialog, setCloneReposDir, registerSidebarFns, registerRemoveRepoGroup, registerOnCloneComplete, registerBranchCache, registerSaveSourceBranch };

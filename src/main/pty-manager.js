@@ -295,4 +295,135 @@ function createWorktreeSwitchPty(mainWindow, { barePath, oldWtPath, branchName, 
   return { proc, wtPath: oldWtForGit, branchName, dirName };
 }
 
-module.exports = { createWorktreePty, createClonePty, createDeletePty, createWorktreeRemovePty, createWorktreeSwitchPty };
+function createCommitPushPty(mainWindow, { wtPath, title, description, branch }) {
+  const isWin = process.platform === 'win32';
+  const os = require('os');
+  const scriptExt = isWin ? '.cmd' : '.sh';
+  const scriptPath = path.join(os.tmpdir(), `codehive-commit-push-${Date.now()}${scriptExt}`);
+
+  // Build commit message: title + optional description
+  const commitMsg = description ? `${title}\n\n${description}` : title;
+  // Escape for shell usage
+  const escapedMsg = commitMsg.replace(/"/g, isWin ? '""' : '\\"');
+
+  const lines = [];
+  if (isWin) {
+    lines.push('@echo off');
+    lines.push('echo Staging all changes...');
+    lines.push('git add -A');
+    lines.push('echo.');
+    lines.push('echo Creating commit...');
+    lines.push(`git commit -m "${escapedMsg}"`);
+    lines.push('if %errorlevel% neq 0 (');
+    lines.push('  echo.');
+    lines.push('  echo No changes to commit or commit failed.');
+    lines.push('  exit /b 1');
+    lines.push(')');
+    lines.push('echo.');
+    lines.push(`echo Pushing to origin/${branch}...`);
+    lines.push(`git push -u origin "${branch}"`);
+    lines.push('if %errorlevel% neq 0 (');
+    lines.push('  echo.');
+    lines.push('  echo Push failed.');
+    lines.push('  exit /b 1');
+    lines.push(')');
+    lines.push('echo.');
+    lines.push('echo === COMMIT AND PUSH COMPLETE ===');
+  } else {
+    lines.push('#!/bin/sh');
+    lines.push('set -e');
+    lines.push('echo "Staging all changes..."');
+    lines.push('git add -A');
+    lines.push('echo ""');
+    lines.push('echo "Creating commit..."');
+    lines.push(`git commit -m "${escapedMsg}"`);
+    lines.push('echo ""');
+    lines.push(`echo "Pushing to origin/${branch}..."`);
+    lines.push(`git push -u origin "${branch}"`);
+    lines.push('echo ""');
+    lines.push('echo "=== COMMIT AND PUSH COMPLETE ==="');
+  }
+
+  fs.writeFileSync(scriptPath, lines.join('\n'), { encoding: 'utf8' });
+
+  const cmd = isWin ? scriptPath : `sh "${scriptPath}"`;
+  const proc = spawnProc(cmd, wtPath);
+
+  proc.onData((data) => {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('commitPush:data', data);
+    }
+  });
+
+  proc.onExit(({ exitCode }) => {
+    try { fs.unlinkSync(scriptPath); } catch {}
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('commitPush:exit', { exitCode });
+    }
+  });
+
+  return { proc };
+}
+
+function createPrCreatePty(mainWindow, { wtPath, sourceBranch, targetBranch, title, description }) {
+  const isWin = process.platform === 'win32';
+  const os = require('os');
+  const scriptExt = isWin ? '.cmd' : '.sh';
+  const scriptPath = path.join(os.tmpdir(), `codehive-pr-create-${Date.now()}${scriptExt}`);
+
+  const escapedTitle = title.replace(/"/g, isWin ? '""' : '\\"');
+  const escapedDesc = (description || '').replace(/"/g, isWin ? '""' : '\\"');
+
+  const lines = [];
+  if (isWin) {
+    lines.push('@echo off');
+    lines.push(`echo Creating pull request: ${sourceBranch} -^> ${targetBranch}`);
+    lines.push('echo.');
+    if (description) {
+      lines.push(`az repos pr create --source-branch "${sourceBranch}" --target-branch "${targetBranch}" --title "${escapedTitle}" --description "${escapedDesc}"`);
+    } else {
+      lines.push(`az repos pr create --source-branch "${sourceBranch}" --target-branch "${targetBranch}" --title "${escapedTitle}"`);
+    }
+    lines.push('if %errorlevel% neq 0 (');
+    lines.push('  echo.');
+    lines.push('  echo Pull request creation failed.');
+    lines.push('  exit /b 1');
+    lines.push(')');
+    lines.push('echo.');
+    lines.push('echo === PULL REQUEST CREATED ===');
+  } else {
+    lines.push('#!/bin/sh');
+    lines.push('set -e');
+    lines.push(`echo "Creating pull request: ${sourceBranch} -> ${targetBranch}"`);
+    lines.push('echo ""');
+    if (description) {
+      lines.push(`az repos pr create --source-branch "${sourceBranch}" --target-branch "${targetBranch}" --title "${escapedTitle}" --description "${escapedDesc}"`);
+    } else {
+      lines.push(`az repos pr create --source-branch "${sourceBranch}" --target-branch "${targetBranch}" --title "${escapedTitle}"`);
+    }
+    lines.push('echo ""');
+    lines.push('echo "=== PULL REQUEST CREATED ==="');
+  }
+
+  fs.writeFileSync(scriptPath, lines.join('\n'), { encoding: 'utf8' });
+
+  const cmd = isWin ? scriptPath : `sh "${scriptPath}"`;
+  const proc = spawnProc(cmd, wtPath);
+
+  proc.onData((data) => {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('prCreate:data', data);
+    }
+  });
+
+  proc.onExit(({ exitCode }) => {
+    try { fs.unlinkSync(scriptPath); } catch {}
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('prCreate:exit', { exitCode });
+    }
+  });
+
+  return { proc };
+}
+
+module.exports = { createWorktreePty, createClonePty, createDeletePty, createWorktreeRemovePty, createWorktreeSwitchPty, createCommitPushPty, createPrCreatePty };

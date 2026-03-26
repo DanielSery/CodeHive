@@ -68,6 +68,28 @@ contextBridge.exposeInMainWorld('worktreeSwitchAPI', {
   }
 });
 
+contextBridge.exposeInMainWorld('commitPushAPI', {
+  start: (opts) => ipcRenderer.invoke('commitPush:start', opts),
+  ready: () => ipcRenderer.send('commitPush:ready'),
+  onData: (cb) => ipcRenderer.on('commitPush:data', (_, data) => cb(data)),
+  onExit: (cb) => ipcRenderer.on('commitPush:exit', (_, info) => cb(info)),
+  removeListeners: () => {
+    ipcRenderer.removeAllListeners('commitPush:data');
+    ipcRenderer.removeAllListeners('commitPush:exit');
+  }
+});
+
+contextBridge.exposeInMainWorld('prCreateAPI', {
+  start: (opts) => ipcRenderer.invoke('prCreate:start', opts),
+  ready: () => ipcRenderer.send('prCreate:ready'),
+  onData: (cb) => ipcRenderer.on('prCreate:data', (_, data) => cb(data)),
+  onExit: (cb) => ipcRenderer.on('prCreate:exit', (_, info) => cb(info)),
+  removeListeners: () => {
+    ipcRenderer.removeAllListeners('prCreate:data');
+    ipcRenderer.removeAllListeners('prCreate:exit');
+  }
+});
+
 contextBridge.exposeInMainWorld('shellAPI', {
   openInExplorer: (folderPath) => ipcRenderer.invoke('shell:openInExplorer', folderPath),
 });

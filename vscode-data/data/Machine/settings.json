@@ -13,6 +13,7 @@
   "window.titleBarStyle": "native",
   "workbench.layoutControl.enabled": false,
   "claudeCode.preferredLocation": "sidebar",
+  "explorer.autoReveal": true,
   "explorer.sortOrder": "type",
   "explorer.fileNesting.enabled": true,
   "explorer.fileNesting.expand": false,

@@ -1,5 +1,5 @@
-import { addRepoGroup, clearAllGroups, createWorktreeTab, registerWorktreeDialog, registerDeleteDialog, registerWorktreeRemoveDialog, registerWorktreeSwitchDialog, registerOnStateChange, registerSidebarBranchCache, registerSourceBranchLookup, removeRepoGroup, showTabCloseButton, showTabRemoveButton, getRepoOrder } from './sidebar.js';
-import { showWorktreeDialog, showCloneDialog, showDeleteDialog, showWorktreeRemoveDialog, showWorktreeSwitchDialog, setCloneReposDir, registerSidebarFns, registerRemoveRepoGroup, registerOnCloneComplete, registerBranchCache, registerSaveSourceBranch } from './dialogs.js';
+import { addRepoGroup, clearAllGroups, createWorktreeTab, rebuildCollapsedDots, registerWorktreeDialog, registerDeleteDialog, registerWorktreeRemoveDialog, registerWorktreeSwitchDialog, registerCommitPushDialog, registerCreatePrDialog, registerOnStateChange, registerSidebarBranchCache, registerSourceBranchLookup, removeRepoGroup, showTabCloseButton, showTabRemoveButton, getRepoOrder } from './sidebar.js';
+import { showWorktreeDialog, showCloneDialog, showDeleteDialog, showWorktreeRemoveDialog, showWorktreeSwitchDialog, showCommitPushDialog, showCreatePrDialog, setCloneReposDir, registerSidebarFns, registerRemoveRepoGroup, registerOnCloneComplete, registerBranchCache, registerSaveSourceBranch } from './dialogs.js';
 import { cycleWorkspace, registerTabButtonFns } from './workspace-manager.js';
 
 // Wire cross-module dependencies (avoids circular imports)
@@ -7,8 +7,10 @@ registerWorktreeDialog(showWorktreeDialog);
 registerDeleteDialog(showDeleteDialog);
 registerWorktreeRemoveDialog(showWorktreeRemoveDialog);
 registerWorktreeSwitchDialog(showWorktreeSwitchDialog);
+registerCommitPushDialog(showCommitPushDialog);
+registerCreatePrDialog(showCreatePrDialog);
 registerTabButtonFns(showTabCloseButton, showTabRemoveButton);
-registerSidebarFns(addRepoGroup, createWorktreeTab);
+registerSidebarFns(addRepoGroup, createWorktreeTab, rebuildCollapsedDots);
 registerRemoveRepoGroup(removeRepoGroup);
 
 // ===== State Persistence =====

@@ -3,6 +3,8 @@ import { openWorktree, closeWorkspace } from './workspace-manager.js';
 
 const BIN_ICON_SVG = '<svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2 4h12M5.3 4V2.7a1 1 0 011-1h3.4a1 1 0 011 1V4M6.5 7.3v4.4M9.5 7.3v4.4"/><path d="M3.5 4l.7 9.3a1 1 0 001 .9h5.6a1 1 0 001-.9L12.5 4"/></svg>';
 const SWITCH_ICON_SVG = '<svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M11 1l3 3-3 3"/><path d="M14 4H5"/><path d="M5 15l-3-3 3-3"/><path d="M2 12h9"/></svg>';
+const COMMIT_PUSH_ICON_SVG = '<svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M8 12V3"/><path d="M4 7l4-4 4 4"/><circle cx="8" cy="14" r="1.5"/></svg>';
+const PR_ICON_SVG = '<svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="4" cy="4" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="4" cy="12" r="2"/><path d="M4 6v4"/><path d="M12 10V6c0-1.1-.9-2-2-2H8"/><path d="M10 2L8 4l2 2"/></svg>';
 const repoGroupsEl = document.getElementById('repo-groups');
 const collapsedDotsEl = document.getElementById('collapsed-dots');
 const sidebar = document.getElementById('sidebar');
@@ -15,6 +17,8 @@ let _showWorktreeDialog = null;
 let _showDeleteDialog = null;
 let _showWorktreeRemoveDialog = null;
 let _showWorktreeSwitchDialog = null;
+let _showCommitPushDialog = null;
+let _showCreatePrDialog = null;
 let _onStateChange = null;
 let _getCachedBranches = null;
 let _saveBranchCache = null;
@@ -47,6 +51,14 @@ function registerWorktreeRemoveDialog(fn) {
 
 function registerWorktreeSwitchDialog(fn) {
   _showWorktreeSwitchDialog = fn;
+}
+
+function registerCommitPushDialog(fn) {
+  _showCommitPushDialog = fn;
+}
+
+function registerCreatePrDialog(fn) {
+  _showCreatePrDialog = fn;
 }
 
 function formatBranchLabel(branch) {
@@ -170,6 +182,8 @@ function createWorktreeTab(wt) {
     <span class="workspace-tab-label">${formatBranchLabel(wt.branch)}</span>
     <button class="workspace-tab-switch" title="Switch Worktree">${SWITCH_ICON_SVG}</button>
     <button class="workspace-tab-remove" title="Remove Worktree">${BIN_ICON_SVG}</button>
+    <button class="workspace-tab-commit-push" title="Commit &amp; Push" style="display:none">${COMMIT_PUSH_ICON_SVG}</button>
+    <button class="workspace-tab-create-pr" title="Create Pull Request" style="display:none">${PR_ICON_SVG}</button>
     <button class="workspace-tab-close" title="Close" style="display:none">&times;</button>
   `;
 
@@ -205,8 +219,24 @@ function createWorktreeTab(wt) {
     }
   });
 
+  tabEl.querySelector('.workspace-tab-commit-push').addEventListener('click', (e) => {
+    e.stopPropagation();
+    if (_showCommitPushDialog) {
+      const groupEl = tabEl.closest('.repo-group');
+      _showCommitPushDialog(tabEl, groupEl);
+    }
+  });
+
+  tabEl.querySelector('.workspace-tab-create-pr').addEventListener('click', (e) => {
+    e.stopPropagation();
+    if (_showCreatePrDialog) {
+      const groupEl = tabEl.closest('.repo-group');
+      _showCreatePrDialog(tabEl, groupEl);
+    }
+  });
+
   tabEl.addEventListener('click', (e) => {
-    if (e.target.closest('.workspace-tab-close') || e.target.closest('.workspace-tab-switch') || e.target.closest('.workspace-tab-remove')) return;
+    if (e.target.closest('.workspace-tab-close') || e.target.closest('.workspace-tab-switch') || e.target.closest('.workspace-tab-remove') || e.target.closest('.workspace-tab-commit-push') || e.target.closest('.workspace-tab-create-pr')) return;
     openWorktree(tabEl, wt);
   });
 
@@ -229,18 +259,26 @@ function createWorktreeTab(wt) {
 function showTabCloseButton(tabEl) {
   const switchBtn = tabEl.querySelector('.workspace-tab-switch');
   const removeBtn = tabEl.querySelector('.workspace-tab-remove');
+  const commitPushBtn = tabEl.querySelector('.workspace-tab-commit-push');
+  const createPrBtn = tabEl.querySelector('.workspace-tab-create-pr');
   const closeBtn = tabEl.querySelector('.workspace-tab-close');
   if (switchBtn) switchBtn.style.display = 'none';
   if (removeBtn) removeBtn.style.display = 'none';
+  if (commitPushBtn) commitPushBtn.style.display = '';
+  if (createPrBtn) createPrBtn.style.display = '';
   if (closeBtn) closeBtn.style.display = '';
 }
 
 function showTabRemoveButton(tabEl) {
   const switchBtn = tabEl.querySelector('.workspace-tab-switch');
   const removeBtn = tabEl.querySelector('.workspace-tab-remove');
+  const commitPushBtn = tabEl.querySelector('.workspace-tab-commit-push');
+  const createPrBtn = tabEl.querySelector('.workspace-tab-create-pr');
   const closeBtn = tabEl.querySelector('.workspace-tab-close');
   if (switchBtn) switchBtn.style.display = '';
   if (removeBtn) removeBtn.style.display = '';
+  if (commitPushBtn) commitPushBtn.style.display = 'none';
+  if (createPrBtn) createPrBtn.style.display = 'none';
   if (closeBtn) closeBtn.style.display = 'none';
 }
 
@@ -344,10 +382,13 @@ function showContextMenu(x, y, tabEl) {
 
   const isOpen = tabEl._workspaceId !== null;
   contextMenu.querySelector('[data-action="close-editor"]').style.display = isOpen ? '' : 'none';
+  contextMenu.querySelector('[data-action="commit-push"]').style.display = isOpen ? '' : 'none';
+  contextMenu.querySelector('[data-action="create-pr"]').style.display = isOpen ? '' : 'none';
   contextMenu.querySelector('[data-action="switch"]').style.display = isOpen ? 'none' : '';
   contextMenu.querySelector('[data-action="remove"]').style.display = isOpen ? 'none' : '';
-  const sep = contextMenu.querySelector('.context-menu-separator');
-  if (sep) sep.style.display = isOpen ? 'none' : '';
+  const seps = contextMenu.querySelectorAll('.context-menu-separator');
+  if (seps[0]) seps[0].style.display = isOpen ? '' : 'none';
+  if (seps[1]) seps[1].style.display = isOpen ? 'none' : '';
 
   contextMenu.style.left = x + 'px';
   contextMenu.style.top = y + 'px';
@@ -397,6 +438,16 @@ contextMenu.addEventListener('click', (e) => {
     if (_showWorktreeRemoveDialog) {
       const groupEl = tabEl.closest('.repo-group');
       _showWorktreeRemoveDialog(tabEl, groupEl);
+    }
+  } else if (action === 'commit-push') {
+    if (_showCommitPushDialog) {
+      const groupEl = tabEl.closest('.repo-group');
+      _showCommitPushDialog(tabEl, groupEl);
+    }
+  } else if (action === 'create-pr') {
+    if (_showCreatePrDialog) {
+      const groupEl = tabEl.closest('.repo-group');
+      _showCreatePrDialog(tabEl, groupEl);
     }
   }
 });
@@ -495,4 +546,4 @@ function getOpenWorktreePaths() {
   return paths;
 }
 
-export { addRepoGroup, clearAllGroups, createWorktreeTab, registerWorktreeDialog, registerDeleteDialog, registerWorktreeRemoveDialog, registerWorktreeSwitchDialog, registerOnStateChange, registerSidebarBranchCache, registerSourceBranchLookup, removeRepoGroup, showTabCloseButton, showTabRemoveButton, getRepoOrder, getOpenWorktreePaths };
+export { addRepoGroup, clearAllGroups, createWorktreeTab, rebuildCollapsedDots, registerWorktreeDialog, registerDeleteDialog, registerWorktreeRemoveDialog, registerWorktreeSwitchDialog, registerCommitPushDialog, registerCreatePrDialog, registerOnStateChange, registerSidebarBranchCache, registerSourceBranchLookup, removeRepoGroup, showTabCloseButton, showTabRemoveButton, getRepoOrder, getOpenWorktreePaths };

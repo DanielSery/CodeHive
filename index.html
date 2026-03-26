@@ -134,6 +134,44 @@
     </div>
   </div>
 
+  <!-- Commit & Push dialog -->
+  <div id="commit-push-dialog-overlay" class="dialog-overlay">
+    <div class="dialog-box">
+      <h3 class="dialog-title">Commit &amp; Push</h3>
+      <p class="dialog-desc">Stage all changes, commit, and push to the current branch</p>
+      <label class="dialog-label">Commit Title</label>
+      <input id="commit-push-title-input" type="text" class="dialog-input" placeholder="e.g. Fix login validation" spellcheck="false" />
+      <label class="dialog-label">Description <span style="color: var(--text-muted); font-weight: 400;">(optional)</span></label>
+      <textarea id="commit-push-desc-input" class="dialog-input dialog-textarea" placeholder="Additional details about the changes..." spellcheck="false" rows="3"></textarea>
+      <div class="dialog-buttons">
+        <button id="commit-push-cancel-btn" class="dialog-btn dialog-btn-cancel">Cancel</button>
+        <button id="commit-push-confirm-btn" class="dialog-btn dialog-btn-confirm">Commit &amp; Push</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Create Pull Request dialog -->
+  <div id="create-pr-dialog-overlay" class="dialog-overlay">
+    <div class="dialog-box">
+      <h3 class="dialog-title">Create Pull Request</h3>
+      <p class="dialog-desc">Create a pull request from the current branch</p>
+      <label class="dialog-label">Target Branch</label>
+      <div class="combobox" id="pr-branch-combobox">
+        <input id="pr-branch-search" type="text" class="dialog-input combobox-input" placeholder="Search branches..." spellcheck="false" autocomplete="off" />
+        <span class="combobox-arrow">&#x25BC;</span>
+        <div id="pr-branch-list" class="combobox-list"></div>
+      </div>
+      <label class="dialog-label">Title</label>
+      <input id="pr-title-input" type="text" class="dialog-input" placeholder="e.g. Add user authentication" spellcheck="false" />
+      <label class="dialog-label">Description <span style="color: var(--text-muted); font-weight: 400;">(optional)</span></label>
+      <textarea id="pr-desc-input" class="dialog-input dialog-textarea" placeholder="Describe the changes in this pull request..." spellcheck="false" rows="3"></textarea>
+      <div class="dialog-buttons">
+        <button id="pr-cancel-btn" class="dialog-btn dialog-btn-cancel">Cancel</button>
+        <button id="pr-confirm-btn" class="dialog-btn dialog-btn-confirm">Create PR</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Delete confirmation dialog -->
   <div id="delete-dialog-overlay" class="dialog-overlay">
     <div class="dialog-box">
@@ -152,6 +190,9 @@
   <div id="wt-context-menu" class="context-menu">
     <button class="context-menu-item" data-action="open-explorer">Open in Explorer</button>
     <button class="context-menu-item" data-action="close-editor">Close Editor</button>
+    <button class="context-menu-item" data-action="commit-push">Commit &amp; Push</button>
+    <button class="context-menu-item" data-action="create-pr">Create Pull Request</button>
+    <hr class="context-menu-separator">
     <button class="context-menu-item" data-action="switch">Switch Worktree</button>
     <hr class="context-menu-separator">
     <button class="context-menu-item context-menu-item-danger" data-action="remove">Remove Worktree</button>

@@ -1,13 +1,15 @@
 const { ipcMain, dialog, shell } = require('electron');
 const vscode = require('./vscode-server');
 const { scanDirectory, checkClaudeActive, getCachedBranches, fetchAndListBranches, getGitUser } = require('./repo-scanner');
-const { createWorktreePty, createClonePty, createDeletePty, createWorktreeRemovePty, createWorktreeSwitchPty } = require('./pty-manager');
+const { createWorktreePty, createClonePty, createDeletePty, createWorktreeRemovePty, createWorktreeSwitchPty, createCommitPushPty, createPrCreatePty } = require('./pty-manager');
 
 let worktreePty = null;
 let clonePty = null;
 let deletePty = null;
 let worktreeRemovePty = null;
 let worktreeSwitchPty = null;
+let commitPushPty = null;
+let prCreatePty = null;
 
 function register(mainWindow, getServerPort) {
   ipcMain.handle('codeserver:openFolder', (event, folderPath) => {
@@ -87,6 +89,24 @@ function register(mainWindow, getServerPort) {
   });
 
   ipcMain.on('worktreeSwitch:ready', () => { if (worktreeSwitchPty) worktreeSwitchPty.flush(); });
+
+  // Commit & Push PTY
+  ipcMain.handle('commitPush:start', (event, opts) => {
+    const result = createCommitPushPty(mainWindow, opts);
+    commitPushPty = result.proc;
+    return {};
+  });
+
+  ipcMain.on('commitPush:ready', () => { if (commitPushPty) commitPushPty.flush(); });
+
+  // PR Create PTY
+  ipcMain.handle('prCreate:start', (event, opts) => {
+    const result = createPrCreatePty(mainWindow, opts);
+    prCreatePty = result.proc;
+    return {};
+  });
+
+  ipcMain.on('prCreate:ready', () => { if (prCreatePty) prCreatePty.flush(); });
 
   // Shell
   ipcMain.handle('shell:openInExplorer', (event, folderPath) => {

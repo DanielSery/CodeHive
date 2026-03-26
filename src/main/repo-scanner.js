@@ -126,9 +126,10 @@ function checkClaudeActive(wtPath) {
     const lastType = last.type;
     const stopReason = last.message && last.message.stop_reason;
     const isRecent = now - latestMtime < 30000;
+    const isVeryRecent = now - latestMtime < 8000;
 
-    // Claude finished its turn
-    if (lastType === 'assistant' && stopReason === 'end_turn') return null;
+    // Claude finished its turn — but if very recent, may still be between tool calls
+    if (lastType === 'assistant' && stopReason === 'end_turn' && !isVeryRecent) return null;
 
     // Claude proposed tool use — if file is stale, it's waiting for user approval
     if (lastType === 'assistant' && stopReason === 'tool_use' && !isRecent) return 'waiting';
