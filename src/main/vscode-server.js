@@ -38,7 +38,18 @@ function seedDefaultSettings() {
   console.log('Seeded default VS Code Machine settings');
 }
 
-function findPort(startPort, maxAttempts = 20) {
+function isVSCodeServerRunning(port) {
+  return new Promise((resolve) => {
+    const http = require('http');
+    const req = http.get(`http://127.0.0.1:${port}/`, { timeout: 2000 }, (res) => {
+      resolve(res.statusCode < 500);
+    });
+    req.on('error', () => resolve(false));
+    req.on('timeout', () => { req.destroy(); resolve(false); });
+  });
+}
+
+function findFreePort(startPort, maxAttempts = 20) {
   return new Promise((resolve, reject) => {
     let attempt = 0;
     function tryPort(port) {
@@ -51,12 +62,29 @@ function findPort(startPort, maxAttempts = 20) {
       server.listen(port, '127.0.0.1', () => {
         server.close(() => resolve(port));
       });
-      server.on('error', () => {
-        tryPort(port + 1);
-      });
+      server.on('error', () => tryPort(port + 1));
     }
     tryPort(startPort);
   });
+}
+
+// Tries to use the preferred port. If it's busy and already running a VS Code
+// server, returns { port, alreadyRunning: true } so the caller can skip startServer.
+// If it's busy with something else, falls back to a free port.
+async function resolvePort(preferredPort) {
+  const free = await new Promise((resolve) => {
+    const server = net.createServer();
+    server.listen(preferredPort, '127.0.0.1', () => { server.close(() => resolve(true)); });
+    server.on('error', () => resolve(false));
+  });
+
+  if (free) return { port: preferredPort, alreadyRunning: false };
+
+  const running = await isVSCodeServerRunning(preferredPort);
+  if (running) return { port: preferredPort, alreadyRunning: true };
+
+  const port = await findFreePort(preferredPort + 1);
+  return { port, alreadyRunning: false };
 }
 
 function findCodeCmd() {
@@ -169,4 +197,4 @@ function buildFolderUrl(port, folderPath) {
   return `http://127.0.0.1:${port}/?folder=${encodeURIComponent(folderUri)}`;
 }
 
-module.exports = { findPort, installExtensions, seedDefaultSettings, startServer, buildFolderUrl };
+module.exports = { resolvePort, installExtensions, seedDefaultSettings, startServer, buildFolderUrl };

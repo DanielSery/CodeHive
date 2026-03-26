@@ -212,4 +212,17 @@ function getRemoteUrl(barePath) {
   }
 }
 
-module.exports = { scanDirectory, checkClaudeActive, getCachedBranches, fetchAndListBranches, getGitUser, getRemoteUrl };
+function getLaunchConfigs(wtPath) {
+  try {
+    const launchPath = path.join(wtPath, '.vscode', 'launch.json');
+    const raw = fs.readFileSync(launchPath, 'utf8');
+    // Strip JSONC comments before parsing
+    const stripped = raw.replace(/\/\/[^\n]*/g, '').replace(/\/\*[\s\S]*?\*\//g, '');
+    const parsed = JSON.parse(stripped);
+    return (parsed.configurations || []).map(c => ({ name: c.name, type: c.type || '' }));
+  } catch {
+    return [];
+  }
+}
+
+module.exports = { scanDirectory, checkClaudeActive, getCachedBranches, fetchAndListBranches, getGitUser, getRemoteUrl, getLaunchConfigs };

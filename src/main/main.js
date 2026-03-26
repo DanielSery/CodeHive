@@ -1,4 +1,4 @@
-const { app, BrowserWindow } = require('electron');
+const { app, BrowserWindow, ipcMain } = require('electron');
 const path = require('path');
 const vscode = require('./vscode-server');
 const ipcHandlers = require('./ipc-handlers');
@@ -7,6 +7,7 @@ const { DEFAULT_PORT } = require('../shared/config');
 let mainWindow;
 let serverProcess = null;
 let serverPort = DEFAULT_PORT;
+let startupStatus = 'Starting...';
 
 function createWindow() {
   mainWindow = new BrowserWindow({
@@ -27,7 +28,6 @@ function createWindow() {
   mainWindow.loadFile(path.join(__dirname, '..', '..', 'index.html'));
 
   mainWindow.webContents.on('before-input-event', (event, input) => {
-    if (input.key === 'F5') { mainWindow.reload(); event.preventDefault(); }
     if (input.key === 'F12') { mainWindow.webContents.toggleDevTools(); event.preventDefault(); }
   });
 }
@@ -39,7 +39,10 @@ app.whenReady().then(async () => {
   createWindow();
   ipcHandlers.register(mainWindow, () => serverPort);
 
+  ipcMain.handle('startup:getStatus', () => startupStatus);
+
   const sendStatus = (msg) => {
+    startupStatus = msg;
     if (mainWindow && !mainWindow.isDestroyed()) {
       mainWindow.webContents.send('startup:status', msg);
     }
@@ -52,11 +55,15 @@ app.whenReady().then(async () => {
   sendStatus('Starting VS Code server...');
   console.log('Starting VS Code server...');
   try {
-    const port = await vscode.findPort(serverPort);
+    const { port, alreadyRunning } = await vscode.resolvePort(serverPort);
     serverPort = port;
-    const result = await vscode.startServer(port);
-    serverProcess = result.proc;
-    console.log(`VS Code server ready on port ${port}`);
+    if (alreadyRunning) {
+      console.log(`VS Code server already running on port ${port}, connecting`);
+    } else {
+      const result = await vscode.startServer(port);
+      serverProcess = result.proc;
+      console.log(`VS Code server ready on port ${port}`);
+    }
     sendStatus(null);
   } catch (err) {
     console.error('VS Code server failed to start:', err);
@@ -65,9 +72,6 @@ app.whenReady().then(async () => {
 });
 
 app.on('window-all-closed', () => {
-  if (serverProcess) {
-    serverProcess.kill();
-    serverProcess = null;
-  }
+  if (serverProcess) serverProcess.kill();
   app.quit();
 });
