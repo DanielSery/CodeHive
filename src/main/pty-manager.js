@@ -365,55 +365,35 @@ function createCommitPushPty(mainWindow, { wtPath, title, description, branch })
   return { proc };
 }
 
-function createPrCreatePty(mainWindow, { wtPath, sourceBranch, targetBranch, title, description }) {
+function createPrCreatePty(mainWindow, { wtPath, sourceBranch, targetBranch, title, description, pat }) {
   const isWin = process.platform === 'win32';
   const os = require('os');
-  const scriptExt = isWin ? '.cmd' : '.sh';
+  const scriptExt = isWin ? '.ps1' : '.sh';
   const scriptPath = path.join(os.tmpdir(), `codehive-pr-create-${Date.now()}${scriptExt}`);
-
-  const escapedTitle = title.replace(/"/g, isWin ? '""' : '\\"');
-  const escapedDesc = (description || '').replace(/"/g, isWin ? '""' : '\\"');
-
-  const azPrCmd = description
-    ? `az repos pr create --source-branch "${sourceBranch}" --target-branch "${targetBranch}" --title "${escapedTitle}" --description "${escapedDesc}"`
-    : `az repos pr create --source-branch "${sourceBranch}" --target-branch "${targetBranch}" --title "${escapedTitle}"`;
 
   const lines = [];
   if (isWin) {
-    lines.push('@echo off');
-    lines.push('echo Checking Azure CLI authentication...');
-    lines.push('az account show >nul 2>&1');
-    lines.push('if %errorlevel% neq 0 (');
-    lines.push('  echo Not authenticated. Opening browser for login...');
-    lines.push('  echo.');
-    lines.push('  az login');
-    lines.push('  if %errorlevel% neq 0 (');
-    lines.push('    echo.');
-    lines.push('    echo Azure login failed.');
-    lines.push('    exit /b 1');
-    lines.push('  )');
-    lines.push('  echo.');
-    lines.push(')');
-    lines.push(`echo Creating pull request: ${sourceBranch} -^> ${targetBranch}`);
-    lines.push('echo.');
+    const escapedTitle = title.replace(/'/g, "''");
+    const escapedDesc = (description || '').replace(/'/g, "''");
+    const azPrCmd = description
+      ? `az repos pr create --open --source-branch '${sourceBranch}' --target-branch '${targetBranch}' --title '${escapedTitle}' --description '${escapedDesc}'`
+      : `az repos pr create --open --source-branch '${sourceBranch}' --target-branch '${targetBranch}' --title '${escapedTitle}'`;
+    if (pat) lines.push(`$env:AZURE_DEVOPS_EXT_PAT = '${pat.replace(/'/g, "''")}'`);
+    lines.push(`Write-Host "Creating pull request: ${sourceBranch} -> ${targetBranch}"`);
+    lines.push('Write-Host ""');
     lines.push(azPrCmd);
-    lines.push('if %errorlevel% neq 0 (');
-    lines.push('  echo.');
-    lines.push('  echo Pull request creation failed.');
-    lines.push('  exit /b 1');
-    lines.push(')');
-    lines.push('echo.');
-    lines.push('echo === PULL REQUEST CREATED ===');
+    lines.push('if ($LASTEXITCODE -ne 0) { Write-Host ""; Write-Host "Pull request creation failed."; exit 1 }');
+    lines.push('Write-Host ""');
+    lines.push('Write-Host "=== PULL REQUEST CREATED ==="');
   } else {
+    const escapedTitle = title.replace(/"/g, '\\"');
+    const escapedDesc = (description || '').replace(/"/g, '\\"');
+    const azPrCmd = description
+      ? `az repos pr create --open --source-branch "${sourceBranch}" --target-branch "${targetBranch}" --title "${escapedTitle}" --description "${escapedDesc}"`
+      : `az repos pr create --open --source-branch "${sourceBranch}" --target-branch "${targetBranch}" --title "${escapedTitle}"`;
     lines.push('#!/bin/sh');
-    lines.push('echo "Checking Azure CLI authentication..."');
-    lines.push('if ! az account show > /dev/null 2>&1; then');
-    lines.push('  echo "Not authenticated. Opening browser for login..."');
-    lines.push('  echo ""');
-    lines.push('  az login || { echo ""; echo "Azure login failed."; exit 1; }');
-    lines.push('  echo ""');
-    lines.push('fi');
     lines.push('set -e');
+    if (pat) lines.push(`export AZURE_DEVOPS_EXT_PAT='${pat.replace(/'/g, "'\\''")}'`);
     lines.push(`echo "Creating pull request: ${sourceBranch} -> ${targetBranch}"`);
     lines.push('echo ""');
     lines.push(azPrCmd);
@@ -421,9 +401,9 @@ function createPrCreatePty(mainWindow, { wtPath, sourceBranch, targetBranch, tit
     lines.push('echo "=== PULL REQUEST CREATED ==="');
   }
 
-  fs.writeFileSync(scriptPath, lines.join('\n'), { encoding: 'utf8' });
+  fs.writeFileSync(scriptPath, lines.join('\r\n'), { encoding: 'utf8' });
 
-  const cmd = isWin ? scriptPath : `sh "${scriptPath}"`;
+  const cmd = isWin ? `powershell -ExecutionPolicy Bypass -File "${scriptPath}"` : `sh "${scriptPath}"`;
   const proc = spawnProc(cmd, wtPath);
 
   proc.onData((data) => {

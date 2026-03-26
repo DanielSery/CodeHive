@@ -900,6 +900,43 @@ const prBranchList = document.getElementById('pr-branch-list');
 const prTitleInput = document.getElementById('pr-title-input');
 const prDescInput = document.getElementById('pr-desc-input');
 
+const AZURE_PAT_KEY = 'codehive-azure-pat';
+function loadStoredPat() { return localStorage.getItem(AZURE_PAT_KEY) || ''; }
+function saveStoredPat(pat) { if (pat) localStorage.setItem(AZURE_PAT_KEY, pat); }
+
+// ===== Azure DevOps PAT Dialog =====
+
+const azurePatDialogOverlay = document.getElementById('azure-pat-dialog-overlay');
+const azurePatInput = document.getElementById('azure-pat-input');
+let _patDialogResolve = null;
+
+function showPatDialog() {
+  return new Promise((resolve) => {
+    _patDialogResolve = resolve;
+    azurePatInput.value = '';
+    azurePatDialogOverlay.classList.add('visible');
+    azurePatInput.focus();
+  });
+}
+
+function hidePatDialog(pat) {
+  azurePatDialogOverlay.classList.remove('visible');
+  if (_patDialogResolve) { _patDialogResolve(pat || null); _patDialogResolve = null; }
+}
+
+document.getElementById('azure-pat-confirm-btn').addEventListener('click', () => {
+  const pat = azurePatInput.value.trim();
+  if (!pat) return;
+  saveStoredPat(pat);
+  hidePatDialog(pat);
+});
+document.getElementById('azure-pat-cancel-btn').addEventListener('click', () => hidePatDialog(null));
+azurePatInput.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') { const pat = azurePatInput.value.trim(); if (pat) { saveStoredPat(pat); hidePatDialog(pat); } }
+  if (e.key === 'Escape') hidePatDialog(null);
+});
+azurePatDialogOverlay.addEventListener('click', (e) => { if (e.target === azurePatDialogOverlay) hidePatDialog(null); });
+
 let prAllBranches = [];
 let prSelectedBranch = null;
 let prHighlightIndex = -1;
@@ -1019,6 +1056,11 @@ async function confirmCreatePr() {
   if (!title || !prSelectedBranch || !_prTabEl) return;
 
   const desc = prDescInput.value.trim();
+  let pat = loadStoredPat();
+  if (!pat) {
+    pat = await showPatDialog();
+    if (!pat) return;
+  }
   const tabEl = _prTabEl;
   const groupEl = _prGroupEl;
   const wtPath = tabEl._wtPath;
@@ -1041,6 +1083,7 @@ async function confirmCreatePr() {
       xterm.writeln('\x1b[32mPull request created successfully!\x1b[0m');
       setTitle('Pull request created');
     } else {
+      localStorage.removeItem(AZURE_PAT_KEY);
       xterm.writeln('');
       xterm.writeln(`\x1b[31mPull request creation failed with exit code ${exitCode}\x1b[0m`);
       setTitle('Pull request creation failed');
@@ -1049,7 +1092,7 @@ async function confirmCreatePr() {
   });
 
   try {
-    await window.prCreateAPI.start({ wtPath, sourceBranch, targetBranch, title, description: desc });
+    await window.prCreateAPI.start({ wtPath, sourceBranch, targetBranch, title, description: desc, pat });
     window.prCreateAPI.ready();
   } catch (err) {
     xterm.writeln(`\x1b[31m${err.message || err}\x1b[0m`);

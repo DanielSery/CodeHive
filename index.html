@@ -172,6 +172,20 @@
     </div>
   </div>
 
+  <!-- Azure DevOps PAT dialog -->
+  <div id="azure-pat-dialog-overlay" class="dialog-overlay" style="z-index:10001;">
+    <div class="dialog-box">
+      <h3 class="dialog-title">Azure DevOps Authentication</h3>
+      <p class="dialog-desc">Enter a Personal Access Token with Code (Read &amp; Write) permissions.</p>
+      <label class="dialog-label">Personal Access Token</label>
+      <input id="azure-pat-input" type="password" class="dialog-input" placeholder="Paste your PAT here..." spellcheck="false" autocomplete="off" />
+      <div class="dialog-buttons">
+        <button id="azure-pat-cancel-btn" class="dialog-btn dialog-btn-cancel">Cancel</button>
+        <button id="azure-pat-confirm-btn" class="dialog-btn dialog-btn-confirm">Save &amp; Continue</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Delete confirmation dialog -->
   <div id="delete-dialog-overlay" class="dialog-overlay">
     <div class="dialog-box">
