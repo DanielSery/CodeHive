@@ -266,6 +266,51 @@ function createWorktreeTab(wt) {
     showContextMenu(e.clientX, e.clientY, tabEl);
   });
 
+  // Drag-and-drop reordering within the group
+  tabEl.setAttribute('draggable', 'true');
+
+  tabEl.addEventListener('dragstart', (e) => {
+    e.stopPropagation();
+    e.dataTransfer.effectAllowed = 'move';
+    tabEl.classList.add('dragging');
+    setTimeout(() => tabEl.classList.add('drag-ghost'), 0);
+  });
+
+  tabEl.addEventListener('dragend', (e) => {
+    e.stopPropagation();
+    tabEl.classList.remove('dragging', 'drag-ghost');
+    const tabsEl = tabEl.closest('.repo-group-tabs');
+    if (tabsEl) tabsEl.querySelectorAll('.workspace-tab.drag-over').forEach(el => el.classList.remove('drag-over'));
+    rebuildCollapsedDots();
+    if (_onStateChange) _onStateChange();
+  });
+
+  tabEl.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    e.dataTransfer.dropEffect = 'move';
+    const tabsEl = tabEl.closest('.repo-group-tabs');
+    if (!tabsEl) return;
+    const dragging = tabsEl.querySelector('.workspace-tab.dragging');
+    if (!dragging || dragging === tabEl) return;
+
+    tabsEl.querySelectorAll('.workspace-tab.drag-over').forEach(el => el.classList.remove('drag-over'));
+    tabEl.classList.add('drag-over');
+
+    const rect = tabEl.getBoundingClientRect();
+    const midY = rect.top + rect.height / 2;
+    if (e.clientY < midY) {
+      tabsEl.insertBefore(dragging, tabEl);
+    } else {
+      tabsEl.insertBefore(dragging, tabEl.nextSibling);
+    }
+  });
+
+  tabEl.addEventListener('dragleave', (e) => {
+    e.stopPropagation();
+    tabEl.classList.remove('drag-over');
+  });
+
   return tabEl;
 }
 
@@ -683,6 +728,16 @@ function getRepoOrder() {
     .map(el => el.dataset.repoName);
 }
 
+function getWorktreeOrders() {
+  const orders = {};
+  for (const groupEl of repoGroupsEl.querySelectorAll('.repo-group')) {
+    const repoName = groupEl.dataset.repoName;
+    orders[repoName] = Array.from(groupEl.querySelectorAll('.workspace-tab'))
+      .map(tab => tab._wtPath);
+  }
+  return orders;
+}
+
 function getOpenWorktreePaths() {
   const paths = [];
   for (const tab of document.querySelectorAll('.workspace-tab')) {
@@ -702,4 +757,4 @@ setInterval(() => {
   }
 }, 5 * 60 * 1000);
 
-export { addRepoGroup, clearAllGroups, createWorktreeTab, rebuildCollapsedDots, registerWorktreeDialog, registerDeleteDialog, registerWorktreeRemoveDialog, registerWorktreeSwitchDialog, registerCommitPushDialog, registerCreatePrDialog, registerOnStateChange, registerSidebarBranchCache, registerSourceBranchLookup, registerTaskIdLookup, removeRepoGroup, showTabCloseButton, showTabRemoveButton, getRepoOrder, getOpenWorktreePaths };
+export { addRepoGroup, clearAllGroups, createWorktreeTab, rebuildCollapsedDots, registerWorktreeDialog, registerDeleteDialog, registerWorktreeRemoveDialog, registerWorktreeSwitchDialog, registerCommitPushDialog, registerCreatePrDialog, registerOnStateChange, registerSidebarBranchCache, registerSourceBranchLookup, registerTaskIdLookup, removeRepoGroup, showTabCloseButton, showTabRemoveButton, getRepoOrder, getWorktreeOrders, getOpenWorktreePaths };

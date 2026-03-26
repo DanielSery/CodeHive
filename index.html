@@ -120,6 +120,13 @@
         <label class="dialog-label">Task Description <span style="color: var(--text-muted); font-weight: 400;">(optional)</span></label>
         <textarea id="wt-task-desc" class="dialog-input" placeholder="What needs to be done..." spellcheck="false" rows="3" style="resize:vertical;min-height:60px;font-family:inherit"></textarea>
       </div>
+      <div id="wt-task-type-row" style="display:none">
+        <label class="dialog-label">Work Item Type</label>
+        <select id="wt-task-type" class="dialog-input" style="cursor:pointer">
+          <option value="Story">Story</option>
+          <option value="Bug">Bug</option>
+        </select>
+      </div>
       <label class="dialog-label">Worktree Name</label>
       <input id="wt-name-input" type="text" class="dialog-input" placeholder="e.g. Test new features" spellcheck="false" maxlength="50" />
       <div id="wt-preview" class="dialog-preview"></div>
@@ -150,6 +157,13 @@
       <div id="wt-switch-task-desc-row" style="display:none">
         <label class="dialog-label">Task Description <span style="color: var(--text-muted); font-weight: 400;">(optional)</span></label>
         <textarea id="wt-switch-task-desc" class="dialog-input" placeholder="What needs to be done..." spellcheck="false" rows="3" style="resize:vertical;min-height:60px;font-family:inherit"></textarea>
+      </div>
+      <div id="wt-switch-task-type-row" style="display:none">
+        <label class="dialog-label">Work Item Type</label>
+        <select id="wt-switch-task-type" class="dialog-input" style="cursor:pointer">
+          <option value="Story">Story</option>
+          <option value="Bug">Bug</option>
+        </select>
       </div>
       <label class="dialog-label">Worktree Name</label>
       <input id="wt-switch-name-input" type="text" class="dialog-input" placeholder="e.g. Test new features" spellcheck="false" maxlength="50" />

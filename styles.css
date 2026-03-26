@@ -457,6 +457,18 @@ html, body {
   opacity: 0.4;
 }
 
+.workspace-tab[draggable="true"] {
+  cursor: grab;
+}
+
+.workspace-tab.dragging {
+  cursor: grabbing;
+}
+
+.workspace-tab.drag-ghost {
+  opacity: 0.4;
+}
+
 .repo-group-header {
   display: flex;
   align-items: center;

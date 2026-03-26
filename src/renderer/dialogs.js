@@ -37,10 +37,16 @@ const wtTaskSearch = document.getElementById('wt-task-search');
 const wtTaskList = document.getElementById('wt-task-list');
 const wtTaskDescRow = document.getElementById('wt-task-desc-row');
 const wtTaskDesc = document.getElementById('wt-task-desc');
+const wtTaskTypeRow = document.getElementById('wt-task-type-row');
+const wtTaskType = document.getElementById('wt-task-type');
 let wtAllTasks = [];
 let wtSelectedTask = null;
 let wtTaskHighlightIndex = -1;
 let wtAzureContext = null; // cached { org, project, auth, apiBase } for task creation
+
+function inferWorkItemType(title) {
+  return /bug|fix/i.test(title) ? 'Bug' : 'Story';
+}
 
 function nameToSlug(name) {
   return name.trim().replace(/\s+/g, '-').substring(0, 15);
@@ -132,6 +138,8 @@ function renderTaskList(filter) {
 function updateTaskDescVisibility() {
   const isNewTask = !wtSelectedTask && wtTaskSearch.value.trim().length > 0;
   wtTaskDescRow.style.display = isNewTask ? '' : 'none';
+  wtTaskTypeRow.style.display = isNewTask ? '' : 'none';
+  if (isNewTask) wtTaskType.value = inferWorkItemType(wtTaskSearch.value.trim());
 }
 
 function selectWtTask(task) {
@@ -347,6 +355,7 @@ function hideWorktreeDialog() {
   wtBranchList.classList.remove('open');
   wtTaskList.classList.remove('open');
   wtTaskDescRow.style.display = 'none';
+  wtTaskTypeRow.style.display = 'none';
   wtTaskDesc.value = '';
 }
 
@@ -362,17 +371,18 @@ async function confirmCreateWorktree() {
     }
     const taskTitle = wtTaskSearch.value.trim();
     const taskDescription = wtTaskDesc.value.trim();
+    const workItemType = wtTaskType.value || 'Story';
     try {
       const body = [{ op: 'add', path: '/fields/System.Title', value: taskTitle }];
       if (taskDescription) body.push({ op: 'add', path: '/fields/System.Description', value: taskDescription });
-      const resp = await fetch(`${wtAzureContext.apiBase}/wit/workitems/$Task?api-version=7.0`, {
+      const resp = await fetch(`${wtAzureContext.apiBase}/wit/workitems/$${encodeURIComponent(workItemType)}?api-version=7.0`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json-patch+json', 'Authorization': `Basic ${wtAzureContext.auth}` },
         body: JSON.stringify(body)
       });
       if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
       const data = await resp.json();
-      wtSelectedTask = { id: data.id, title: taskTitle, type: 'Task' };
+      wtSelectedTask = { id: data.id, title: taskTitle, type: workItemType };
       shellAPI.openExternal(`https://dev.azure.com/${encodeURIComponent(wtAzureContext.org)}/${encodeURIComponent(wtAzureContext.project)}/_workitems/edit/${data.id}`);
     } catch (err) {
       alert(`Failed to create task: ${err.message}`);
@@ -508,6 +518,11 @@ wtTaskSearch.addEventListener('input', () => {
   wtTaskHighlightIndex = -1;
   renderTaskList(wtTaskSearch.value);
   updateTaskDescVisibility();
+  const typed = wtTaskSearch.value.trim();
+  if (typed) {
+    wtNameInput.value = truncateToWords(typed, 40);
+    updateWtPreview();
+  }
 });
 
 wtTaskSearch.addEventListener('focus', () => {
@@ -522,7 +537,7 @@ wtTaskSearch.addEventListener('blur', () => {
     wtTaskList.classList.remove('open');
     if (wtSelectedTask) {
       wtTaskSearch.value = `#${wtSelectedTask.id} ${wtSelectedTask.title}`;
-    } else if (wtTaskSearch.value.trim() && !wtNameInput.value.trim()) {
+    } else if (wtTaskSearch.value.trim()) {
       wtNameInput.value = truncateToWords(wtTaskSearch.value.trim(), 40);
       updateWtPreview();
     }
@@ -822,6 +837,8 @@ const wtSwitchTaskSearch = document.getElementById('wt-switch-task-search');
 const wtSwitchTaskList = document.getElementById('wt-switch-task-list');
 const wtSwitchTaskDescRow = document.getElementById('wt-switch-task-desc-row');
 const wtSwitchTaskDesc = document.getElementById('wt-switch-task-desc');
+const wtSwitchTaskTypeRow = document.getElementById('wt-switch-task-type-row');
+const wtSwitchTaskType = document.getElementById('wt-switch-task-type');
 let wtSwitchAllTasks = [];
 let wtSwitchSelectedTask = null;
 let wtSwitchTaskHighlightIndex = -1;
@@ -872,6 +889,8 @@ function renderSwitchTaskList(filter) {
 function updateSwitchTaskDescVisibility() {
   const isNewTask = !wtSwitchSelectedTask && wtSwitchTaskSearch.value.trim().length > 0;
   wtSwitchTaskDescRow.style.display = isNewTask ? '' : 'none';
+  wtSwitchTaskTypeRow.style.display = isNewTask ? '' : 'none';
+  if (isNewTask) wtSwitchTaskType.value = inferWorkItemType(wtSwitchTaskSearch.value.trim());
 }
 
 function selectWtSwitchTask(task) {
@@ -1085,6 +1104,7 @@ function hideWorktreeSwitchDialog() {
   wtSwitchBranchList.classList.remove('open');
   wtSwitchTaskList.classList.remove('open');
   wtSwitchTaskDescRow.style.display = 'none';
+  wtSwitchTaskTypeRow.style.display = 'none';
   wtSwitchTaskDesc.value = '';
 }
 
@@ -1101,17 +1121,18 @@ async function confirmSwitchWorktree() {
     }
     const taskTitle = wtSwitchTaskSearch.value.trim();
     const taskDescription = wtSwitchTaskDesc.value.trim();
+    const workItemType = wtSwitchTaskType.value || 'Story';
     try {
       const body = [{ op: 'add', path: '/fields/System.Title', value: taskTitle }];
       if (taskDescription) body.push({ op: 'add', path: '/fields/System.Description', value: taskDescription });
-      const resp = await fetch(`${wtSwitchAzureContext.apiBase}/wit/workitems/$Task?api-version=7.0`, {
+      const resp = await fetch(`${wtSwitchAzureContext.apiBase}/wit/workitems/$${encodeURIComponent(workItemType)}?api-version=7.0`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json-patch+json', 'Authorization': `Basic ${wtSwitchAzureContext.auth}` },
         body: JSON.stringify(body)
       });
       if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
       const data = await resp.json();
-      wtSwitchSelectedTask = { id: data.id, title: taskTitle, type: 'Task' };
+      wtSwitchSelectedTask = { id: data.id, title: taskTitle, type: workItemType };
       shellAPI.openExternal(`https://dev.azure.com/${encodeURIComponent(wtSwitchAzureContext.org)}/${encodeURIComponent(wtSwitchAzureContext.project)}/_workitems/edit/${data.id}`);
     } catch (err) {
       alert(`Failed to create task: ${err.message}`);
@@ -1255,6 +1276,11 @@ wtSwitchTaskSearch.addEventListener('input', () => {
   wtSwitchTaskHighlightIndex = -1;
   renderSwitchTaskList(wtSwitchTaskSearch.value);
   updateSwitchTaskDescVisibility();
+  const typed = wtSwitchTaskSearch.value.trim();
+  if (typed) {
+    wtSwitchNameInput.value = truncateToWords(typed, 40);
+    updateWtSwitchPreview();
+  }
 });
 
 wtSwitchTaskSearch.addEventListener('focus', () => {
@@ -1269,7 +1295,7 @@ wtSwitchTaskSearch.addEventListener('blur', () => {
     wtSwitchTaskList.classList.remove('open');
     if (wtSwitchSelectedTask) {
       wtSwitchTaskSearch.value = `#${wtSwitchSelectedTask.id} ${wtSwitchSelectedTask.title}`;
-    } else if (wtSwitchTaskSearch.value.trim() && !wtSwitchNameInput.value.trim()) {
+    } else if (wtSwitchTaskSearch.value.trim()) {
       wtSwitchNameInput.value = truncateToWords(wtSwitchTaskSearch.value.trim(), 40);
       updateWtSwitchPreview();
     }

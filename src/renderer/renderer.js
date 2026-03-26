@@ -1,4 +1,4 @@
-import { addRepoGroup, clearAllGroups, createWorktreeTab, rebuildCollapsedDots, registerWorktreeDialog, registerDeleteDialog, registerWorktreeRemoveDialog, registerWorktreeSwitchDialog, registerCommitPushDialog, registerCreatePrDialog, registerOnStateChange, registerSidebarBranchCache, registerSourceBranchLookup, registerTaskIdLookup, removeRepoGroup, showTabCloseButton, showTabRemoveButton, getRepoOrder } from './sidebar.js';
+import { addRepoGroup, clearAllGroups, createWorktreeTab, rebuildCollapsedDots, registerWorktreeDialog, registerDeleteDialog, registerWorktreeRemoveDialog, registerWorktreeSwitchDialog, registerCommitPushDialog, registerCreatePrDialog, registerOnStateChange, registerSidebarBranchCache, registerSourceBranchLookup, registerTaskIdLookup, removeRepoGroup, showTabCloseButton, showTabRemoveButton, getRepoOrder, getWorktreeOrders } from './sidebar.js';
 import { showWorktreeDialog, showCloneDialog, showDeleteDialog, showWorktreeRemoveDialog, showWorktreeSwitchDialog, showCommitPushDialog, showCreatePrDialog, setCloneReposDir, registerSidebarFns, registerRemoveRepoGroup, registerOnCloneComplete, registerBranchCache, registerSaveSourceBranch, registerSaveTaskId } from './dialogs.js';
 import { cycleWorkspace, registerTabButtonFns } from './workspace-manager.js';
 import { getActive } from './state.js';
@@ -27,6 +27,7 @@ function saveState() {
   const state = {
     directories: prev.directories || [],
     repoOrder: getRepoOrder(),
+    worktreeOrders: getWorktreeOrders(),
     branchCache: prev.branchCache || {},
     sourceBranches: prev.sourceBranches || {},
     taskIds: prev.taskIds || {}
@@ -136,6 +137,14 @@ async function restoreState() {
   }
 
   for (const repo of allRepos) {
+    if (state.worktreeOrders && state.worktreeOrders[repo.name]) {
+      const order = state.worktreeOrders[repo.name];
+      repo.worktrees.sort((a, b) => {
+        const ia = order.indexOf(a.path.replace(/\\/g, '/'));
+        const ib = order.indexOf(b.path.replace(/\\/g, '/'));
+        return (ia === -1 ? 999 : ia) - (ib === -1 ? 999 : ib);
+      });
+    }
     addRepoGroup(repo);
   }
 
