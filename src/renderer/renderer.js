@@ -1,8 +1,9 @@
-import { addRepoGroup, clearAllGroups, createWorktreeTab, rebuildCollapsedDots, registerWorktreeDialog, registerDeleteDialog, registerWorktreeRemoveDialog, registerWorktreeSwitchDialog, registerCommitPushDialog, registerCreatePrDialog, registerToggleTerminal, registerOnStateChange, registerSourceBranchLookup, registerTaskIdLookup, removeRepoGroup, showTabCloseButton, showTabRemoveButton, getRepoOrder, getWorktreeOrders } from './sidebar.js';
-import { showWorktreeDialog, showCloneDialog, showDeleteDialog, showWorktreeRemoveDialog, showWorktreeSwitchDialog, showCommitPushDialog, showCreatePrDialog, setCloneReposDir, registerSidebarFns, registerRemoveRepoGroup, registerOnCloneComplete, registerBranchCache, registerSaveSourceBranch, registerSaveTaskId } from './dialogs.js';
+import { addRepoGroup, clearAllGroups, createWorktreeTab, rebuildCollapsedDots, registerWorktreeDialog, registerDeleteDialog, registerWorktreeRemoveDialog, registerWorktreeSwitchDialog, registerCommitPushDialog, registerCreatePrDialog, registerToggleTerminal, registerOnStateChange, removeRepoGroup, showTabCloseButton, showTabRemoveButton, getRepoOrder, getWorktreeOrders } from './sidebar/index.js';
+import { showWorktreeDialog, showCloneDialog, showDeleteDialog, showWorktreeRemoveDialog, showWorktreeSwitchDialog, showCommitPushDialog, showCreatePrDialog, setCloneReposDir, registerSidebarFns, registerRemoveRepoGroup, registerOnCloneComplete } from './dialogs/index.js';
 import { cycleWorkspace, registerTabButtonFns } from './workspace-manager.js';
 import { getActive } from './state.js';
 import { toggleTerminal } from './terminal-panel.js';
+import { getState, saveDirectories, resetDirectories, STORAGE_KEY } from './storage.js';
 
 // Wire cross-module dependencies (avoids circular imports)
 registerWorktreeDialog(showWorktreeDialog);
@@ -15,14 +16,7 @@ registerToggleTerminal(toggleTerminal);
 registerTabButtonFns(showTabCloseButton, showTabRemoveButton);
 registerSidebarFns(addRepoGroup, createWorktreeTab, rebuildCollapsedDots);
 registerRemoveRepoGroup(removeRepoGroup);
-
 // ===== State Persistence =====
-
-const STORAGE_KEY = 'codehive-state';
-
-function getState() {
-  try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}'); } catch { return {}; }
-}
 
 function saveState() {
   const prev = getState();
@@ -37,63 +31,7 @@ function saveState() {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
 }
 
-function saveSourceBranch(wtPath, sourceBranch) {
-  const state = getState();
-  if (!state.sourceBranches) state.sourceBranches = {};
-  state.sourceBranches[wtPath.replace(/\\/g, '/')] = sourceBranch;
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-}
-
-function getSourceBranch(wtPath) {
-  const state = getState();
-  return (state.sourceBranches && state.sourceBranches[wtPath.replace(/\\/g, '/')]) || null;
-}
-
-function saveTaskId(wtPath, taskId) {
-  const state = getState();
-  if (!state.taskIds) state.taskIds = {};
-  state.taskIds[wtPath.replace(/\\/g, '/')] = taskId;
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-}
-
-function getTaskId(wtPath) {
-  const state = getState();
-  return (state.taskIds && state.taskIds[wtPath.replace(/\\/g, '/')]) || null;
-}
-
-function saveBranchCache(repoName, branches) {
-  const state = getState();
-  if (!state.branchCache) state.branchCache = {};
-  state.branchCache[repoName] = branches;
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-}
-
-function getCachedBranchesFromState(repoName) {
-  const state = getState();
-  return (state.branchCache && state.branchCache[repoName]) || [];
-}
-
-function saveDirectories(dirPath) {
-  const state = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
-  const dirs = state.directories || [];
-  if (!dirs.includes(dirPath)) dirs.push(dirPath);
-  state.directories = dirs;
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-}
-
-function resetDirectories(dirPath) {
-  const state = getState();
-  state.directories = [dirPath];
-  state.repoOrder = [];
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-}
-
 registerOnStateChange(saveState);
-registerBranchCache(getCachedBranchesFromState, saveBranchCache);
-registerSourceBranchLookup(getSourceBranch);
-registerSaveSourceBranch(saveSourceBranch);
-registerTaskIdLookup(getTaskId);
-registerSaveTaskId(saveTaskId);
 registerOnCloneComplete((reposDir) => {
   saveDirectories(reposDir);
   saveState();

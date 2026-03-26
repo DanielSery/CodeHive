@@ -1,5 +1,7 @@
 import { openWorktree } from './workspace-manager.js';
 import { createTerminal, showTerminal, showCloseButton, setTitle, closeTerminal } from './terminal-panel.js';
+import { getCachedBranchesFromState, saveBranchCache, saveSourceBranch, saveTaskId } from './storage.js';
+import { parseAzureRemoteUrl, fetchAzureTasks, createAzureWorkItem, buildAzureTaskUrl, buildAzureContext, fetchWorkItemTitle } from './azure-api.js';
 
 // Injected by renderer.js to avoid circular dependency
 let _addRepoGroup = null;
@@ -92,17 +94,6 @@ function updateWtPreview() {
   wtPreview.textContent = `Branch: ${branchName}  |  Dir: ${dirName}`;
 }
 
-function parseAzureRemoteUrl(url) {
-  if (!url) return null;
-  // https://dev.azure.com/org/project/_git/repo  (with optional user@ prefix)
-  const m = url.match(/https?:\/\/(?:[^@/]+@)?dev\.azure\.com\/([^/]+)\/([^/]+)\/_git\//);
-  if (m) return { org: decodeURIComponent(m[1]), project: decodeURIComponent(m[2]) };
-  // https://org.visualstudio.com/project/_git/repo
-  const m2 = url.match(/https?:\/\/(?:[^@/]+@)?([^.]+)\.visualstudio\.com\/([^/]+)\/_git\//);
-  if (m2) return { org: m2[1], project: decodeURIComponent(m2[2]) };
-  return null;
-}
-
 function truncateToWords(str, maxLen) {
   if (str.length <= maxLen) return str;
   const cut = str.substring(0, maxLen);
@@ -164,80 +155,37 @@ async function fetchTasksForDialog(barePath) {
   };
 
   const pat = loadStoredPat();
-  if (!pat) {
+  const result = await fetchAzureTasks(barePath, pat);
+
+  if (result.error === 'no-pat') {
     wtTaskSearch.placeholder = 'Enter PAT to load tasks';
     wtTaskSearch.disabled = false;
     focusTaskSearch();
     return;
   }
-
-  let remoteUrl;
-  try { remoteUrl = await window.reposAPI.remoteUrl(barePath); } catch {}
-
-  const parsed = parseAzureRemoteUrl(remoteUrl);
-  if (!parsed) {
+  if (result.error === 'not-azure') {
     wtTaskSearch.placeholder = 'Not an Azure DevOps repository';
     wtTaskSearch.disabled = false;
     focusTaskSearch();
     return;
   }
-
-  try {
-    const auth = btoa(':' + pat);
-    const apiBase = `https://dev.azure.com/${encodeURIComponent(parsed.org)}/${encodeURIComponent(parsed.project)}/_apis`;
-    wtAzureContext = { org: parsed.org, project: parsed.project, auth, apiBase };
-
-    const wiqlResp = await fetch(`${apiBase}/wit/wiql?api-version=7.0`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Basic ${auth}` },
-      body: JSON.stringify({ query: `SELECT [System.Id] FROM WorkItems WHERE [System.State] NOT IN ('Closed', 'Done', 'Resolved', 'Removed') ORDER BY [System.ChangedDate] DESC` })
-    });
-
-    if (!wiqlResp.ok) {
-      wtTaskSearch.placeholder = 'Could not load tasks';
-      wtTaskSearch.disabled = false;
-      focusTaskSearch();
-      return;
-    }
-
-    const wiqlData = await wiqlResp.json();
-    const ids = (wiqlData.workItems || []).slice(0, 100).map(wi => wi.id);
-
-    if (ids.length === 0) {
-      wtAllTasks = [];
-      wtTaskSearch.placeholder = 'No active tasks found';
-      wtTaskSearch.disabled = false;
-      focusTaskSearch();
-      return;
-    }
-
-    const itemsResp = await fetch(
-      `${apiBase}/wit/workitems?ids=${ids.join(',')}&fields=System.Id,System.Title,System.WorkItemType&api-version=7.0`,
-      { headers: { 'Authorization': `Basic ${auth}` } }
-    );
-
-    if (!itemsResp.ok) {
-      wtTaskSearch.placeholder = 'Could not load tasks';
-      wtTaskSearch.disabled = false;
-      focusTaskSearch();
-      return;
-    }
-
-    const itemsData = await itemsResp.json();
-    wtAllTasks = (itemsData.value || []).map(wi => ({
-      id: wi.id,
-      title: wi.fields['System.Title'] || '',
-      type: wi.fields['System.WorkItemType'] || ''
-    }));
-
-    wtTaskSearch.placeholder = 'Search tasks...';
-    wtTaskSearch.disabled = false;
-    focusTaskSearch();
-  } catch {
+  if (result.error) {
     wtTaskSearch.placeholder = 'Could not load tasks';
     wtTaskSearch.disabled = false;
     focusTaskSearch();
+    return;
   }
+
+  wtAzureContext = result.azureContext;
+  wtAllTasks = result.tasks;
+
+  if (wtAllTasks.length === 0) {
+    wtTaskSearch.placeholder = 'No active tasks found';
+  } else {
+    wtTaskSearch.placeholder = 'Search tasks...';
+  }
+  wtTaskSearch.disabled = false;
+  focusTaskSearch();
 }
 
 function getFilteredBranches() {
@@ -322,7 +270,7 @@ async function showWorktreeDialog(groupEl, tabsEl) {
 
   // Use app state cache for instant display
   const repoName = groupEl.dataset.repoName;
-  const stateCache = _getCachedBranches ? _getCachedBranches(repoName) : [];
+  const stateCache = getCachedBranchesFromState(repoName);
   if (stateCache.length > 0) {
     applyBranches(stateCache);
   }
@@ -343,7 +291,7 @@ async function showWorktreeDialog(groupEl, tabsEl) {
     if (!wtDialogOverlay.classList.contains('visible')) return;
     if (wtCurrentGroupEl !== groupEl) return;
     applyBranches(fetched);
-    if (_saveBranchCache) _saveBranchCache(repoName, fetched);
+    saveBranchCache(repoName, fetched);
     // If the combobox list is open, refresh it
     if (wtBranchList.classList.contains('open')) {
       renderBranchList(wtBranchSearch.value);
@@ -377,17 +325,8 @@ async function confirmCreateWorktree() {
     const taskDescription = wtTaskDesc.value.trim();
     const workItemType = wtTaskType.value || 'Story';
     try {
-      const body = [{ op: 'add', path: '/fields/System.Title', value: taskTitle }];
-      if (taskDescription) body.push({ op: 'add', path: '/fields/System.Description', value: taskDescription });
-      const resp = await fetch(`${wtAzureContext.apiBase}/wit/workitems/$${encodeURIComponent(workItemType)}?api-version=7.0`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json-patch+json', 'Authorization': `Basic ${wtAzureContext.auth}` },
-        body: JSON.stringify(body)
-      });
-      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-      const data = await resp.json();
-      wtSelectedTask = { id: data.id, title: taskTitle, type: workItemType };
-      shellAPI.openExternal(`https://dev.azure.com/${encodeURIComponent(wtAzureContext.org)}/${encodeURIComponent(wtAzureContext.project)}/_workitems/edit/${data.id}`);
+      wtSelectedTask = await createAzureWorkItem(wtAzureContext, workItemType, taskTitle, taskDescription);
+      window.shellAPI.openExternal(buildAzureTaskUrl(wtAzureContext, wtSelectedTask.id));
     } catch (err) {
       alert(`Failed to create task: ${err.message}`);
       return;
@@ -418,8 +357,8 @@ async function confirmCreateWorktree() {
       xterm.writeln('\x1b[32mWorktree created successfully!\x1b[0m');
 
       const wt = { path: wtPath, branch, name: dir, sourceBranch, taskId };
-      if (_saveSourceBranch) _saveSourceBranch(wtPath, sourceBranch);
-      if (_saveTaskId && taskId) _saveTaskId(wtPath, taskId);
+      saveSourceBranch(wtPath, sourceBranch);
+      if (taskId) saveTaskId(wtPath, taskId);
       const tabEl = _createWorktreeTab(wt);
       tabsEl.appendChild(tabEl);
       if (_rebuildCollapsedDots) _rebuildCollapsedDots();
@@ -915,80 +854,37 @@ async function fetchSwitchTasksForDialog(barePath) {
   };
 
   const pat = loadStoredPat();
-  if (!pat) {
+  const result = await fetchAzureTasks(barePath, pat);
+
+  if (result.error === 'no-pat') {
     wtSwitchTaskSearch.placeholder = 'Enter PAT to load tasks';
     wtSwitchTaskSearch.disabled = false;
     focusTaskSearch();
     return;
   }
-
-  let remoteUrl;
-  try { remoteUrl = await window.reposAPI.remoteUrl(barePath); } catch {}
-
-  const parsed = parseAzureRemoteUrl(remoteUrl);
-  if (!parsed) {
+  if (result.error === 'not-azure') {
     wtSwitchTaskSearch.placeholder = 'Not an Azure DevOps repository';
     wtSwitchTaskSearch.disabled = false;
     focusTaskSearch();
     return;
   }
-
-  try {
-    const auth = btoa(':' + pat);
-    const apiBase = `https://dev.azure.com/${encodeURIComponent(parsed.org)}/${encodeURIComponent(parsed.project)}/_apis`;
-    wtSwitchAzureContext = { org: parsed.org, project: parsed.project, auth, apiBase };
-
-    const wiqlResp = await fetch(`${apiBase}/wit/wiql?api-version=7.0`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Basic ${auth}` },
-      body: JSON.stringify({ query: `SELECT [System.Id] FROM WorkItems WHERE [System.State] NOT IN ('Closed', 'Done', 'Resolved', 'Removed') ORDER BY [System.ChangedDate] DESC` })
-    });
-
-    if (!wiqlResp.ok) {
-      wtSwitchTaskSearch.placeholder = 'Could not load tasks';
-      wtSwitchTaskSearch.disabled = false;
-      focusTaskSearch();
-      return;
-    }
-
-    const wiqlData = await wiqlResp.json();
-    const ids = (wiqlData.workItems || []).slice(0, 100).map(wi => wi.id);
-
-    if (ids.length === 0) {
-      wtSwitchAllTasks = [];
-      wtSwitchTaskSearch.placeholder = 'No active tasks found';
-      wtSwitchTaskSearch.disabled = false;
-      focusTaskSearch();
-      return;
-    }
-
-    const itemsResp = await fetch(
-      `${apiBase}/wit/workitems?ids=${ids.join(',')}&fields=System.Id,System.Title,System.WorkItemType&api-version=7.0`,
-      { headers: { 'Authorization': `Basic ${auth}` } }
-    );
-
-    if (!itemsResp.ok) {
-      wtSwitchTaskSearch.placeholder = 'Could not load tasks';
-      wtSwitchTaskSearch.disabled = false;
-      focusTaskSearch();
-      return;
-    }
-
-    const itemsData = await itemsResp.json();
-    wtSwitchAllTasks = (itemsData.value || []).map(wi => ({
-      id: wi.id,
-      title: wi.fields['System.Title'] || '',
-      type: wi.fields['System.WorkItemType'] || ''
-    }));
-
-    wtSwitchTaskSearch.placeholder = 'Search tasks...';
-    wtSwitchTaskSearch.disabled = false;
-    focusTaskSearch();
-  } catch {
+  if (result.error) {
     wtSwitchTaskSearch.placeholder = 'Could not load tasks';
     wtSwitchTaskSearch.disabled = false;
     focusTaskSearch();
+    return;
   }
+
+  wtSwitchAzureContext = result.azureContext;
+  wtSwitchAllTasks = result.tasks;
+
+  if (wtSwitchAllTasks.length === 0) {
+    wtSwitchTaskSearch.placeholder = 'No active tasks found';
+  } else {
+    wtSwitchTaskSearch.placeholder = 'Search tasks...';
+  }
+  wtSwitchTaskSearch.disabled = false;
+  focusTaskSearch();
 }
 
 function getSwitchFilteredBranches() {
@@ -1075,7 +971,7 @@ async function showWorktreeSwitchDialog(tabEl, groupEl) {
   const preselect = tabEl._wtSourceBranch || null;
 
   // Use app state cache for instant display
-  const stateCache = _getCachedBranches ? _getCachedBranches(repoName) : [];
+  const stateCache = getCachedBranchesFromState(repoName);
 
   const [cached, user] = await Promise.all([
     window.reposAPI.cachedBranches(groupEl._barePath),
@@ -1093,7 +989,7 @@ async function showWorktreeSwitchDialog(tabEl, groupEl) {
     if (!wtSwitchDialogOverlay.classList.contains('visible')) return;
     if (wtSwitchGroupEl !== groupEl) return;
     applySwitchBranches(fetched, preselect);
-    if (_saveBranchCache) _saveBranchCache(repoName, fetched);
+    saveBranchCache(repoName, fetched);
     if (wtSwitchBranchList.classList.contains('open')) {
       renderSwitchBranchList(wtSwitchBranchSearch.value);
     }
@@ -1127,17 +1023,8 @@ async function confirmSwitchWorktree() {
     const taskDescription = wtSwitchTaskDesc.value.trim();
     const workItemType = wtSwitchTaskType.value || 'Story';
     try {
-      const body = [{ op: 'add', path: '/fields/System.Title', value: taskTitle }];
-      if (taskDescription) body.push({ op: 'add', path: '/fields/System.Description', value: taskDescription });
-      const resp = await fetch(`${wtSwitchAzureContext.apiBase}/wit/workitems/$${encodeURIComponent(workItemType)}?api-version=7.0`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json-patch+json', 'Authorization': `Basic ${wtSwitchAzureContext.auth}` },
-        body: JSON.stringify(body)
-      });
-      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-      const data = await resp.json();
-      wtSwitchSelectedTask = { id: data.id, title: taskTitle, type: workItemType };
-      shellAPI.openExternal(`https://dev.azure.com/${encodeURIComponent(wtSwitchAzureContext.org)}/${encodeURIComponent(wtSwitchAzureContext.project)}/_workitems/edit/${data.id}`);
+      wtSwitchSelectedTask = await createAzureWorkItem(wtSwitchAzureContext, workItemType, taskTitle, taskDescription);
+      window.shellAPI.openExternal(buildAzureTaskUrl(wtSwitchAzureContext, wtSwitchSelectedTask.id));
     } catch (err) {
       alert(`Failed to create task: ${err.message}`);
       return;
@@ -1178,8 +1065,8 @@ async function confirmSwitchWorktree() {
       // Create new tab — same directory, new branch
       const switchSource = wtSwitchSelectedBranch;
       const wt = { path: wtPath, branch, name: dir, sourceBranch: switchSource, taskId };
-      if (_saveSourceBranch) _saveSourceBranch(wtPath, switchSource);
-      if (_saveTaskId && taskId) _saveTaskId(wtPath, taskId);
+      saveSourceBranch(wtPath, switchSource);
+      if (taskId) saveTaskId(wtPath, taskId);
       const newTabEl = _createWorktreeTab(wt);
       tabsEl.appendChild(newTabEl);
       if (_rebuildCollapsedDots) _rebuildCollapsedDots();
@@ -1573,17 +1460,10 @@ async function showCreatePrDialog(tabEl, groupEl) {
         const parsed = parseAzureRemoteUrl(remoteUrl);
         const pat = loadStoredPat();
         if (parsed && pat) {
-          const auth = btoa(':' + pat);
-          const resp = await fetch(
-            `https://dev.azure.com/${encodeURIComponent(parsed.org)}/${encodeURIComponent(parsed.project)}/_apis/wit/workitems/${taskId}?fields=System.Title&api-version=7.0`,
-            { headers: { Authorization: `Basic ${auth}` } }
-          );
-          if (resp.ok) {
-            const data = await resp.json();
-            const taskTitle = data.fields && data.fields['System.Title'];
-            if (taskTitle && !prTitleInput.value) {
-              prTitleInput.value = `#${taskId}: ${taskTitle}`;
-            }
+          const ctx = buildAzureContext(parsed, pat);
+          const taskTitle = await fetchWorkItemTitle(ctx, taskId);
+          if (taskTitle && !prTitleInput.value) {
+            prTitleInput.value = `#${taskId}: ${taskTitle}`;
           }
         }
       } catch {}
@@ -1593,7 +1473,7 @@ async function showCreatePrDialog(tabEl, groupEl) {
   const repoName = groupEl.dataset.repoName;
   const preselect = tabEl._wtSourceBranch || null;
 
-  const stateCache = _getCachedBranches ? _getCachedBranches(repoName) : [];
+  const stateCache = getCachedBranchesFromState(repoName);
 
   const [cached, user] = await Promise.all([
     window.reposAPI.cachedBranches(groupEl._barePath),
@@ -1610,7 +1490,7 @@ async function showCreatePrDialog(tabEl, groupEl) {
     if (!createPrDialogOverlay.classList.contains('visible')) return;
     if (_prGroupEl !== groupEl) return;
     applyPrBranches(fetched, preselect);
-    if (_saveBranchCache) _saveBranchCache(repoName, fetched);
+    saveBranchCache(repoName, fetched);
     if (prBranchList.classList.contains('open')) {
       renderPrBranchList(prBranchSearch.value);
     }
@@ -1751,27 +1631,9 @@ document.getElementById('pr-cancel-btn').addEventListener('click', hideCreatePrD
 document.getElementById('pr-confirm-btn').addEventListener('click', confirmCreatePr);
 
 let _onCloneComplete = null;
-let _getCachedBranches = null;
-let _saveBranchCache = null;
-let _saveSourceBranch = null;
 
 function registerOnCloneComplete(fn) {
   _onCloneComplete = fn;
 }
 
-function registerBranchCache(getCached, saveCached) {
-  _getCachedBranches = getCached;
-  _saveBranchCache = saveCached;
-}
-
-function registerSaveSourceBranch(fn) {
-  _saveSourceBranch = fn;
-}
-
-let _saveTaskId = null;
-
-function registerSaveTaskId(fn) {
-  _saveTaskId = fn;
-}
-
-export { showWorktreeDialog, showCloneDialog, showDeleteDialog, showWorktreeRemoveDialog, showWorktreeSwitchDialog, showCommitPushDialog, showCreatePrDialog, setCloneReposDir, registerSidebarFns, registerRemoveRepoGroup, registerOnCloneComplete, registerBranchCache, registerSaveSourceBranch, registerSaveTaskId };
+export { showWorktreeDialog, showCloneDialog, showDeleteDialog, showWorktreeRemoveDialog, showWorktreeSwitchDialog, showCommitPushDialog, showCreatePrDialog, setCloneReposDir, registerSidebarFns, registerRemoveRepoGroup, registerOnCloneComplete };

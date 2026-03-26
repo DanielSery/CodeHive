@@ -1,6 +1,7 @@
 import { setTabStatus } from './claude-poll.js';
 import { openWorktree, closeWorkspace } from './workspace-manager.js';
 import { getActive } from './state.js';
+import { getSourceBranch, getTaskId } from './storage.js';
 
 const BIN_ICON_SVG = '<svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2 4h12M5.3 4V2.7a1 1 0 011-1h3.4a1 1 0 011 1V4M6.5 7.3v4.4M9.5 7.3v4.4"/><path d="M3.5 4l.7 9.3a1 1 0 001 .9h5.6a1 1 0 001-.9L12.5 4"/></svg>';
 const SWITCH_ICON_SVG = '<svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M11 1l3 3-3 3"/><path d="M14 4H5"/><path d="M5 15l-3-3 3-3"/><path d="M2 12h9"/></svg>';
@@ -21,20 +22,9 @@ let _showWorktreeSwitchDialog = null;
 let _showCommitPushDialog = null;
 let _showCreatePrDialog = null;
 let _onStateChange = null;
-let _getSourceBranch = null;
-let _getTaskId = null;
 
 function registerOnStateChange(fn) {
   _onStateChange = fn;
-}
-
-
-function registerSourceBranchLookup(fn) {
-  _getSourceBranch = fn;
-}
-
-function registerTaskIdLookup(fn) {
-  _getTaskId = fn;
 }
 
 function registerWorktreeDialog(fn) {
@@ -200,8 +190,8 @@ function createWorktreeTab(wt) {
 
   tabEl._wtPath = wt.path;
   tabEl._wtBranch = wt.branch;
-  tabEl._wtSourceBranch = wt.sourceBranch || (_getSourceBranch ? _getSourceBranch(wt.path) : null);
-  tabEl._wtTaskId = wt.taskId || (_getTaskId ? _getTaskId(wt.path) : null);
+  tabEl._wtSourceBranch = wt.sourceBranch || getSourceBranch(wt.path);
+  tabEl._wtTaskId = wt.taskId || getTaskId(wt.path);
   tabEl._workspaceId = null;
   tabEl._pollTimer = null;
   tabEl._wasWorking = false;
@@ -935,4 +925,4 @@ setInterval(() => {
   }
 }, 5 * 60 * 1000);
 
-export { addRepoGroup, clearAllGroups, createWorktreeTab, rebuildCollapsedDots, registerWorktreeDialog, registerDeleteDialog, registerWorktreeRemoveDialog, registerWorktreeSwitchDialog, registerCommitPushDialog, registerCreatePrDialog, registerToggleTerminal, registerOnStateChange, registerSourceBranchLookup, registerTaskIdLookup, removeRepoGroup, showTabCloseButton, showTabRemoveButton, getRepoOrder, getWorktreeOrders, getOpenWorktreePaths };
+export { addRepoGroup, clearAllGroups, createWorktreeTab, rebuildCollapsedDots, registerWorktreeDialog, registerDeleteDialog, registerWorktreeRemoveDialog, registerWorktreeSwitchDialog, registerCommitPushDialog, registerCreatePrDialog, registerToggleTerminal, registerOnStateChange, removeRepoGroup, showTabCloseButton, showTabRemoveButton, getRepoOrder, getWorktreeOrders, getOpenWorktreePaths };
