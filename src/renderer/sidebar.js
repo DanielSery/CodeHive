@@ -1,5 +1,6 @@
 import { setTabStatus } from './claude-poll.js';
 import { openWorktree, closeWorkspace } from './workspace-manager.js';
+import { getActive } from './state.js';
 
 const BIN_ICON_SVG = '<svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2 4h12M5.3 4V2.7a1 1 0 011-1h3.4a1 1 0 011 1V4M6.5 7.3v4.4M9.5 7.3v4.4"/><path d="M3.5 4l.7 9.3a1 1 0 001 .9h5.6a1 1 0 001-.9L12.5 4"/></svg>';
 const SWITCH_ICON_SVG = '<svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M11 1l3 3-3 3"/><path d="M14 4H5"/><path d="M5 15l-3-3 3-3"/><path d="M2 12h9"/></svg>';
@@ -66,6 +67,11 @@ function registerCreatePrDialog(fn) {
   _showCreatePrDialog = fn;
 }
 
+let _toggleTerminal = null;
+function registerToggleTerminal(fn) {
+  _toggleTerminal = fn;
+}
+
 function formatBranchLabel(branch) {
   let name = branch.includes('/') ? branch.substring(branch.indexOf('/') + 1) : branch;
   name = name.replace(/^\d+-/, '');
@@ -89,7 +95,7 @@ function addRepoGroup(repo) {
   headerEl.innerHTML = `
     <span class="repo-group-chevron">&#x25B6;</span>
     <span class="repo-group-name">${repo.name}</span>
-    <button class="repo-group-add" title="Add Worktree">+</button>
+    <button class="repo-group-add" title="Add Worktree (Ctrl+Alt+N)">+</button>
     <button class="repo-group-delete" title="Delete Project"><svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2 4h12M5.3 4V2.7a1 1 0 011-1h3.4a1 1 0 011 1V4M6.5 7.3v4.4M9.5 7.3v4.4"/><path d="M3.5 4l.7 9.3a1 1 0 001 .9h5.6a1 1 0 001-.9L12.5 4"/></svg></button>
   `;
 
@@ -186,14 +192,15 @@ function addRepoGroup(repo) {
 function createWorktreeTab(wt) {
   const tabEl = document.createElement('div');
   tabEl.className = 'workspace-tab';
+  tabEl.title = 'Open Workspace (Ctrl+Alt+O)';
   setTabStatus(tabEl, 'idle');
   tabEl.innerHTML = `
     <span class="workspace-tab-status"></span>
     <span class="workspace-tab-label">${formatBranchLabel(wt.branch)}</span>
     <button class="workspace-tab-switch" title="Switch Worktree">${SWITCH_ICON_SVG}</button>
-    <button class="workspace-tab-commit-push" title="Commit &amp; Push" style="display:none">${COMMIT_PUSH_ICON_SVG}</button>
-    <button class="workspace-tab-create-pr" title="Create Pull Request" style="display:none">${PR_ICON_SVG}</button>
-    <button class="workspace-tab-close" title="Close" style="display:none">&times;</button>
+    <button class="workspace-tab-commit-push" title="Commit &amp; Push (Ctrl+Alt+P)" style="display:none">${COMMIT_PUSH_ICON_SVG}</button>
+    <button class="workspace-tab-create-pr" title="Create Pull Request (Ctrl+Alt+M)" style="display:none">${PR_ICON_SVG}</button>
+    <button class="workspace-tab-close" title="Close (Ctrl+Alt+W)" style="display:none">&times;</button>
     <button class="workspace-tab-remove" title="Remove Worktree">${BIN_ICON_SVG}</button>
   `;
 
@@ -415,7 +422,7 @@ async function checkExistingPr(tabEl) {
   createPrBtn.classList.remove('has-pr', 'has-pr-approved', 'has-pr-failed');
   createPrBtn.classList.add(statusClass);
   createPrBtn.style.display = '';
-  createPrBtn.title = `View Pull Request #${pr.pullRequestId}`;
+  createPrBtn.title = `View Pull Request #${pr.pullRequestId} (Ctrl+Alt+M)`;
 }
 
 function showTabCloseButton(tabEl) {
@@ -548,6 +555,7 @@ function showContextMenu(x, y, tabEl) {
   const hasTask = !!tabEl._wtTaskId;
   const hasPr = !!tabEl._existingPrUrl;
 
+  contextMenu.querySelector('[data-action="open-workspace"]').style.display = isOpen ? 'none' : '';
   contextMenu.querySelector('[data-action="switch"]').style.display = isOpen ? 'none' : '';
   contextMenu.querySelector('[data-action="commit-push"]').style.display = '';
   contextMenu.querySelector('[data-action="create-pr"]').style.display = hasPr ? 'none' : '';
@@ -589,7 +597,9 @@ contextMenu.addEventListener('click', (e) => {
   const action = item.dataset.action;
   hideContextMenu();
 
-  if (action === 'open-explorer') {
+  if (action === 'open-workspace') {
+    openWorktree(tabEl, { path: tabEl._wtPath, branch: tabEl._wtBranch });
+  } else if (action === 'open-explorer') {
     window.shellAPI.openInExplorer(tabEl._wtPath);
   } else if (action === 'open-task') {
     const taskId = tabEl._wtTaskId;
@@ -748,6 +758,175 @@ function getOpenWorktreePaths() {
   return paths;
 }
 
+// ===== Keyboard Shortcuts (Ctrl+Alt+…) =====
+
+const SHORTCUT_HOLD_DELAY = 300; // ms before number badges appear
+let _shortcutHoldTimer = null;
+let _shortcutBadgesVisible = false;
+let _ctrlHeld = false;
+let _altHeld = false;
+
+function showShortcutBadges() {
+  const tabs = Array.from(document.querySelectorAll('.repo-group-tabs.expanded .workspace-tab'));
+  const digits = ['1','2','3','4','5','6','7','8','9','0'];
+  tabs.forEach((tab, i) => {
+    if (i >= digits.length) return;
+    let badge = tab.querySelector('.workspace-tab-shortcut-badge');
+    if (!badge) {
+      badge = document.createElement('span');
+      badge.className = 'workspace-tab-shortcut-badge';
+      tab.insertBefore(badge, tab.firstChild);
+    }
+    badge.textContent = digits[i];
+  });
+  repoGroupsEl.classList.add('show-shortcut-numbers');
+  _shortcutBadgesVisible = true;
+}
+
+function hideShortcutBadges() {
+  repoGroupsEl.classList.remove('show-shortcut-numbers');
+  _shortcutBadgesVisible = false;
+  _shortcutHoldTimer = null;
+}
+
+function cancelShortcutHold() {
+  if (_shortcutHoldTimer) {
+    clearTimeout(_shortcutHoldTimer);
+    _shortcutHoldTimer = null;
+  }
+  if (_shortcutBadgesVisible) hideShortcutBadges();
+}
+
+function _activeTab() {
+  return getActive()?.tabEl ?? null;
+}
+
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Control') _ctrlHeld = true;
+  if (e.key === 'Alt') _altHeld = true;
+
+  if (!(_ctrlHeld && _altHeld)) return;
+
+  // Start hold timer for number badges when both modifier keys are first held
+  if (!_shortcutBadgesVisible && !_shortcutHoldTimer && (e.key === 'Control' || e.key === 'Alt')) {
+    _shortcutHoldTimer = setTimeout(showShortcutBadges, SHORTCUT_HOLD_DELAY);
+  }
+
+  // Ctrl+Alt+1…9,0 — switch to worktree by position
+  const digits = ['1','2','3','4','5','6','7','8','9','0'];
+  const digitIdx = digits.indexOf(e.key);
+  if (digitIdx !== -1) {
+    e.preventDefault();
+    const tabs = Array.from(document.querySelectorAll('.repo-group-tabs.expanded .workspace-tab'));
+    const tab = tabs[digitIdx];
+    if (tab) openWorktree(tab, { path: tab._wtPath, branch: tab._wtBranch });
+    cancelShortcutHold();
+    return;
+  }
+
+  const key = e.key.toLowerCase();
+
+  // Ctrl+Alt+T — toggle terminal
+  if (key === 't') {
+    e.preventDefault();
+    if (_toggleTerminal) _toggleTerminal();
+    return;
+  }
+
+  // Ctrl+Alt+W — close active worktree
+  if (key === 'w') {
+    e.preventDefault();
+    const ws = getActive();
+    if (ws) closeWorkspace(ws.tabEl._workspaceId);
+    return;
+  }
+
+  // Ctrl+Alt+O — open (activate) the active worktree
+  if (key === 'o') {
+    e.preventDefault();
+    const tabEl = _activeTab();
+    if (tabEl) openWorktree(tabEl, { path: tabEl._wtPath, branch: tabEl._wtBranch });
+    return;
+  }
+
+  // Ctrl+Alt+P — commit & push for active worktree
+  if (key === 'p') {
+    e.preventDefault();
+    const tabEl = _activeTab();
+    if (tabEl && _showCommitPushDialog) {
+      _showCommitPushDialog(tabEl, tabEl.closest('.repo-group'));
+    }
+    return;
+  }
+
+  // Ctrl+Alt+M — open or create pull request for active worktree
+  if (key === 'm') {
+    e.preventDefault();
+    const tabEl = _activeTab();
+    if (!tabEl) return;
+    if (tabEl._existingPrUrl) {
+      window.shellAPI.openExternal(tabEl._existingPrUrl);
+    } else if (_showCreatePrDialog) {
+      _showCreatePrDialog(tabEl, tabEl.closest('.repo-group'));
+    }
+    return;
+  }
+
+  // Ctrl+Alt+N — add worktree to the active worktree's project
+  if (key === 'n') {
+    e.preventDefault();
+    const tabEl = _activeTab();
+    const groupEl = tabEl ? tabEl.closest('.repo-group') : repoGroupsEl.querySelector('.repo-group');
+    if (groupEl && _showWorktreeDialog) {
+      _showWorktreeDialog(groupEl, groupEl.querySelector('.repo-group-tabs'));
+    }
+    return;
+  }
+
+  // Ctrl+Alt+E — open active worktree folder in Explorer
+  if (key === 'e') {
+    e.preventDefault();
+    const tabEl = _activeTab();
+    if (tabEl) window.shellAPI.openInExplorer(tabEl._wtPath);
+    return;
+  }
+
+  // Ctrl+Alt+A — open Azure DevOps task for active worktree
+  if (key === 'a') {
+    e.preventDefault();
+    const tabEl = _activeTab();
+    if (!tabEl) return;
+    const taskId = tabEl._wtTaskId;
+    if (!taskId) return;
+    const groupEl = tabEl.closest('.repo-group');
+    const barePath = groupEl ? groupEl._barePath : null;
+    (async () => {
+      let url = null;
+      if (barePath) {
+        try {
+          const remoteUrl = await window.reposAPI.remoteUrl(barePath);
+          const m = remoteUrl && remoteUrl.match(/https?:\/\/(?:[^@/]+@)?dev\.azure\.com\/([^/]+)\/([^/]+)\/_git\//);
+          if (m) {
+            url = `https://dev.azure.com/${encodeURIComponent(decodeURIComponent(m[1]))}/${encodeURIComponent(decodeURIComponent(m[2]))}/_workitems/edit/${taskId}`;
+          } else {
+            const m2 = remoteUrl && remoteUrl.match(/https?:\/\/(?:[^@/]+@)?([^.]+)\.visualstudio\.com\/([^/]+)\/_git\//);
+            if (m2) {
+              url = `https://dev.azure.com/${encodeURIComponent(m2[1])}/${encodeURIComponent(decodeURIComponent(m2[2]))}/_workitems/edit/${taskId}`;
+            }
+          }
+        } catch {}
+      }
+      if (url) window.shellAPI.openExternal(url);
+    })();
+    return;
+  }
+});
+
+document.addEventListener('keyup', (e) => {
+  if (e.key === 'Control') { _ctrlHeld = false; cancelShortcutHold(); }
+  if (e.key === 'Alt') { _altHeld = false; cancelShortcutHold(); }
+});
+
 setInterval(() => {
   for (const tab of document.querySelectorAll('.workspace-tab')) {
     const btn = tab.querySelector('.workspace-tab-create-pr');
@@ -757,4 +936,4 @@ setInterval(() => {
   }
 }, 5 * 60 * 1000);
 
-export { addRepoGroup, clearAllGroups, createWorktreeTab, rebuildCollapsedDots, registerWorktreeDialog, registerDeleteDialog, registerWorktreeRemoveDialog, registerWorktreeSwitchDialog, registerCommitPushDialog, registerCreatePrDialog, registerOnStateChange, registerSidebarBranchCache, registerSourceBranchLookup, registerTaskIdLookup, removeRepoGroup, showTabCloseButton, showTabRemoveButton, getRepoOrder, getWorktreeOrders, getOpenWorktreePaths };
+export { addRepoGroup, clearAllGroups, createWorktreeTab, rebuildCollapsedDots, registerWorktreeDialog, registerDeleteDialog, registerWorktreeRemoveDialog, registerWorktreeSwitchDialog, registerCommitPushDialog, registerCreatePrDialog, registerToggleTerminal, registerOnStateChange, registerSidebarBranchCache, registerSourceBranchLookup, registerTaskIdLookup, removeRepoGroup, showTabCloseButton, showTabRemoveButton, getRepoOrder, getWorktreeOrders, getOpenWorktreePaths };

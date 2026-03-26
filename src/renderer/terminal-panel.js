@@ -139,4 +139,4 @@ window.addEventListener('resize', () => {
   fit();
 });
 
-export { createTerminal, showTerminal, showCloseButton, setTitle, deactivateTerminalTab, closeTerminal, getXterm, fit };
+export { createTerminal, showTerminal, showCloseButton, setTitle, deactivateTerminalTab, closeTerminal, toggleTerminal, getXterm, fit };

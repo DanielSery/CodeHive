@@ -14,10 +14,10 @@
       <span class="titlebar-title">CodeHive</span>
     </div>
     <div class="titlebar-actions">
-      <button class="titlebar-action-btn" id="btn-titlebar-commit" title="Commit &amp; Push">
+      <button class="titlebar-action-btn" id="btn-titlebar-commit" title="Commit &amp; Push (Ctrl+Alt+P)">
         <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M8 12V3"/><path d="M4 7l4-4 4 4"/><circle cx="8" cy="14" r="1.5"/></svg>
       </button>
-      <button class="titlebar-action-btn" id="btn-titlebar-pr" title="Create Pull Request">
+      <button class="titlebar-action-btn" id="btn-titlebar-pr" title="Create Pull Request (Ctrl+Alt+M)">
         <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="4" cy="4" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="4" cy="12" r="2"/><path d="M4 6v4"/><path d="M12 10V6c0-1.1-.9-2-2-2H8"/><path d="M10 2L8 4l2 2"/></svg>
       </button>
       <div id="titlebar-run-group">
@@ -52,7 +52,7 @@
       <div id="sidebar-content">
         <div id="repo-groups"></div>
         <div class="sidebar-spacer"></div>
-        <div id="sidebar-terminal-tab" class="sidebar-terminal-tab">
+        <div id="sidebar-terminal-tab" class="sidebar-terminal-tab" title="Terminal (Ctrl+Alt+T)">
           <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 6 8 10 4 14"/><line x1="10" y1="14" x2="14" y2="14"/></svg>
           <span>Terminal</span>
         </div>
@@ -261,22 +261,23 @@
 
   <!-- Worktree context menu -->
   <div id="wt-context-menu" class="context-menu">
-    <button class="context-menu-item" data-action="open-explorer">Open in Explorer</button>
+    <button class="context-menu-item" data-action="open-explorer">Open in Explorer<span class="context-menu-shortcut">Ctrl+Alt+E</span></button>
     <hr class="context-menu-separator">
+    <button class="context-menu-item" data-action="open-workspace">Open Workspace<span class="context-menu-shortcut">Ctrl+Alt+O</span></button>
     <button class="context-menu-item" data-action="switch">Switch Worktree</button>
-    <button class="context-menu-item" data-action="commit-push">Commit &amp; Push</button>
-    <button class="context-menu-item" data-action="create-pr">Create Pull Request</button>
-    <button class="context-menu-item" data-action="open-task">Open Task</button>
-    <button class="context-menu-item" data-action="open-pr">Open Pull Request</button>
+    <button class="context-menu-item" data-action="commit-push">Commit &amp; Push<span class="context-menu-shortcut">Ctrl+Alt+P</span></button>
+    <button class="context-menu-item" data-action="create-pr">Create Pull Request<span class="context-menu-shortcut">Ctrl+Alt+M</span></button>
+    <button class="context-menu-item" data-action="open-task">Open Task<span class="context-menu-shortcut">Ctrl+Alt+A</span></button>
+    <button class="context-menu-item" data-action="open-pr">Open Pull Request<span class="context-menu-shortcut">Ctrl+Alt+M</span></button>
     <hr class="context-menu-separator">
-    <button class="context-menu-item context-menu-item-danger" data-action="close-editor">Close Editor</button>
+    <button class="context-menu-item context-menu-item-danger" data-action="close-editor">Close Editor<span class="context-menu-shortcut">Ctrl+Alt+W</span></button>
     <button class="context-menu-item context-menu-item-danger" data-action="remove">Remove Worktree</button>
   </div>
 
   <!-- Project context menu -->
   <div id="project-context-menu" class="context-menu">
-    <button class="context-menu-item" data-action="open-explorer">Open in Explorer</button>
-    <button class="context-menu-item" data-action="add-worktree">Add Worktree</button>
+    <button class="context-menu-item" data-action="open-explorer">Open in Explorer<span class="context-menu-shortcut">Ctrl+Alt+E</span></button>
+    <button class="context-menu-item" data-action="add-worktree">Add Worktree<span class="context-menu-shortcut">Ctrl+Alt+N</span></button>
     <hr class="context-menu-separator">
     <button class="context-menu-item context-menu-item-danger" data-action="delete-project">Delete Project</button>
   </div>
