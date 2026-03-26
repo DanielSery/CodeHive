@@ -374,16 +374,29 @@ function createPrCreatePty(mainWindow, { wtPath, sourceBranch, targetBranch, tit
   const escapedTitle = title.replace(/"/g, isWin ? '""' : '\\"');
   const escapedDesc = (description || '').replace(/"/g, isWin ? '""' : '\\"');
 
+  const azPrCmd = description
+    ? `az repos pr create --source-branch "${sourceBranch}" --target-branch "${targetBranch}" --title "${escapedTitle}" --description "${escapedDesc}"`
+    : `az repos pr create --source-branch "${sourceBranch}" --target-branch "${targetBranch}" --title "${escapedTitle}"`;
+
   const lines = [];
   if (isWin) {
     lines.push('@echo off');
+    lines.push('echo Checking Azure CLI authentication...');
+    lines.push('az account show >nul 2>&1');
+    lines.push('if %errorlevel% neq 0 (');
+    lines.push('  echo Not authenticated. Opening browser for login...');
+    lines.push('  echo.');
+    lines.push('  az login');
+    lines.push('  if %errorlevel% neq 0 (');
+    lines.push('    echo.');
+    lines.push('    echo Azure login failed.');
+    lines.push('    exit /b 1');
+    lines.push('  )');
+    lines.push('  echo.');
+    lines.push(')');
     lines.push(`echo Creating pull request: ${sourceBranch} -^> ${targetBranch}`);
     lines.push('echo.');
-    if (description) {
-      lines.push(`az repos pr create --source-branch "${sourceBranch}" --target-branch "${targetBranch}" --title "${escapedTitle}" --description "${escapedDesc}"`);
-    } else {
-      lines.push(`az repos pr create --source-branch "${sourceBranch}" --target-branch "${targetBranch}" --title "${escapedTitle}"`);
-    }
+    lines.push(azPrCmd);
     lines.push('if %errorlevel% neq 0 (');
     lines.push('  echo.');
     lines.push('  echo Pull request creation failed.');
@@ -393,14 +406,17 @@ function createPrCreatePty(mainWindow, { wtPath, sourceBranch, targetBranch, tit
     lines.push('echo === PULL REQUEST CREATED ===');
   } else {
     lines.push('#!/bin/sh');
+    lines.push('echo "Checking Azure CLI authentication..."');
+    lines.push('if ! az account show > /dev/null 2>&1; then');
+    lines.push('  echo "Not authenticated. Opening browser for login..."');
+    lines.push('  echo ""');
+    lines.push('  az login || { echo ""; echo "Azure login failed."; exit 1; }');
+    lines.push('  echo ""');
+    lines.push('fi');
     lines.push('set -e');
     lines.push(`echo "Creating pull request: ${sourceBranch} -> ${targetBranch}"`);
     lines.push('echo ""');
-    if (description) {
-      lines.push(`az repos pr create --source-branch "${sourceBranch}" --target-branch "${targetBranch}" --title "${escapedTitle}" --description "${escapedDesc}"`);
-    } else {
-      lines.push(`az repos pr create --source-branch "${sourceBranch}" --target-branch "${targetBranch}" --title "${escapedTitle}"`);
-    }
+    lines.push(azPrCmd);
     lines.push('echo ""');
     lines.push('echo "=== PULL REQUEST CREATED ==="');
   }
