@@ -48,8 +48,12 @@ function inferWorkItemType(title) {
   return /bug|fix/i.test(title) ? 'Bug' : 'Story';
 }
 
+function sanitizePathPart(s) {
+  return s.replace(/[^a-zA-Z0-9\s-]/g, '');
+}
+
 function nameToSlug(name) {
-  return name.trim().replace(/\s+/g, '-').substring(0, 15);
+  return sanitizePathPart(name).trim().replace(/\s+/g, '-').substring(0, 15);
 }
 
 function userToPrefix(fullName) {
@@ -60,11 +64,11 @@ function userToPrefix(fullName) {
 }
 
 function nameToBranch(user, name) {
-  return `${userToPrefix(user)}/${name.trim().replace(/\s+/g, '-')}`;
+  return `${userToPrefix(user)}/${sanitizePathPart(name).trim().replace(/\s+/g, '-')}`;
 }
 
 function buildWtNames(name) {
-  const namePart = name.trim().replace(/\s+/g, '-');
+  const namePart = sanitizePathPart(name).trim().replace(/\s+/g, '-');
   if (wtSelectedTask) {
     const prefix = `${wtSelectedTask.id}-`;
     return {
@@ -850,7 +854,7 @@ function updateWtSwitchPreview() {
     wtSwitchPreview.textContent = '';
     return;
   }
-  const namePart = name.trim().replace(/\s+/g, '-');
+  const namePart = sanitizePathPart(name).trim().replace(/\s+/g, '-');
   const branch = wtSwitchSelectedTask
     ? `${userToPrefix(wtSwitchGitUser)}/${wtSwitchSelectedTask.id}-${namePart}`
     : nameToBranch(wtSwitchGitUser, name);
@@ -1141,7 +1145,7 @@ async function confirmSwitchWorktree() {
   }
 
   const name = wtSwitchNameInput.value.trim();
-  const namePart = name.trim().replace(/\s+/g, '-');
+  const namePart = sanitizePathPart(name).trim().replace(/\s+/g, '-');
   const branchName = wtSwitchSelectedTask
     ? `${userToPrefix(wtSwitchGitUser)}/${wtSwitchSelectedTask.id}-${namePart}`
     : nameToBranch(wtSwitchGitUser, name);

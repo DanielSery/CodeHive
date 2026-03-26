@@ -142,16 +142,17 @@ async function openWorktree(tabEl, wt) {
   const url = await window.codeServerAPI.openFolder(wt.path);
   console.log('[openWorktree] URL:', url);
 
-  // Wait for the server to be reachable before creating the webview
-  const maxProbeRetries = 10;
-  for (let i = 0; i < maxProbeRetries; i++) {
+  // Check if server is reachable; restart immediately if not
+  try {
+    await fetch(url, { mode: 'no-cors' });
+    console.log('[openWorktree] probe ok');
+  } catch (err) {
+    console.warn('[openWorktree] server not reachable, restarting VS Code server...', err.message);
     try {
-      await fetch(url, { mode: 'no-cors' });
-      console.log('[openWorktree] probe ok');
-      break;
-    } catch (err) {
-      console.warn(`[openWorktree] server not reachable (attempt ${i + 1}/${maxProbeRetries}):`, err.message);
-      if (i < maxProbeRetries - 1) await new Promise(r => setTimeout(r, 1000));
+      await window.codeServerAPI.restartServer();
+      console.log('[openWorktree] server restarted successfully');
+    } catch (restartErr) {
+      console.error('[openWorktree] server restart failed:', restartErr.message);
     }
   }
 

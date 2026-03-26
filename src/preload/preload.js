@@ -1,7 +1,8 @@
 const { contextBridge, ipcRenderer } = require('electron');
 
 contextBridge.exposeInMainWorld('codeServerAPI', {
-  openFolder: (folderPath) => ipcRenderer.invoke('codeserver:openFolder', folderPath)
+  openFolder: (folderPath) => ipcRenderer.invoke('codeserver:openFolder', folderPath),
+  restartServer: () => ipcRenderer.invoke('codeserver:restart')
 });
 
 contextBridge.exposeInMainWorld('reposAPI', {

@@ -550,7 +550,7 @@ function showContextMenu(x, y, tabEl) {
   const hasPr = !!tabEl._existingPrUrl;
 
   contextMenu.querySelector('[data-action="open-workspace"]').style.display = isOpen ? 'none' : '';
-  contextMenu.querySelector('[data-action="switch"]').style.display = isOpen ? 'none' : '';
+  contextMenu.querySelector('[data-action="switch"]').style.display = '';
   contextMenu.querySelector('[data-action="commit-push"]').style.display = '';
   contextMenu.querySelector('[data-action="create-pr"]').style.display = hasPr ? 'none' : '';
   contextMenu.querySelector('[data-action="open-task"]').style.display = hasTask ? '' : 'none';
@@ -850,6 +850,15 @@ function handleCtrlAltShortcut(key) {
     const groupEl = tabEl ? tabEl.closest('.repo-group') : repoGroupsEl.querySelector('.repo-group');
     if (groupEl && _showWorktreeDialog) {
       _showWorktreeDialog(groupEl, groupEl.querySelector('.repo-group-tabs'));
+    }
+    return;
+  }
+
+  // Ctrl+Alt+R — switch worktree for active worktree's project
+  if (lkey === 'r') {
+    const tabEl = _activeTab();
+    if (tabEl && _showWorktreeSwitchDialog) {
+      _showWorktreeSwitchDialog(tabEl, tabEl.closest('.repo-group'));
     }
     return;
   }

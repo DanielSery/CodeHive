@@ -16,6 +16,18 @@ function getServerDataDir() {
   return path.join(app.getPath('userData'), 'vscode-data');
 }
 
+function getOrCreateConnectionToken() {
+  const tokenFile = path.join(getServerDataDir(), 'connection-token');
+  if (fs.existsSync(tokenFile)) {
+    return fs.readFileSync(tokenFile, 'utf8').trim();
+  }
+  const { randomUUID } = require('crypto');
+  const token = randomUUID();
+  fs.mkdirSync(getServerDataDir(), { recursive: true });
+  fs.writeFileSync(tokenFile, token, 'utf8');
+  return token;
+}
+
 function getBundledDataDir() {
   // In packaged app: resources/app.asar/vscode-data
   // In dev: ./vscode-data
@@ -176,11 +188,12 @@ function waitForServer(port, timeoutMs = 30000) {
 function startServer(port) {
   return new Promise((resolve, reject) => {
     const cmd = findCodeCmd();
+    getOrCreateConnectionToken(); // ensure token file exists before server starts
     const args = [
       'serve-web',
       '--port', port.toString(),
       '--host', '127.0.0.1',
-      '--without-connection-token',
+      '--connection-token-file', path.join(getServerDataDir(), 'connection-token'),
       '--accept-server-license-terms',
       '--server-data-dir', getServerDataDir()
     ];
@@ -226,7 +239,46 @@ function buildFolderUrl(port, folderPath) {
   let normalized = folderPath.replace(/\\/g, '/');
   if (/^[A-Za-z]:/.test(normalized)) normalized = '/' + normalized;
   const folderUri = `vscode-remote://localhost:${port}${normalized}`;
-  return `http://127.0.0.1:${port}/?folder=${encodeURIComponent(folderUri)}`;
+  const token = getOrCreateConnectionToken();
+  return `http://127.0.0.1:${port}/?tkn=${encodeURIComponent(token)}&folder=${encodeURIComponent(folderUri)}`;
 }
 
-module.exports = { resolvePort, installExtensions, seedDefaultSettings, startServer, buildFolderUrl };
+// Kill all processes listening on a port (needed to clear orphan servers on Windows).
+function killServerOnPort(port) {
+  if (process.platform !== 'win32') return Promise.resolve();
+  return new Promise((resolve) => {
+    const { exec } = require('child_process');
+    exec('netstat -ano', (err, stdout) => {
+      if (err || !stdout) { resolve(); return; }
+      const pids = new Set();
+      for (const line of stdout.split('\n')) {
+        if (line.includes(`:${port}`) && line.toUpperCase().includes('LISTENING')) {
+          const parts = line.trim().split(/\s+/);
+          const pid = parts[parts.length - 1];
+          if (/^\d+$/.test(pid) && pid !== '0') pids.add(pid);
+        }
+      }
+      if (pids.size === 0) { resolve(); return; }
+      let done = 0;
+      for (const pid of pids) {
+        exec(`taskkill /F /T /PID ${pid}`, () => {
+          if (++done === pids.size) setTimeout(resolve, 300); // allow port to be released
+        });
+      }
+    });
+  });
+}
+
+// Kill a spawned server process and its entire child tree (shell: true spawns cmd.exe
+// as the direct child; only killing the tree ensures VS Code itself is terminated).
+function killServer(proc) {
+  if (!proc) return;
+  if (process.platform === 'win32') {
+    const { exec } = require('child_process');
+    exec(`taskkill /F /T /PID ${proc.pid}`, () => {});
+  } else {
+    proc.kill();
+  }
+}
+
+module.exports = { resolvePort, installExtensions, seedDefaultSettings, startServer, buildFolderUrl, killServer, killServerOnPort };
