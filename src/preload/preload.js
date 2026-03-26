@@ -13,6 +13,7 @@ contextBridge.exposeInMainWorld('reposAPI', {
   gitUser: (barePath) => ipcRenderer.invoke('repos:gitUser', barePath),
   remoteUrl: (barePath) => ipcRenderer.invoke('repos:remoteUrl', barePath),
   launchConfigs: (wtPath) => ipcRenderer.invoke('repos:launchConfigs', wtPath),
+  gitDiffStat: (wtPath) => ipcRenderer.invoke('repos:gitDiffStat', wtPath),
 });
 
 contextBridge.exposeInMainWorld('worktreeAPI', {
@@ -106,4 +107,9 @@ contextBridge.exposeInMainWorld('windowAPI', {
 contextBridge.exposeInMainWorld('startupAPI', {
   onStatus: (cb) => ipcRenderer.on('startup:status', (_, msg) => cb(msg)),
   getStatus: () => ipcRenderer.invoke('startup:getStatus'),
+});
+
+// Partition is stable for the first instance (persist:codehive) and unique for additional instances
+contextBridge.exposeInMainWorld('appSession', {
+  getPartition: () => ipcRenderer.invoke('startup:getPartition')
 });

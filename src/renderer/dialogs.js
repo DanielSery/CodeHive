@@ -35,9 +35,12 @@ let wtHighlightIndex = -1;
 // Task combobox state
 const wtTaskSearch = document.getElementById('wt-task-search');
 const wtTaskList = document.getElementById('wt-task-list');
+const wtTaskDescRow = document.getElementById('wt-task-desc-row');
+const wtTaskDesc = document.getElementById('wt-task-desc');
 let wtAllTasks = [];
 let wtSelectedTask = null;
 let wtTaskHighlightIndex = -1;
+let wtAzureContext = null; // cached { org, project, auth, apiBase } for task creation
 
 function nameToSlug(name) {
   return name.trim().replace(/\s+/g, '-').substring(0, 15);
@@ -126,6 +129,11 @@ function renderTaskList(filter) {
   wtTaskList.classList.add('open');
 }
 
+function updateTaskDescVisibility() {
+  const isNewTask = !wtSelectedTask && wtTaskSearch.value.trim().length > 0;
+  wtTaskDescRow.style.display = isNewTask ? '' : 'none';
+}
+
 function selectWtTask(task) {
   wtSelectedTask = task;
   wtTaskSearch.value = task ? `#${task.id} ${task.title}` : '';
@@ -135,13 +143,19 @@ function selectWtTask(task) {
     wtNameInput.value = truncateToWords(task.title, 40);
     updateWtPreview();
   }
+  updateTaskDescVisibility();
 }
 
 async function fetchTasksForDialog(barePath) {
+  const focusTaskSearch = () => {
+    if (wtDialogOverlay.classList.contains('visible')) wtTaskSearch.focus();
+  };
+
   const pat = loadStoredPat();
   if (!pat) {
     wtTaskSearch.placeholder = 'Enter PAT to load tasks';
     wtTaskSearch.disabled = false;
+    focusTaskSearch();
     return;
   }
 
@@ -152,12 +166,14 @@ async function fetchTasksForDialog(barePath) {
   if (!parsed) {
     wtTaskSearch.placeholder = 'Not an Azure DevOps repository';
     wtTaskSearch.disabled = false;
+    focusTaskSearch();
     return;
   }
 
   try {
     const auth = btoa(':' + pat);
     const apiBase = `https://dev.azure.com/${encodeURIComponent(parsed.org)}/${encodeURIComponent(parsed.project)}/_apis`;
+    wtAzureContext = { org: parsed.org, project: parsed.project, auth, apiBase };
 
     const wiqlResp = await fetch(`${apiBase}/wit/wiql?api-version=7.0`, {
       method: 'POST',
@@ -168,6 +184,7 @@ async function fetchTasksForDialog(barePath) {
     if (!wiqlResp.ok) {
       wtTaskSearch.placeholder = 'Could not load tasks';
       wtTaskSearch.disabled = false;
+      focusTaskSearch();
       return;
     }
 
@@ -178,6 +195,7 @@ async function fetchTasksForDialog(barePath) {
       wtAllTasks = [];
       wtTaskSearch.placeholder = 'No active tasks found';
       wtTaskSearch.disabled = false;
+      focusTaskSearch();
       return;
     }
 
@@ -189,6 +207,7 @@ async function fetchTasksForDialog(barePath) {
     if (!itemsResp.ok) {
       wtTaskSearch.placeholder = 'Could not load tasks';
       wtTaskSearch.disabled = false;
+      focusTaskSearch();
       return;
     }
 
@@ -201,9 +220,11 @@ async function fetchTasksForDialog(barePath) {
 
     wtTaskSearch.placeholder = 'Search tasks...';
     wtTaskSearch.disabled = false;
+    focusTaskSearch();
   } catch {
     wtTaskSearch.placeholder = 'Could not load tasks';
     wtTaskSearch.disabled = false;
+    focusTaskSearch();
   }
 }
 
@@ -276,11 +297,14 @@ async function showWorktreeDialog(groupEl, tabsEl) {
   // Reset task state
   wtSelectedTask = null;
   wtAllTasks = [];
+  wtAzureContext = null;
   wtTaskSearch.value = '';
   wtTaskSearch.placeholder = 'Loading tasks...';
   wtTaskSearch.disabled = true;
   wtTaskList.innerHTML = '';
   wtTaskList.classList.remove('open');
+  wtTaskDescRow.style.display = 'none';
+  wtTaskDesc.value = '';
 
   wtDialogOverlay.classList.add('visible');
 
@@ -289,11 +313,6 @@ async function showWorktreeDialog(groupEl, tabsEl) {
   const stateCache = _getCachedBranches ? _getCachedBranches(repoName) : [];
   if (stateCache.length > 0) {
     applyBranches(stateCache);
-    if (wtSelectedBranch) {
-      wtNameInput.focus();
-    } else {
-      wtBranchSearch.focus();
-    }
   }
 
   // Load git cached branches + git user
@@ -305,31 +324,17 @@ async function showWorktreeDialog(groupEl, tabsEl) {
 
   if (cached.length > 0 && stateCache.length === 0) {
     applyBranches(cached);
-    if (wtSelectedBranch) {
-      wtNameInput.focus();
-    } else {
-      wtBranchSearch.focus();
-    }
   }
 
   // Fetch fresh branches in background
   window.reposAPI.fetchBranches(groupEl._barePath).then((fetched) => {
     if (!wtDialogOverlay.classList.contains('visible')) return;
     if (wtCurrentGroupEl !== groupEl) return;
-    const prevSelected = wtSelectedBranch;
     applyBranches(fetched);
     if (_saveBranchCache) _saveBranchCache(repoName, fetched);
     // If the combobox list is open, refresh it
     if (wtBranchList.classList.contains('open')) {
       renderBranchList(wtBranchSearch.value);
-    }
-    // If we had no branches before, now focus appropriately
-    if (cached.length === 0) {
-      if (wtSelectedBranch) {
-        wtNameInput.focus();
-      } else {
-        wtBranchSearch.focus();
-      }
     }
   });
 
@@ -341,10 +346,39 @@ function hideWorktreeDialog() {
   wtDialogOverlay.classList.remove('visible');
   wtBranchList.classList.remove('open');
   wtTaskList.classList.remove('open');
+  wtTaskDescRow.style.display = 'none';
+  wtTaskDesc.value = '';
 }
 
 async function confirmCreateWorktree() {
   if (!wtSelectedBranch || !wtNameInput.value.trim()) return;
+
+  // If user typed a custom task name (not selected from list), create it in Azure first
+  const isNewTask = !wtSelectedTask && wtTaskSearch.value.trim().length > 0;
+  if (isNewTask) {
+    if (!wtAzureContext) {
+      alert('Azure DevOps connection not available. Cannot create task.');
+      return;
+    }
+    const taskTitle = wtTaskSearch.value.trim();
+    const taskDescription = wtTaskDesc.value.trim();
+    try {
+      const body = [{ op: 'add', path: '/fields/System.Title', value: taskTitle }];
+      if (taskDescription) body.push({ op: 'add', path: '/fields/System.Description', value: taskDescription });
+      const resp = await fetch(`${wtAzureContext.apiBase}/wit/workitems/$Task?api-version=7.0`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json-patch+json', 'Authorization': `Basic ${wtAzureContext.auth}` },
+        body: JSON.stringify(body)
+      });
+      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+      const data = await resp.json();
+      wtSelectedTask = { id: data.id, title: taskTitle, type: 'Task' };
+      shellAPI.openExternal(`https://dev.azure.com/${encodeURIComponent(wtAzureContext.org)}/${encodeURIComponent(wtAzureContext.project)}/_workitems/edit/${data.id}`);
+    } catch (err) {
+      alert(`Failed to create task: ${err.message}`);
+      return;
+    }
+  }
 
   const name = wtNameInput.value.trim();
   const { dirName, branchName } = buildWtNames(name);
@@ -458,7 +492,7 @@ wtBranchSearch.addEventListener('keydown', (e) => {
   } else if (e.key === 'Enter' && wtHighlightIndex >= 0 && wtHighlightIndex < filtered.length) {
     e.preventDefault();
     selectWtBranch(filtered[wtHighlightIndex]);
-    wtNameInput.focus();
+    wtTaskSearch.focus();
   }
 });
 
@@ -470,8 +504,10 @@ wtNameInput.addEventListener('keydown', (e) => {
 
 // Task combobox event listeners
 wtTaskSearch.addEventListener('input', () => {
+  wtSelectedTask = null;
   wtTaskHighlightIndex = -1;
   renderTaskList(wtTaskSearch.value);
+  updateTaskDescVisibility();
 });
 
 wtTaskSearch.addEventListener('focus', () => {
@@ -484,7 +520,13 @@ wtTaskSearch.addEventListener('focus', () => {
 wtTaskSearch.addEventListener('blur', () => {
   setTimeout(() => {
     wtTaskList.classList.remove('open');
-    if (wtSelectedTask) wtTaskSearch.value = `#${wtSelectedTask.id} ${wtSelectedTask.title}`;
+    if (wtSelectedTask) {
+      wtTaskSearch.value = `#${wtSelectedTask.id} ${wtSelectedTask.title}`;
+    } else if (wtTaskSearch.value.trim() && !wtNameInput.value.trim()) {
+      wtNameInput.value = truncateToWords(wtTaskSearch.value.trim(), 40);
+      updateWtPreview();
+    }
+    updateTaskDescVisibility();
   }, 200);
 });
 
@@ -517,6 +559,10 @@ wtTaskSearch.addEventListener('keydown', (e) => {
     selectWtTask(filtered[wtTaskHighlightIndex]);
     wtBranchSearch.focus();
   }
+});
+
+wtTaskDesc.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') hideWorktreeDialog();
 });
 
 wtDialogOverlay.addEventListener('click', (e) => {
@@ -774,9 +820,12 @@ let wtSwitchHighlightIndex = -1;
 // Switch task combobox state
 const wtSwitchTaskSearch = document.getElementById('wt-switch-task-search');
 const wtSwitchTaskList = document.getElementById('wt-switch-task-list');
+const wtSwitchTaskDescRow = document.getElementById('wt-switch-task-desc-row');
+const wtSwitchTaskDesc = document.getElementById('wt-switch-task-desc');
 let wtSwitchAllTasks = [];
 let wtSwitchSelectedTask = null;
 let wtSwitchTaskHighlightIndex = -1;
+let wtSwitchAzureContext = null;
 
 function updateWtSwitchPreview() {
   const name = wtSwitchNameInput.value.trim();
@@ -820,6 +869,11 @@ function renderSwitchTaskList(filter) {
   wtSwitchTaskList.classList.add('open');
 }
 
+function updateSwitchTaskDescVisibility() {
+  const isNewTask = !wtSwitchSelectedTask && wtSwitchTaskSearch.value.trim().length > 0;
+  wtSwitchTaskDescRow.style.display = isNewTask ? '' : 'none';
+}
+
 function selectWtSwitchTask(task) {
   wtSwitchSelectedTask = task;
   wtSwitchTaskSearch.value = task ? `#${task.id} ${task.title}` : '';
@@ -829,13 +883,19 @@ function selectWtSwitchTask(task) {
     wtSwitchNameInput.value = truncateToWords(task.title, 40);
     updateWtSwitchPreview();
   }
+  updateSwitchTaskDescVisibility();
 }
 
 async function fetchSwitchTasksForDialog(barePath) {
+  const focusTaskSearch = () => {
+    if (wtSwitchDialogOverlay.classList.contains('visible')) wtSwitchTaskSearch.focus();
+  };
+
   const pat = loadStoredPat();
   if (!pat) {
     wtSwitchTaskSearch.placeholder = 'Enter PAT to load tasks';
     wtSwitchTaskSearch.disabled = false;
+    focusTaskSearch();
     return;
   }
 
@@ -846,12 +906,14 @@ async function fetchSwitchTasksForDialog(barePath) {
   if (!parsed) {
     wtSwitchTaskSearch.placeholder = 'Not an Azure DevOps repository';
     wtSwitchTaskSearch.disabled = false;
+    focusTaskSearch();
     return;
   }
 
   try {
     const auth = btoa(':' + pat);
     const apiBase = `https://dev.azure.com/${encodeURIComponent(parsed.org)}/${encodeURIComponent(parsed.project)}/_apis`;
+    wtSwitchAzureContext = { org: parsed.org, project: parsed.project, auth, apiBase };
 
     const wiqlResp = await fetch(`${apiBase}/wit/wiql?api-version=7.0`, {
       method: 'POST',
@@ -862,6 +924,7 @@ async function fetchSwitchTasksForDialog(barePath) {
     if (!wiqlResp.ok) {
       wtSwitchTaskSearch.placeholder = 'Could not load tasks';
       wtSwitchTaskSearch.disabled = false;
+      focusTaskSearch();
       return;
     }
 
@@ -872,6 +935,7 @@ async function fetchSwitchTasksForDialog(barePath) {
       wtSwitchAllTasks = [];
       wtSwitchTaskSearch.placeholder = 'No active tasks found';
       wtSwitchTaskSearch.disabled = false;
+      focusTaskSearch();
       return;
     }
 
@@ -883,6 +947,7 @@ async function fetchSwitchTasksForDialog(barePath) {
     if (!itemsResp.ok) {
       wtSwitchTaskSearch.placeholder = 'Could not load tasks';
       wtSwitchTaskSearch.disabled = false;
+      focusTaskSearch();
       return;
     }
 
@@ -895,9 +960,11 @@ async function fetchSwitchTasksForDialog(barePath) {
 
     wtSwitchTaskSearch.placeholder = 'Search tasks...';
     wtSwitchTaskSearch.disabled = false;
+    focusTaskSearch();
   } catch {
     wtSwitchTaskSearch.placeholder = 'Could not load tasks';
     wtSwitchTaskSearch.disabled = false;
+    focusTaskSearch();
   }
 }
 
@@ -970,11 +1037,14 @@ async function showWorktreeSwitchDialog(tabEl, groupEl) {
   // Reset task state
   wtSwitchSelectedTask = null;
   wtSwitchAllTasks = [];
+  wtSwitchAzureContext = null;
   wtSwitchTaskSearch.value = '';
   wtSwitchTaskSearch.placeholder = 'Loading tasks...';
   wtSwitchTaskSearch.disabled = true;
   wtSwitchTaskList.innerHTML = '';
   wtSwitchTaskList.classList.remove('open');
+  wtSwitchTaskDescRow.style.display = 'none';
+  wtSwitchTaskDesc.value = '';
 
   wtSwitchDialogOverlay.classList.add('visible');
 
@@ -993,7 +1063,6 @@ async function showWorktreeSwitchDialog(tabEl, groupEl) {
   const initialBranches = cached.length > 0 ? cached : stateCache;
   if (initialBranches.length > 0) {
     applySwitchBranches(initialBranches, preselect);
-    wtSwitchNameInput.focus();
   }
 
   // Fetch fresh branches in background
@@ -1005,13 +1074,6 @@ async function showWorktreeSwitchDialog(tabEl, groupEl) {
     if (wtSwitchBranchList.classList.contains('open')) {
       renderSwitchBranchList(wtSwitchBranchSearch.value);
     }
-    if (cached.length === 0) {
-      if (wtSwitchSelectedBranch) {
-        wtSwitchNameInput.focus();
-      } else {
-        wtSwitchBranchSearch.focus();
-      }
-    }
   });
 
   // Fetch Azure tasks in background (non-blocking)
@@ -1022,11 +1084,40 @@ function hideWorktreeSwitchDialog() {
   wtSwitchDialogOverlay.classList.remove('visible');
   wtSwitchBranchList.classList.remove('open');
   wtSwitchTaskList.classList.remove('open');
+  wtSwitchTaskDescRow.style.display = 'none';
+  wtSwitchTaskDesc.value = '';
 }
 
 async function confirmSwitchWorktree() {
   if (!wtSwitchSelectedBranch || !wtSwitchNameInput.value.trim()) return;
   if (!wtSwitchTabEl || !wtSwitchGroupEl) return;
+
+  // If user typed a custom task name (not selected from list), create it in Azure first
+  const isNewTask = !wtSwitchSelectedTask && wtSwitchTaskSearch.value.trim().length > 0;
+  if (isNewTask) {
+    if (!wtSwitchAzureContext) {
+      alert('Azure DevOps connection not available. Cannot create task.');
+      return;
+    }
+    const taskTitle = wtSwitchTaskSearch.value.trim();
+    const taskDescription = wtSwitchTaskDesc.value.trim();
+    try {
+      const body = [{ op: 'add', path: '/fields/System.Title', value: taskTitle }];
+      if (taskDescription) body.push({ op: 'add', path: '/fields/System.Description', value: taskDescription });
+      const resp = await fetch(`${wtSwitchAzureContext.apiBase}/wit/workitems/$Task?api-version=7.0`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json-patch+json', 'Authorization': `Basic ${wtSwitchAzureContext.auth}` },
+        body: JSON.stringify(body)
+      });
+      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+      const data = await resp.json();
+      wtSwitchSelectedTask = { id: data.id, title: taskTitle, type: 'Task' };
+      shellAPI.openExternal(`https://dev.azure.com/${encodeURIComponent(wtSwitchAzureContext.org)}/${encodeURIComponent(wtSwitchAzureContext.project)}/_workitems/edit/${data.id}`);
+    } catch (err) {
+      alert(`Failed to create task: ${err.message}`);
+      return;
+    }
+  }
 
   const name = wtSwitchNameInput.value.trim();
   const namePart = name.trim().replace(/\s+/g, '-');
@@ -1148,7 +1239,7 @@ wtSwitchBranchSearch.addEventListener('keydown', (e) => {
   } else if (e.key === 'Enter' && wtSwitchHighlightIndex >= 0 && wtSwitchHighlightIndex < filtered.length) {
     e.preventDefault();
     selectWtSwitchBranch(filtered[wtSwitchHighlightIndex]);
-    wtSwitchNameInput.focus();
+    wtSwitchTaskSearch.focus();
   }
 });
 
@@ -1160,8 +1251,10 @@ wtSwitchNameInput.addEventListener('keydown', (e) => {
 
 // Switch task combobox event listeners
 wtSwitchTaskSearch.addEventListener('input', () => {
+  wtSwitchSelectedTask = null;
   wtSwitchTaskHighlightIndex = -1;
   renderSwitchTaskList(wtSwitchTaskSearch.value);
+  updateSwitchTaskDescVisibility();
 });
 
 wtSwitchTaskSearch.addEventListener('focus', () => {
@@ -1174,7 +1267,13 @@ wtSwitchTaskSearch.addEventListener('focus', () => {
 wtSwitchTaskSearch.addEventListener('blur', () => {
   setTimeout(() => {
     wtSwitchTaskList.classList.remove('open');
-    if (wtSwitchSelectedTask) wtSwitchTaskSearch.value = `#${wtSwitchSelectedTask.id} ${wtSwitchSelectedTask.title}`;
+    if (wtSwitchSelectedTask) {
+      wtSwitchTaskSearch.value = `#${wtSwitchSelectedTask.id} ${wtSwitchSelectedTask.title}`;
+    } else if (wtSwitchTaskSearch.value.trim() && !wtSwitchNameInput.value.trim()) {
+      wtSwitchNameInput.value = truncateToWords(wtSwitchTaskSearch.value.trim(), 40);
+      updateWtSwitchPreview();
+    }
+    updateSwitchTaskDescVisibility();
   }, 200);
 });
 
@@ -1209,6 +1308,10 @@ wtSwitchTaskSearch.addEventListener('keydown', (e) => {
   }
 });
 
+wtSwitchTaskDesc.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') hideWorktreeSwitchDialog();
+});
+
 wtSwitchDialogOverlay.addEventListener('click', (e) => {
   if (e.target === wtSwitchDialogOverlay) hideWorktreeSwitchDialog();
 });
@@ -1220,17 +1323,35 @@ document.getElementById('wt-switch-confirm-btn').addEventListener('click', confi
 const commitPushDialogOverlay = document.getElementById('commit-push-dialog-overlay');
 const commitPushTitleInput = document.getElementById('commit-push-title-input');
 const commitPushDescInput = document.getElementById('commit-push-desc-input');
+const commitPushFileList = document.getElementById('commit-push-file-list');
 
 let _commitPushTabEl = null;
 let _commitPushGroupEl = null;
 
-function showCommitPushDialog(tabEl, groupEl) {
+function renderCommitFileList(files) {
+  if (!files || files.length === 0) {
+    commitPushFileList.innerHTML = '<span class="commit-file-list-empty">No changes detected</span>';
+    return;
+  }
+  commitPushFileList.innerHTML = files.map(f => {
+    const stat = f.isNew
+      ? '<span class="commit-file-stat commit-file-new">new</span>'
+      : `<span class="commit-file-stat commit-file-added">+${f.added}</span><span class="commit-file-stat commit-file-removed"> -${f.removed}</span>`;
+    return `<div class="commit-file-row"><span class="commit-file-path" title="${f.path}">${f.path}</span>${stat}</div>`;
+  }).join('');
+}
+
+async function showCommitPushDialog(tabEl, groupEl) {
   _commitPushTabEl = tabEl;
   _commitPushGroupEl = groupEl;
   commitPushTitleInput.value = '';
   commitPushDescInput.value = '';
+  commitPushFileList.innerHTML = '<span class="commit-file-list-empty">Loading...</span>';
   commitPushDialogOverlay.classList.add('visible');
   setTimeout(() => commitPushTitleInput.focus(), 50);
+
+  const files = await window.reposAPI.gitDiffStat(tabEl._wtPath);
+  renderCommitFileList(files);
 }
 
 function hideCommitPushDialog() {

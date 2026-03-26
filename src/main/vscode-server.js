@@ -72,18 +72,28 @@ function findFreePort(startPort, maxAttempts = 20) {
 // server, returns { port, alreadyRunning: true } so the caller can skip startServer.
 // If it's busy with something else, falls back to a free port.
 async function resolvePort(preferredPort) {
+  console.log(`[resolvePort] Checking preferred port ${preferredPort}...`);
   const free = await new Promise((resolve) => {
     const server = net.createServer();
     server.listen(preferredPort, '127.0.0.1', () => { server.close(() => resolve(true)); });
     server.on('error', () => resolve(false));
   });
 
-  if (free) return { port: preferredPort, alreadyRunning: false };
+  if (free) {
+    console.log(`[resolvePort] Port ${preferredPort} is free`);
+    return { port: preferredPort, alreadyRunning: false };
+  }
 
+  console.log(`[resolvePort] Port ${preferredPort} is busy, checking if VS Code server...`);
   const running = await isVSCodeServerRunning(preferredPort);
-  if (running) return { port: preferredPort, alreadyRunning: true };
+  if (running) {
+    console.log(`[resolvePort] VS Code server already running on ${preferredPort}`);
+    return { port: preferredPort, alreadyRunning: true };
+  }
 
+  console.log(`[resolvePort] Port ${preferredPort} busy with something else, finding free port...`);
   const port = await findFreePort(preferredPort + 1);
+  console.log(`[resolvePort] Using fallback port ${port}`);
   return { port, alreadyRunning: false };
 }
 
@@ -129,10 +139,37 @@ function installExtensions(sendStatus) {
   });
   proc.on('close', (code) => {
     console.log(`[extensions] Install finished with exit code ${code}`);
-    if (sendStatus) sendStatus('Extensions installed');
   });
   proc.on('error', (err) => {
     console.warn('[extensions] Install failed:', err.message);
+  });
+}
+
+function waitForServer(port, timeoutMs = 30000) {
+  return new Promise((resolve, reject) => {
+    const http = require('http');
+    const start = Date.now();
+    let done = false;
+    function poll() {
+      if (done) return;
+      if (Date.now() - start > timeoutMs) {
+        done = true;
+        return reject(new Error(`VS Code server did not respond within ${timeoutMs}ms`));
+      }
+      const req = http.get(`http://127.0.0.1:${port}/`, { timeout: 2000 }, (res) => {
+        res.resume(); // drain the response body so the socket closes cleanly
+        if (done) return;
+        if (res.statusCode < 500) {
+          done = true;
+          resolve();
+        } else {
+          setTimeout(poll, 500);
+        }
+      });
+      req.on('error', () => { if (!done) setTimeout(poll, 500); });
+      req.on('timeout', () => { req.destroy(); });
+    }
+    poll();
   });
 }
 
@@ -158,35 +195,30 @@ function startServer(port) {
       shell: true
     });
 
-    let started = false;
+    console.log(`[startServer] Spawned: "${cmd}" ${args.join(' ')}`);
 
-    const onData = (data) => {
-      const output = data.toString();
-      console.log('[vscode-server]', output);
-      if (!started && (output.includes('Web UI available') || output.includes(`http://127.0.0.1:${port}`) || output.includes('available at'))) {
-        started = true;
-        setTimeout(() => resolve({ port, proc }), 1000);
-      }
-    };
-
-    proc.stdout.on('data', onData);
-    proc.stderr.on('data', onData);
+    proc.stdout.on('data', (data) => console.log('[vscode-server stdout]', data.toString().trimEnd()));
+    proc.stderr.on('data', (data) => console.log('[vscode-server stderr]', data.toString().trimEnd()));
 
     proc.on('error', (err) => {
-      console.error('Failed to start VS Code server:', err);
+      console.error('[startServer] Process error:', err);
       reject(err);
     });
 
-    proc.on('exit', (code) => {
-      console.log('VS Code server exited with code:', code);
+    proc.on('exit', (code, signal) => {
+      console.log(`[startServer] Process exited: code=${code}, signal=${signal}`);
     });
 
-    setTimeout(() => {
-      if (!started) {
-        started = true;
+    console.log(`[startServer] Waiting for server on port ${port}...`);
+    waitForServer(port)
+      .then(() => {
+        console.log(`[startServer] Server responded on port ${port}`);
         resolve({ port, proc });
-      }
-    }, 30000);
+      })
+      .catch((err) => {
+        console.warn(`[startServer] waitForServer failed: ${err.message}, resolving anyway`);
+        resolve({ port, proc });
+      });
   });
 }
 

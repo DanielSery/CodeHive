@@ -328,8 +328,33 @@ async function checkExistingPr(tabEl) {
         const key = `${s.context?.genre}/${s.context?.name}`;
         if (!latest[key] || s.id > latest[key].id) latest[key] = s;
       }
-      if (Object.values(latest).some(s => s.state === 'failed' || s.state === 'error')) {
-        statusClass = 'has-pr-failed';
+      const latestVals = Object.values(latest);
+      const hasFailed = latestVals.some(s => s.state === 'failed' || s.state === 'error');
+      if (hasFailed) {
+        const maxFailedId = Math.max(...latestVals.filter(s => s.state === 'failed' || s.state === 'error').map(s => s.id));
+        const hasPendingNewer = latestVals.some(s => s.state === 'pending' && s.id > maxFailedId);
+        if (!hasPendingNewer) {
+          // Also check Builds API — a manually re-triggered build won't post a pending PR status.
+          // PR-triggered builds run on refs/pull/<id>/merge, not on the source branch ref.
+          let hasActiveBuild = false;
+          try {
+            const prMergeRef = `refs/pull/${pr.pullRequestId}/merge`;
+            const [bResp1, bResp2] = await Promise.all([
+              fetch(`https://dev.azure.com/${encodeURIComponent(org)}/${encodeURIComponent(project)}/_apis/build/builds?branchName=${encodeURIComponent(pr.sourceRefName)}&$top=5&api-version=7.0`, { headers: { Authorization: `Basic ${auth}` } }),
+              fetch(`https://dev.azure.com/${encodeURIComponent(org)}/${encodeURIComponent(project)}/_apis/build/builds?branchName=${encodeURIComponent(prMergeRef)}&$top=5&api-version=7.0`, { headers: { Authorization: `Basic ${auth}` } })
+            ]);
+            const isActive = b => b.status === 'inProgress' || b.status === 'notStarted';
+            if (bResp1.ok) {
+              const bData = await bResp1.json();
+              hasActiveBuild = (bData.value || []).some(isActive);
+            }
+            if (!hasActiveBuild && bResp2.ok) {
+              const bData = await bResp2.json();
+              hasActiveBuild = (bData.value || []).some(isActive);
+            }
+          } catch { /* ignore */ }
+          if (!hasActiveBuild) statusClass = 'has-pr-failed';
+        }
       }
     }
   } catch { /* ignore */ }
@@ -479,8 +504,8 @@ function showContextMenu(x, y, tabEl) {
   const hasPr = !!tabEl._existingPrUrl;
 
   contextMenu.querySelector('[data-action="switch"]').style.display = isOpen ? 'none' : '';
-  contextMenu.querySelector('[data-action="commit-push"]').style.display = isOpen ? '' : 'none';
-  contextMenu.querySelector('[data-action="create-pr"]').style.display = isOpen ? '' : 'none';
+  contextMenu.querySelector('[data-action="commit-push"]').style.display = '';
+  contextMenu.querySelector('[data-action="create-pr"]').style.display = hasPr ? 'none' : '';
   contextMenu.querySelector('[data-action="open-task"]').style.display = hasTask ? '' : 'none';
   contextMenu.querySelector('[data-action="open-pr"]').style.display = hasPr ? '' : 'none';
   contextMenu.querySelector('[data-action="close-editor"]').style.display = isOpen ? '' : 'none';

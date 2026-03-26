@@ -24,13 +24,21 @@ const titlebarLaunchList = document.getElementById('titlebar-launch-list');
 let launchConfigs = [];
 let selectedLaunchConfig = null;
 
+const sessionPartition = window.appSession.getPartition();
+
 // Resolves when the VS Code server signals it's ready (startup status clears).
 // Also queries current status in case the event fired before this listener registered.
 const serverReady = new Promise((resolve) => {
   let resolved = false;
-  const done = () => { if (!resolved) { resolved = true; resolve(); } };
-  window.startupAPI.onStatus((msg) => { if (!msg) done(); });
-  window.startupAPI.getStatus().then((msg) => { if (!msg) done(); });
+  const done = () => { if (!resolved) { resolved = true; console.log('[serverReady] resolved'); resolve(); } };
+  window.startupAPI.onStatus((msg) => {
+    console.log('[serverReady] onStatus:', JSON.stringify(msg));
+    if (!msg) done();
+  });
+  window.startupAPI.getStatus().then((msg) => {
+    console.log('[serverReady] getStatus:', JSON.stringify(msg));
+    if (!msg) done();
+  });
 });
 
 function renderLaunchList() {
@@ -119,24 +127,50 @@ function updateTitlebarActions(hasActive) {
 }
 
 async function openWorktree(tabEl, wt) {
+  console.log('[openWorktree] called for', wt.path);
   // If already opened, just switch to it
   if (tabEl._workspaceId !== null && getWorkspace(tabEl._workspaceId)) {
+    console.log('[openWorktree] already open, switching to', tabEl._workspaceId);
     switchWorkspace(tabEl._workspaceId);
     return;
   }
 
   const id = nextId();
+  console.log('[openWorktree] waiting for serverReady...');
   await serverReady;
+  console.log('[openWorktree] serverReady resolved, requesting URL...');
   const url = await window.codeServerAPI.openFolder(wt.path);
+  console.log('[openWorktree] URL:', url);
+
+  // Wait for the server to be reachable before creating the webview
+  const maxProbeRetries = 10;
+  for (let i = 0; i < maxProbeRetries; i++) {
+    try {
+      await fetch(url, { mode: 'no-cors' });
+      console.log('[openWorktree] probe ok');
+      break;
+    } catch (err) {
+      console.warn(`[openWorktree] server not reachable (attempt ${i + 1}/${maxProbeRetries}):`, err.message);
+      if (i < maxProbeRetries - 1) await new Promise(r => setTimeout(r, 1000));
+    }
+  }
 
   const webview = document.createElement('webview');
   webview.className = 'workspace-webview';
   webview.id = `workspace-${id}`;
   webview.setAttribute('src', url);
-  webview.setAttribute('partition', 'persist:codehive');
+  webview.setAttribute('partition', await sessionPartition);
   webview.setAttribute('allowpopups', 'true');
   webview.setAttribute('disableblinkfeatures', 'Auxclick');
   editorArea.appendChild(webview);
+
+  // Retry loading if the webview fails to connect
+  webview.addEventListener('did-fail-load', (e) => {
+    if (e.errorCode === -102 /* ERR_CONNECTION_REFUSED */ || e.errorCode === -7 /* ERR_TIMED_OUT */) {
+      console.warn(`[openWorktree] webview load failed (code ${e.errorCode}), retrying in 2s...`);
+      setTimeout(() => webview.reload(), 2000);
+    }
+  });
 
   // Suppress popups that navigate to external URLs (e.g. Azure CDN 404s when opening diffs)
   webview.addEventListener('new-window', (e) => {

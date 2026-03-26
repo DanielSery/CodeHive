@@ -225,4 +225,34 @@ function getLaunchConfigs(wtPath) {
   }
 }
 
-module.exports = { scanDirectory, checkClaudeActive, getCachedBranches, fetchAndListBranches, getGitUser, getRemoteUrl, getLaunchConfigs };
+function gitDiffStat(wtPath) {
+  const result = [];
+  const seen = new Set();
+
+  try {
+    const diffOut = execSync('git diff --numstat HEAD', { cwd: wtPath, encoding: 'utf8', timeout: 5000 });
+    for (const line of diffOut.trim().split('\n').filter(Boolean)) {
+      const parts = line.split('\t');
+      if (parts.length < 3) continue;
+      const filePath = parts[2];
+      result.push({ path: filePath, added: parseInt(parts[0]) || 0, removed: parseInt(parts[1]) || 0, isNew: false });
+      seen.add(filePath);
+    }
+  } catch {}
+
+  try {
+    const statusOut = execSync('git status --porcelain', { cwd: wtPath, encoding: 'utf8', timeout: 5000 });
+    for (const line of statusOut.trim().split('\n').filter(Boolean)) {
+      if (line.startsWith('?? ')) {
+        const filePath = line.substring(3).trim();
+        if (!seen.has(filePath)) {
+          result.push({ path: filePath, added: null, removed: null, isNew: true });
+        }
+      }
+    }
+  } catch {}
+
+  return result;
+}
+
+module.exports = { scanDirectory, checkClaudeActive, getCachedBranches, fetchAndListBranches, getGitUser, getRemoteUrl, getLaunchConfigs, gitDiffStat };

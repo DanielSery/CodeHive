@@ -954,6 +954,54 @@ html, body {
   font-family: 'Segoe UI', -apple-system, sans-serif;
 }
 
+.commit-file-list {
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--bg);
+  max-height: 140px;
+  overflow-y: auto;
+  margin-bottom: 12px;
+  font-size: 11px;
+  font-family: 'Consolas', 'Courier New', monospace;
+}
+
+.commit-file-list-empty {
+  display: block;
+  padding: 8px 10px;
+  color: var(--text-muted);
+}
+
+.commit-file-row {
+  display: flex;
+  align-items: center;
+  padding: 3px 10px;
+  gap: 8px;
+  border-bottom: 1px solid var(--border);
+}
+
+.commit-file-row:last-child {
+  border-bottom: none;
+}
+
+.commit-file-path {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text);
+  direction: rtl;
+  text-align: left;
+}
+
+.commit-file-stat {
+  flex-shrink: 0;
+  font-size: 11px;
+}
+
+.commit-file-added { color: var(--green); }
+.commit-file-removed { color: var(--red); }
+.commit-file-new { color: var(--text-muted); font-style: italic; }
+
 .dialog-buttons {
   display: flex;
   justify-content: flex-end;

@@ -93,7 +93,7 @@
       <p class="dialog-desc">Paste an HTTPS git URL to clone as a bare repository</p>
       <input id="clone-url-input" type="text" class="dialog-input" placeholder="https://dev.azure.com/org/project/_git/RepoName" spellcheck="false" />
       <div class="dialog-buttons">
-        <button id="clone-cancel-btn" class="dialog-btn dialog-btn-cancel">Cancel</button>
+        <button id="clone-cancel-btn" class="dialog-btn dialog-btn-cancel" tabindex="-1">Cancel</button>
         <button id="clone-confirm-btn" class="dialog-btn dialog-btn-confirm">Clone</button>
       </div>
     </div>
@@ -116,11 +116,15 @@
         <span class="combobox-arrow">&#x25BC;</span>
         <div id="wt-task-list" class="combobox-list"></div>
       </div>
+      <div id="wt-task-desc-row" style="display:none">
+        <label class="dialog-label">Task Description <span style="color: var(--text-muted); font-weight: 400;">(optional)</span></label>
+        <textarea id="wt-task-desc" class="dialog-input" placeholder="What needs to be done..." spellcheck="false" rows="3" style="resize:vertical;min-height:60px;font-family:inherit"></textarea>
+      </div>
       <label class="dialog-label">Worktree Name</label>
       <input id="wt-name-input" type="text" class="dialog-input" placeholder="e.g. Test new features" spellcheck="false" maxlength="50" />
       <div id="wt-preview" class="dialog-preview"></div>
       <div class="dialog-buttons">
-        <button id="wt-cancel-btn" class="dialog-btn dialog-btn-cancel">Cancel</button>
+        <button id="wt-cancel-btn" class="dialog-btn dialog-btn-cancel" tabindex="-1">Cancel</button>
         <button id="wt-confirm-btn" class="dialog-btn dialog-btn-confirm">Create</button>
       </div>
     </div>
@@ -143,11 +147,15 @@
         <span class="combobox-arrow">&#x25BC;</span>
         <div id="wt-switch-task-list" class="combobox-list"></div>
       </div>
+      <div id="wt-switch-task-desc-row" style="display:none">
+        <label class="dialog-label">Task Description <span style="color: var(--text-muted); font-weight: 400;">(optional)</span></label>
+        <textarea id="wt-switch-task-desc" class="dialog-input" placeholder="What needs to be done..." spellcheck="false" rows="3" style="resize:vertical;min-height:60px;font-family:inherit"></textarea>
+      </div>
       <label class="dialog-label">Worktree Name</label>
       <input id="wt-switch-name-input" type="text" class="dialog-input" placeholder="e.g. Test new features" spellcheck="false" maxlength="50" />
       <div id="wt-switch-preview" class="dialog-preview"></div>
       <div class="dialog-buttons">
-        <button id="wt-switch-cancel-btn" class="dialog-btn dialog-btn-cancel">Cancel</button>
+        <button id="wt-switch-cancel-btn" class="dialog-btn dialog-btn-cancel" tabindex="-1">Cancel</button>
         <button id="wt-switch-confirm-btn" class="dialog-btn dialog-btn-confirm">Switch</button>
       </div>
     </div>
@@ -161,7 +169,7 @@
       <p id="wt-remove-dialog-path" class="dialog-preview" style="color: var(--red); margin-bottom: 8px;"></p>
       <p class="dialog-desc" style="margin-bottom: 0;">Are you sure? This cannot be undone.</p>
       <div class="dialog-buttons">
-        <button id="wt-remove-cancel-btn" class="dialog-btn dialog-btn-cancel">Cancel</button>
+        <button id="wt-remove-cancel-btn" class="dialog-btn dialog-btn-cancel" tabindex="-1">Cancel</button>
         <button id="wt-remove-confirm-btn" class="dialog-btn dialog-btn-danger">Remove</button>
       </div>
     </div>
@@ -172,12 +180,16 @@
     <div class="dialog-box">
       <h3 class="dialog-title">Commit &amp; Push</h3>
       <p class="dialog-desc">Stage all changes, commit, and push to the current branch</p>
+      <label class="dialog-label">Changed Files</label>
+      <div id="commit-push-file-list" class="commit-file-list">
+        <span class="commit-file-list-empty">Loading...</span>
+      </div>
       <label class="dialog-label">Commit Title</label>
       <input id="commit-push-title-input" type="text" class="dialog-input" placeholder="e.g. Fix login validation" spellcheck="false" />
       <label class="dialog-label">Description <span style="color: var(--text-muted); font-weight: 400;">(optional)</span></label>
       <textarea id="commit-push-desc-input" class="dialog-input dialog-textarea" placeholder="Additional details about the changes..." spellcheck="false" rows="3"></textarea>
       <div class="dialog-buttons">
-        <button id="commit-push-cancel-btn" class="dialog-btn dialog-btn-cancel">Cancel</button>
+        <button id="commit-push-cancel-btn" class="dialog-btn dialog-btn-cancel" tabindex="-1">Cancel</button>
         <button id="commit-push-confirm-btn" class="dialog-btn dialog-btn-confirm">Commit &amp; Push</button>
       </div>
     </div>
@@ -199,7 +211,7 @@
       <label class="dialog-label">Description <span style="color: var(--text-muted); font-weight: 400;">(optional)</span></label>
       <textarea id="pr-desc-input" class="dialog-input dialog-textarea" placeholder="Describe the changes in this pull request..." spellcheck="false" rows="3"></textarea>
       <div class="dialog-buttons">
-        <button id="pr-cancel-btn" class="dialog-btn dialog-btn-cancel">Cancel</button>
+        <button id="pr-cancel-btn" class="dialog-btn dialog-btn-cancel" tabindex="-1">Cancel</button>
         <button id="pr-confirm-btn" class="dialog-btn dialog-btn-confirm">Create PR</button>
       </div>
     </div>
@@ -213,7 +225,7 @@
       <label class="dialog-label">Personal Access Token</label>
       <input id="azure-pat-input" type="password" class="dialog-input" placeholder="Paste your PAT here..." spellcheck="false" autocomplete="off" />
       <div class="dialog-buttons">
-        <button id="azure-pat-cancel-btn" class="dialog-btn dialog-btn-cancel">Cancel</button>
+        <button id="azure-pat-cancel-btn" class="dialog-btn dialog-btn-cancel" tabindex="-1">Cancel</button>
         <button id="azure-pat-confirm-btn" class="dialog-btn dialog-btn-confirm">Save &amp; Continue</button>
       </div>
     </div>
@@ -227,7 +239,7 @@
       <p id="delete-dialog-path" class="dialog-preview" style="color: var(--red); margin-bottom: 8px;"></p>
       <p class="dialog-desc" style="margin-bottom: 0;">Are you sure? This cannot be undone.</p>
       <div class="dialog-buttons">
-        <button id="delete-cancel-btn" class="dialog-btn dialog-btn-cancel">Cancel</button>
+        <button id="delete-cancel-btn" class="dialog-btn dialog-btn-cancel" tabindex="-1">Cancel</button>
         <button id="delete-confirm-btn" class="dialog-btn dialog-btn-danger">Delete</button>
       </div>
     </div>

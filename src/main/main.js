@@ -8,6 +8,7 @@ let mainWindow;
 let serverProcess = null;
 let serverPort = DEFAULT_PORT;
 let startupStatus = 'Starting...';
+let sessionPartition = 'persist:codehive'; // overridden for second instances
 
 function createWindow() {
   mainWindow = new BrowserWindow({
@@ -40,6 +41,7 @@ app.whenReady().then(async () => {
   ipcHandlers.register(mainWindow, () => serverPort);
 
   ipcMain.handle('startup:getStatus', () => startupStatus);
+  ipcMain.handle('startup:getPartition', () => sessionPartition);
 
   const sendStatus = (msg) => {
     startupStatus = msg;
@@ -53,20 +55,26 @@ app.whenReady().then(async () => {
   vscode.installExtensions(sendStatus);
 
   sendStatus('Starting VS Code server...');
-  console.log('Starting VS Code server...');
+  console.log('[startup] Resolving port...');
   try {
     const { port, alreadyRunning } = await vscode.resolvePort(serverPort);
     serverPort = port;
+    console.log(`[startup] resolvePort => port=${port}, alreadyRunning=${alreadyRunning}`);
     if (alreadyRunning) {
-      console.log(`VS Code server already running on port ${port}, connecting`);
+      // Second instance — use a unique partition to avoid IndexedDB conflicts with the first
+      const { randomUUID } = require('crypto');
+      sessionPartition = `persist:codehive-${randomUUID()}`;
+      console.log(`[startup] VS Code server already running on port ${port}, connecting (partition: ${sessionPartition})`);
     } else {
+      console.log(`[startup] Starting VS Code server on port ${port}...`);
       const result = await vscode.startServer(port);
       serverProcess = result.proc;
-      console.log(`VS Code server ready on port ${port}`);
+      console.log(`[startup] VS Code server ready on port ${port}`);
     }
+    console.log('[startup] Sending null status (server ready)');
     sendStatus(null);
   } catch (err) {
-    console.error('VS Code server failed to start:', err);
+    console.error('[startup] VS Code server failed to start:', err);
     sendStatus('VS Code server failed to start');
   }
 });
