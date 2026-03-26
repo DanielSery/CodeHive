@@ -104,6 +104,10 @@ contextBridge.exposeInMainWorld('windowAPI', {
   close: () => ipcRenderer.send('window:close')
 });
 
+contextBridge.exposeInMainWorld('shortcutAPI', {
+  onCtrlAlt: (cb) => ipcRenderer.on('shortcut:ctrlAlt', (_, key) => cb(key))
+});
+
 contextBridge.exposeInMainWorld('startupAPI', {
   onStatus: (cb) => ipcRenderer.on('startup:status', (_, msg) => cb(msg)),
   getStatus: () => ipcRenderer.invoke('startup:getStatus'),

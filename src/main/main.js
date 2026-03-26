@@ -31,6 +31,16 @@ function createWindow() {
   mainWindow.webContents.on('before-input-event', (event, input) => {
     if (input.key === 'F12') { mainWindow.webContents.toggleDevTools(); event.preventDefault(); }
   });
+
+  // Forward Ctrl+Alt shortcuts from webviews (which capture keyboard focus away from the main document)
+  mainWindow.webContents.on('did-attach-webview', (event, webContents) => {
+    webContents.on('before-input-event', (event, input) => {
+      if (input.type === 'keyDown' && input.control && input.alt) {
+        mainWindow.webContents.send('shortcut:ctrlAlt', input.key);
+        event.preventDefault();
+      }
+    });
+  });
 }
 
 app.whenReady().then(async () => {

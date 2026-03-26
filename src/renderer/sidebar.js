@@ -21,8 +21,6 @@ let _showWorktreeSwitchDialog = null;
 let _showCommitPushDialog = null;
 let _showCreatePrDialog = null;
 let _onStateChange = null;
-let _getCachedBranches = null;
-let _saveBranchCache = null;
 let _getSourceBranch = null;
 let _getTaskId = null;
 
@@ -30,10 +28,6 @@ function registerOnStateChange(fn) {
   _onStateChange = fn;
 }
 
-function registerSidebarBranchCache(getCached, saveCached) {
-  _getCachedBranches = getCached;
-  _saveBranchCache = saveCached;
-}
 
 function registerSourceBranchLookup(fn) {
   _getSourceBranch = fn;
@@ -157,7 +151,7 @@ function addRepoGroup(repo) {
   groupEl.addEventListener('dragover', (e) => {
     e.preventDefault();
     e.dataTransfer.dropEffect = 'move';
-    const dragging = repoGroupsEl.querySelector('.dragging');
+    const dragging = repoGroupsEl.querySelector('.repo-group.dragging');
     if (!dragging || dragging === groupEl) return;
 
     const rect = groupEl.getBoundingClientRect();
@@ -192,7 +186,7 @@ function addRepoGroup(repo) {
 function createWorktreeTab(wt) {
   const tabEl = document.createElement('div');
   tabEl.className = 'workspace-tab';
-  tabEl.title = 'Open Workspace (Ctrl+Alt+O)';
+  tabEl.title = 'Open Workspace';
   setTabStatus(tabEl, 'idle');
   tabEl.innerHTML = `
     <span class="workspace-tab-status"></span>
@@ -763,11 +757,10 @@ function getOpenWorktreePaths() {
 const SHORTCUT_HOLD_DELAY = 300; // ms before number badges appear
 let _shortcutHoldTimer = null;
 let _shortcutBadgesVisible = false;
-let _ctrlHeld = false;
-let _altHeld = false;
 
 function showShortcutBadges() {
-  const tabs = Array.from(document.querySelectorAll('.repo-group-tabs.expanded .workspace-tab'));
+  const tabs = Array.from(document.querySelectorAll('.repo-group-tabs.expanded .workspace-tab'))
+    .filter(tab => tab._workspaceId !== null);
   const digits = ['1','2','3','4','5','6','7','8','9','0'];
   tabs.forEach((tab, i) => {
     if (i >= digits.length) return;
@@ -801,57 +794,37 @@ function _activeTab() {
   return getActive()?.tabEl ?? null;
 }
 
-document.addEventListener('keydown', (e) => {
-  if (e.key === 'Control') _ctrlHeld = true;
-  if (e.key === 'Alt') _altHeld = true;
-
-  if (!(_ctrlHeld && _altHeld)) return;
-
-  // Start hold timer for number badges when both modifier keys are first held
-  if (!_shortcutBadgesVisible && !_shortcutHoldTimer && (e.key === 'Control' || e.key === 'Alt')) {
-    _shortcutHoldTimer = setTimeout(showShortcutBadges, SHORTCUT_HOLD_DELAY);
-  }
+function handleCtrlAltShortcut(key) {
+  cancelShortcutHold();
 
   // Ctrl+Alt+1…9,0 — switch to worktree by position
   const digits = ['1','2','3','4','5','6','7','8','9','0'];
-  const digitIdx = digits.indexOf(e.key);
+  const digitIdx = digits.indexOf(key);
   if (digitIdx !== -1) {
-    e.preventDefault();
-    const tabs = Array.from(document.querySelectorAll('.repo-group-tabs.expanded .workspace-tab'));
+    const tabs = Array.from(document.querySelectorAll('.repo-group-tabs.expanded .workspace-tab'))
+      .filter(tab => tab._workspaceId !== null);
     const tab = tabs[digitIdx];
     if (tab) openWorktree(tab, { path: tab._wtPath, branch: tab._wtBranch });
-    cancelShortcutHold();
     return;
   }
 
-  const key = e.key.toLowerCase();
+  const lkey = key.toLowerCase();
 
   // Ctrl+Alt+T — toggle terminal
-  if (key === 't') {
-    e.preventDefault();
+  if (lkey === 't') {
     if (_toggleTerminal) _toggleTerminal();
     return;
   }
 
   // Ctrl+Alt+W — close active worktree
-  if (key === 'w') {
-    e.preventDefault();
+  if (lkey === 'w') {
     const ws = getActive();
     if (ws) closeWorkspace(ws.tabEl._workspaceId);
     return;
   }
 
-  // Ctrl+Alt+O — open (activate) the active worktree
-  if (key === 'o') {
-    e.preventDefault();
-    const tabEl = _activeTab();
-    if (tabEl) openWorktree(tabEl, { path: tabEl._wtPath, branch: tabEl._wtBranch });
-    return;
-  }
-
   // Ctrl+Alt+P — commit & push for active worktree
-  if (key === 'p') {
-    e.preventDefault();
+  if (lkey === 'p') {
     const tabEl = _activeTab();
     if (tabEl && _showCommitPushDialog) {
       _showCommitPushDialog(tabEl, tabEl.closest('.repo-group'));
@@ -860,8 +833,7 @@ document.addEventListener('keydown', (e) => {
   }
 
   // Ctrl+Alt+M — open or create pull request for active worktree
-  if (key === 'm') {
-    e.preventDefault();
+  if (lkey === 'm') {
     const tabEl = _activeTab();
     if (!tabEl) return;
     if (tabEl._existingPrUrl) {
@@ -873,8 +845,7 @@ document.addEventListener('keydown', (e) => {
   }
 
   // Ctrl+Alt+N — add worktree to the active worktree's project
-  if (key === 'n') {
-    e.preventDefault();
+  if (lkey === 'n') {
     const tabEl = _activeTab();
     const groupEl = tabEl ? tabEl.closest('.repo-group') : repoGroupsEl.querySelector('.repo-group');
     if (groupEl && _showWorktreeDialog) {
@@ -884,16 +855,14 @@ document.addEventListener('keydown', (e) => {
   }
 
   // Ctrl+Alt+E — open active worktree folder in Explorer
-  if (key === 'e') {
-    e.preventDefault();
+  if (lkey === 'e') {
     const tabEl = _activeTab();
     if (tabEl) window.shellAPI.openInExplorer(tabEl._wtPath);
     return;
   }
 
   // Ctrl+Alt+A — open Azure DevOps task for active worktree
-  if (key === 'a') {
-    e.preventDefault();
+  if (lkey === 'a') {
     const tabEl = _activeTab();
     if (!tabEl) return;
     const taskId = tabEl._wtTaskId;
@@ -920,11 +889,32 @@ document.addEventListener('keydown', (e) => {
     })();
     return;
   }
+}
+
+document.addEventListener('keydown', (e) => {
+  if (!e.ctrlKey || !e.altKey) return;
+
+  // Start hold timer for number badges when both modifier keys are first held
+  if (!_shortcutBadgesVisible && !_shortcutHoldTimer && (e.key === 'Control' || e.key === 'Alt')) {
+    _shortcutHoldTimer = setTimeout(showShortcutBadges, SHORTCUT_HOLD_DELAY);
+  }
+
+  if (e.key === 'Control' || e.key === 'Alt') return;
+  e.preventDefault();
+  handleCtrlAltShortcut(e.key);
+});
+
+// Also handle shortcuts when keyboard focus is inside a VS Code webview
+window.shortcutAPI.onCtrlAlt((key) => {
+  handleCtrlAltShortcut(key);
 });
 
 document.addEventListener('keyup', (e) => {
-  if (e.key === 'Control') { _ctrlHeld = false; cancelShortcutHold(); }
-  if (e.key === 'Alt') { _altHeld = false; cancelShortcutHold(); }
+  if (e.key === 'Control' || e.key === 'Alt') cancelShortcutHold();
+});
+
+window.addEventListener('blur', () => {
+  cancelShortcutHold();
 });
 
 setInterval(() => {
@@ -936,4 +926,4 @@ setInterval(() => {
   }
 }, 5 * 60 * 1000);
 
-export { addRepoGroup, clearAllGroups, createWorktreeTab, rebuildCollapsedDots, registerWorktreeDialog, registerDeleteDialog, registerWorktreeRemoveDialog, registerWorktreeSwitchDialog, registerCommitPushDialog, registerCreatePrDialog, registerToggleTerminal, registerOnStateChange, registerSidebarBranchCache, registerSourceBranchLookup, registerTaskIdLookup, removeRepoGroup, showTabCloseButton, showTabRemoveButton, getRepoOrder, getWorktreeOrders, getOpenWorktreePaths };
+export { addRepoGroup, clearAllGroups, createWorktreeTab, rebuildCollapsedDots, registerWorktreeDialog, registerDeleteDialog, registerWorktreeRemoveDialog, registerWorktreeSwitchDialog, registerCommitPushDialog, registerCreatePrDialog, registerToggleTerminal, registerOnStateChange, registerSourceBranchLookup, registerTaskIdLookup, removeRepoGroup, showTabCloseButton, showTabRemoveButton, getRepoOrder, getWorktreeOrders, getOpenWorktreePaths };
