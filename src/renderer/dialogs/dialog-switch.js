@@ -326,7 +326,7 @@ export async function confirmSwitchWorktree() {
   if (isNewTask && wtSwitchAzureContext) {
     const taskTitle = wtSwitchTaskSearch.value.trim();
     const taskDescription = wtSwitchTaskDesc.value.trim();
-    const workItemType = wtSwitchTaskType.value || 'Story';
+    const workItemType = wtSwitchTaskType.value || 'User Story';
     try {
       wtSwitchSelectedTask = await createAzureWorkItem(wtSwitchAzureContext, workItemType, taskTitle, taskDescription, null);
       window.shellAPI.openExternal(buildAzureTaskUrl(wtSwitchAzureContext, wtSwitchSelectedTask.id));

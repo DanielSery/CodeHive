@@ -79,12 +79,18 @@ export async function fetchAzureTasks(barePath, pat) {
 export async function createAzureWorkItem(ctx, workItemType, title, description) {
   const body = [{ op: 'add', path: '/fields/System.Title', value: title }];
   if (description) body.push({ op: 'add', path: '/fields/System.Description', value: description });
-  const resp = await fetch(`${ctx.apiBase}/wit/workitems/$${encodeURIComponent(workItemType)}?api-version=7.0`, {
+  const url = `${ctx.apiBase}/wit/workitems/$${encodeURIComponent(workItemType)}?api-version=7.0`;
+  console.log('[createAzureWorkItem] POST', url, { org: ctx.org, project: ctx.project, workItemType });
+  const resp = await fetch(url, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json-patch+json', 'Authorization': `Basic ${ctx.auth}` },
     body: JSON.stringify(body)
   });
-  if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+  if (!resp.ok) {
+    const text = await resp.text().catch(() => '');
+    console.error('[createAzureWorkItem] failed', resp.status, text);
+    throw new Error(`HTTP ${resp.status} for ${ctx.org}/${ctx.project} type="${workItemType}"\n${text.substring(0, 300)}`);
+  }
   const data = await resp.json();
   return { id: data.id, title, type: workItemType };
 }

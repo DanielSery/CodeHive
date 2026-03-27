@@ -127,6 +127,36 @@ document.getElementById('btn-titlebar-pr').addEventListener('click', () => {
   if (ws) showCreatePrDialog(ws.tabEl, ws.tabEl.closest('.repo-group'));
 });
 
+// ===== Theme toggle =====
+
+(function() {
+  const btn = document.getElementById('btn-theme');
+  const iconDark = document.getElementById('theme-icon-dark');
+  const iconLight = document.getElementById('theme-icon-light');
+
+  function applyTheme(theme) {
+    if (theme === 'light') {
+      document.documentElement.setAttribute('data-theme', 'light');
+      iconDark.style.display = 'none';
+      iconLight.style.display = '';
+    } else {
+      document.documentElement.removeAttribute('data-theme');
+      iconDark.style.display = '';
+      iconLight.style.display = 'none';
+    }
+  }
+
+  // Sync icon with already-applied theme (set by inline script in <head>)
+  const stored = localStorage.getItem('codehive-theme');
+  applyTheme(stored === 'light' ? 'light' : 'dark');
+
+  btn.addEventListener('click', () => {
+    const next = document.documentElement.getAttribute('data-theme') === 'light' ? 'dark' : 'light';
+    localStorage.setItem('codehive-theme', next);
+    applyTheme(next);
+  });
+})();
+
 document.getElementById('btn-minimize').addEventListener('click', () => window.windowAPI.minimize());
 document.getElementById('btn-maximize').addEventListener('click', () => window.windowAPI.maximize());
 document.getElementById('btn-close').addEventListener('click', () => window.windowAPI.close());
@@ -174,8 +204,6 @@ async function checkAndInstallAz() {
   window.azInstallAPI.ready();
 }
 
-checkAndInstallAz();
-
 // ===== Azure PAT button =====
 
 const btnAzurePat = document.getElementById('btn-azure-pat');
@@ -184,4 +212,4 @@ btnAzurePat.addEventListener('click', showPatDialog);
 
 // ===== Restore on startup =====
 
-restoreState();
+restoreState().then(() => checkAndInstallAz());

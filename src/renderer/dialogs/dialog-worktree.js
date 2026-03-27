@@ -332,7 +332,7 @@ export async function confirmCreateWorktree() {
   if (isNewTask && wtAzureContext) {
     const taskTitle = wtTaskSearch.value.trim();
     const taskDescription = wtTaskDesc.value.trim();
-    const workItemType = wtTaskType.value || 'Story';
+    const workItemType = wtTaskType.value || 'User Story';
     try {
       wtSelectedTask = await createAzureWorkItem(wtAzureContext, workItemType, taskTitle, taskDescription, null);
       window.shellAPI.openExternal(buildAzureTaskUrl(wtAzureContext, wtSelectedTask.id));

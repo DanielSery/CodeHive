@@ -1,5 +1,5 @@
 export function inferWorkItemType(title) {
-  return /bug|fix/i.test(title) ? 'Bug' : 'Story';
+  return /bug|fix/i.test(title) ? 'Bug' : 'User Story';
 }
 
 export function sanitizePathPart(s) {

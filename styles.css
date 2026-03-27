@@ -21,6 +21,23 @@
   --border: #313244;
 }
 
+:root[data-theme="light"] {
+  --bg: #eff1f5;
+  --sidebar-bg: #dce0e8;
+  --tab-bg: #ccd0da;
+  --tab-active-bg: #bcc0cc;
+  --tab-hover-bg: #acb0be;
+  --text: #4c4f69;
+  --text-muted: #8c8fa1;
+  --accent: #1e66f5;
+  --red: #d20f39;
+  --green: #40a02b;
+  --yellow: #df8e1d;
+  --peach: #fe640b;
+  --titlebar-bg: #dce0e8;
+  --border: #ccd0da;
+}
+
 /* ===== Scrollbars ===== */
 ::-webkit-scrollbar {
   width: 8px;
@@ -535,7 +552,7 @@ html, body {
 
 .repo-group-add:hover {
   opacity: 1 !important;
-  background: #45475a;
+  background: var(--tab-active-bg);
   color: var(--text);
 }
 
