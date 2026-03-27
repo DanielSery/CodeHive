@@ -4,7 +4,8 @@ import { getSourceBranch, getTaskId } from '../storage.js';
 import { rebuildCollapsedDots, collapsedDotsEl } from './collapsed-dots.js';
 import { showContextMenu } from './context-menu.js';
 import { _showWorktreeSwitchDialog, _showWorktreeRemoveDialog, _showCommitPushDialog, _showCreatePrDialog, _onStateChange } from './registers.js';
-import { parseAzureRemoteUrl, fetchPolicyEvaluations, fetchPrUnresolvedThreadCount, completePullRequest, updateWorkItemState } from '../azure-api.js';
+import { parseAzureRemoteUrl, fetchPolicyEvaluations, fetchPrUnresolvedThreadCount, completePullRequest } from '../azure-api.js';
+import { showResolveTaskDialog } from '../dialogs/dialog-resolve.js';
 
 const BIN_ICON_SVG = '<svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2 4h12M5.3 4V2.7a1 1 0 011-1h3.4a1 1 0 011 1V4M6.5 7.3v4.4M9.5 7.3v4.4"/><path d="M3.5 4l.7 9.3a1 1 0 001 .9h5.6a1 1 0 001-.9L12.5 4"/></svg>';
 const SWITCH_ICON_SVG = '<svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M11 1l3 3-3 3"/><path d="M14 4H5"/><path d="M5 15l-3-3 3-3"/><path d="M2 12h9"/></svg>';
@@ -17,6 +18,12 @@ function formatBranchLabel(branch) {
   let name = branch.includes('/') ? branch.substring(branch.indexOf('/') + 1) : branch;
   name = name.replace(/^\d+-/, '');
   return name.replace(/-/g, ' ');
+}
+
+function extractTaskIdFromBranch(branch) {
+  const afterSlash = branch.includes('/') ? branch.substring(branch.indexOf('/') + 1) : branch;
+  const m = afterSlash.match(/^(\d+)-/);
+  return m ? m[1] : null;
 }
 
 export async function checkExistingPr(tabEl) {
@@ -55,16 +62,43 @@ export async function checkExistingPr(tabEl) {
   if (!data.value || data.value.length === 0) {
     if (createPrBtnEarly) {
       createPrBtnEarly.classList.remove('has-pr', 'has-pr-succeeded', 'has-pr-approved', 'has-pr-failed', 'has-pr-comments');
-      createPrBtnEarly.style.display = '';
       createPrBtnEarly.title = 'Create Pull Request (Ctrl+Alt+M)';
     }
+    // Check for completed PR — if found and tab has a linked task, show "Resolve Task" button
+    console.log('[checkExistingPr] no active PR for', branch, 'taskId=', tabEl._wtTaskId, 'completePrState=', tabEl._completePrState);
+    if (tabEl._wtTaskId && tabEl._completePrState !== 'can-resolve') {
+      const completedUrl = `https://dev.azure.com/${encodeURIComponent(org)}/${encodeURIComponent(project)}/_apis/git/pullrequests?searchCriteria.sourceRefName=${encodeURIComponent(sourceRef)}&searchCriteria.status=completed&$top=1&api-version=7.0`;
+      try {
+        const cResp = await fetch(completedUrl, { headers: { Authorization: `Basic ${auth}` } });
+        console.log('[checkExistingPr] completed PR fetch status=', cResp.status);
+        if (cResp.ok) {
+          const cData = await cResp.json();
+          console.log('[checkExistingPr] completed PRs found=', cData.value?.length);
+          if (cData.value && cData.value.length > 0) {
+            const completePrBtn = tabEl.querySelector('.workspace-tab-complete-pr');
+            if (completePrBtn) {
+              if (createPrBtnEarly) createPrBtnEarly.style.display = 'none';
+              const cPr = cData.value[0];
+              tabEl._prData = { id: cPr.pullRequestId, repoId: cPr.repository.id, lastCommitId: cPr.lastMergeSourceCommit?.commitId, org, project, auth, targetRefName: cPr.targetRefName };
+              completePrBtn.innerHTML = RESOLVE_TASK_ICON_SVG;
+              completePrBtn.title = 'Resolve Azure Task';
+              completePrBtn.style.display = 'inline-flex';
+              tabEl._completePrState = 'can-resolve';
+              console.log('[checkExistingPr] showing resolve task button for', branch);
+            }
+            return;
+          }
+        }
+      } catch (err) { console.warn('[checkExistingPr] completed PR check error:', err); }
+    }
+    if (createPrBtnEarly && tabEl._completePrState !== 'can-resolve') createPrBtnEarly.style.display = '';
     return;
   }
 
   const pr = data.value[0];
   const prUrl = `https://dev.azure.com/${encodeURIComponent(org)}/${encodeURIComponent(project)}/_git/${encodeURIComponent(pr.repository.name)}/pullrequest/${pr.pullRequestId}`;
   tabEl._existingPrUrl = prUrl;
-  tabEl._prData = { id: pr.pullRequestId, repoId: pr.repository.id, lastCommitId: pr.lastMergeSourceCommit?.commitId, org, project, auth };
+  tabEl._prData = { id: pr.pullRequestId, repoId: pr.repository.id, lastCommitId: pr.lastMergeSourceCommit?.commitId, org, project, auth, targetRefName: pr.targetRefName };
 
   const createPrBtn = tabEl.querySelector('.workspace-tab-create-pr');
   if (!createPrBtn) return;
@@ -96,7 +130,7 @@ export async function checkExistingPr(tabEl) {
 
   createPrBtn.classList.remove('has-pr', 'has-pr-succeeded', 'has-pr-approved', 'has-pr-failed', 'has-pr-comments');
   createPrBtn.classList.add(statusClass);
-  createPrBtn.style.display = '';
+  createPrBtn.style.display = statusClass === 'has-pr-approved' ? 'none' : '';
   createPrBtn.title = `View Pull Request #${pr.pullRequestId} (Ctrl+Alt+M)`;
 
   const completePrBtn = tabEl.querySelector('.workspace-tab-complete-pr');
@@ -104,7 +138,7 @@ export async function checkExistingPr(tabEl) {
     if (statusClass === 'has-pr-approved') {
       completePrBtn.innerHTML = COMPLETE_PR_ICON_SVG;
       completePrBtn.title = 'Complete Pull Request (merge + delete branch)';
-      completePrBtn.style.display = '';
+      completePrBtn.style.display = 'inline-flex';
       tabEl._completePrState = 'can-complete';
     } else {
       completePrBtn.style.display = 'none';
@@ -122,7 +156,7 @@ export function showTabCloseButton(tabEl) {
   if (switchBtn) switchBtn.style.display = 'none';
   if (removeBtn) removeBtn.style.display = 'none';
   if (commitPushBtn) commitPushBtn.style.display = '';
-  if (createPrBtn) createPrBtn.style.display = 'none';
+  if (createPrBtn) createPrBtn.style.display = tabEl._completePrState === 'can-resolve' ? 'none' : '';
   if (closeBtn) closeBtn.style.display = '';
   checkExistingPr(tabEl);
 }
@@ -136,7 +170,7 @@ export function showTabRemoveButton(tabEl) {
   if (switchBtn) switchBtn.style.display = '';
   if (removeBtn) removeBtn.style.display = '';
   if (commitPushBtn) commitPushBtn.style.display = 'none';
-  if (createPrBtn) createPrBtn.style.display = tabEl._existingPrUrl ? '' : 'none';
+  if (createPrBtn) createPrBtn.style.display = (tabEl._completePrState === 'can-resolve' || !tabEl._existingPrUrl) ? 'none' : '';
   if (closeBtn) closeBtn.style.display = 'none';
   checkExistingPr(tabEl);
 }
@@ -181,7 +215,7 @@ export function createWorktreeTab(wt) {
   tabEl._wtPath = wt.path;
   tabEl._wtBranch = wt.branch;
   tabEl._wtSourceBranch = wt.sourceBranch || getSourceBranch(wt.path);
-  tabEl._wtTaskId = wt.taskId || getTaskId(wt.path);
+  tabEl._wtTaskId = wt.taskId || getTaskId(wt.path) || extractTaskIdFromBranch(wt.branch);
   tabEl._workspaceId = null;
   tabEl._pollTimer = null;
   tabEl._wasWorking = false;
@@ -253,11 +287,13 @@ export function createWorktreeTab(wt) {
     } else if (tabEl._completePrState === 'can-resolve') {
       const d = tabEl._prData;
       if (!d || !tabEl._wtTaskId) return;
-      btn.disabled = true;
       const ctx = { org: d.org, project: d.project, auth: d.auth, apiBase: `https://dev.azure.com/${encodeURIComponent(d.org)}/${encodeURIComponent(d.project)}/_apis` };
-      await updateWorkItemState(ctx, tabEl._wtTaskId, 'Resolved');
-      btn.style.display = 'none';
-      tabEl._completePrState = null;
+      const targetBranch = d.targetRefName || `refs/heads/${tabEl._wtSourceBranch || 'master'}`;
+      const ok = await showResolveTaskDialog(ctx, tabEl._wtTaskId, { org: d.org, project: d.project, auth: d.auth, targetBranch });
+      if (ok) {
+        btn.style.display = 'none';
+        tabEl._completePrState = null;
+      }
     }
   });
 

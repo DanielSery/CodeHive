@@ -272,6 +272,24 @@
     </div>
   </div>
 
+  <!-- Resolve Task dialog -->
+  <div id="resolve-task-dialog-overlay" class="dialog-overlay">
+    <div class="dialog-box">
+      <h3 class="dialog-title">Resolve Task</h3>
+      <p class="dialog-desc">Set the task to Resolved with build and release info</p>
+      <label class="dialog-label">Integrated in Build</label>
+      <input id="resolve-task-build-input" type="text" class="dialog-input" placeholder="Loading build number..." spellcheck="false" />
+      <label class="dialog-label">Release Note</label>
+      <input id="resolve-task-release-input" type="text" class="dialog-input" value="internal" spellcheck="false" />
+      <label class="dialog-label">Comment <span style="color: var(--text-muted); font-weight: 400;">(optional)</span></label>
+      <textarea id="resolve-task-comment-input" class="dialog-input dialog-textarea" placeholder="Add a comment to the task..." spellcheck="false" rows="3"></textarea>
+      <div class="dialog-buttons">
+        <button id="resolve-task-cancel-btn" class="dialog-btn dialog-btn-cancel" tabindex="-1">Cancel</button>
+        <button id="resolve-task-confirm-btn" class="dialog-btn dialog-btn-confirm">Resolve</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Delete confirmation dialog -->
   <div id="delete-dialog-overlay" class="dialog-overlay">
     <div class="dialog-box">

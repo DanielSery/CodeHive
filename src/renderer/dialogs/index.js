@@ -5,6 +5,7 @@ export { showDeleteDialog, registerRemoveRepoGroup } from './dialog-delete.js';
 export { showWorktreeRemoveDialog } from './dialog-wt-remove.js';
 export { showCommitPushDialog } from './dialog-commit-push.js';
 export { showCreatePrDialog } from './dialog-create-pr.js';
+export { showResolveTaskDialog } from './dialog-resolve.js';
 
 import { registerWorktreeSidebarFns } from './dialog-worktree.js';
 import { registerSwitchSidebarFns } from './dialog-switch.js';

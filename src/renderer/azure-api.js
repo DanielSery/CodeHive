@@ -273,3 +273,63 @@ export async function fetchActiveBuilds(org, project, auth, sourceRefName, prId)
     return false;
   }
 }
+
+/**
+ * Fetch the latest completed build number for a branch (e.g. target/source branch).
+ * Returns the buildNumber string or null.
+ */
+export async function fetchLatestBuildNumber(org, project, auth, branchName) {
+  const url = `https://dev.azure.com/${encodeURIComponent(org)}/${encodeURIComponent(project)}/_apis/build/builds?branchName=${encodeURIComponent(branchName)}&$top=5&queryOrder=queueTimeDescending&api-version=7.0`;
+  console.log('[fetchLatestBuildNumber] branch=%s url=%s', branchName, url);
+  try {
+    const resp = await fetch(url, { headers: { Authorization: `Basic ${auth}` } });
+    if (!resp.ok) return null;
+    const data = await resp.json();
+    const builds = data.value || [];
+    console.log('[fetchLatestBuildNumber] found %d builds:', builds.length, builds.map(b => `${b.buildNumber} (${b.definition?.name}, ${b.status})`));
+    return builds.length > 0 ? builds[0].buildNumber : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Resolve a work item: set state to Resolved and optionally set Integrated in Build and Release Note fields.
+ */
+export async function resolveWorkItem(ctx, id, { integrationBuild, releaseNote } = {}) {
+  const ops = [{ op: 'add', path: '/fields/System.State', value: 'Resolved' }];
+  if (integrationBuild) ops.push({ op: 'add', path: '/fields/Microsoft.VSTS.Build.IntegrationBuild', value: integrationBuild });
+  if (releaseNote) ops.push({ op: 'add', path: '/fields/Custom.Releasenote', value: releaseNote });
+  try {
+    const resp = await fetch(
+      `${ctx.apiBase}/wit/workitems/${id}?api-version=7.0`,
+      {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json-patch+json', 'Authorization': `Basic ${ctx.auth}` },
+        body: JSON.stringify(ops)
+      }
+    );
+    return resp.ok;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Add a comment to a work item. Silently ignores errors.
+ */
+export async function addWorkItemComment(ctx, id, text) {
+  try {
+    const resp = await fetch(
+      `${ctx.apiBase}/wit/workitems/${id}/comments?api-version=7.1-preview.4`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Basic ${ctx.auth}` },
+        body: JSON.stringify({ text })
+      }
+    );
+    return resp.ok;
+  } catch {
+    return false;
+  }
+}
