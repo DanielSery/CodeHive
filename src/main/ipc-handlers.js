@@ -2,7 +2,7 @@ const { ipcMain, dialog, shell } = require('electron');
 const { exec, spawn } = require('child_process');
 const vscode = require('./vscode-server');
 const { scanDirectory, checkClaudeActive, getCachedBranches, fetchAndListBranches, getGitUser, getRemoteUrl, getLaunchConfigs, gitDiffStat, getFirstBranchCommit } = require('./repo-scanner');
-const { createWorktreePty, createClonePty, createDeletePty, createWorktreeRemovePty, createWorktreeSwitchPty, createCommitPushPty, createPrCreatePty } = require('./pty-manager');
+const { createWorktreePty, createClonePty, createDeletePty, createWorktreeRemovePty, createWorktreeSwitchPty, createCommitPushPty, createPrCreatePty, createAzInstallPty } = require('./pty-manager');
 
 let worktreePty = null;
 let clonePty = null;
@@ -11,6 +11,7 @@ let worktreeRemovePty = null;
 let worktreeSwitchPty = null;
 let commitPushPty = null;
 let prCreatePty = null;
+let azInstallPty = null;
 
 function register(mainWindow, getServerPort) {
   ipcMain.handle('codeserver:openFolder', (event, folderPath) => {
@@ -124,6 +125,22 @@ function register(mainWindow, getServerPort) {
   });
 
   ipcMain.on('prCreate:ready', () => { if (prCreatePty) prCreatePty.flush(); });
+
+  // AZ CLI check & install
+  ipcMain.handle('azInstall:check', () => {
+    return new Promise((resolve) => {
+      const cmd = process.platform === 'win32' ? 'where az' : 'which az';
+      exec(cmd, (err) => resolve({ installed: !err }));
+    });
+  });
+
+  ipcMain.handle('azInstall:start', () => {
+    const result = createAzInstallPty(mainWindow);
+    azInstallPty = result.proc;
+    return {};
+  });
+
+  ipcMain.on('azInstall:ready', () => { if (azInstallPty) azInstallPty.flush(); });
 
   // Shell
   ipcMain.handle('shell:openInExplorer', (event, folderPath) => {

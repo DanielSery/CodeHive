@@ -2,7 +2,7 @@ import { addRepoGroup, clearAllGroups, createWorktreeTab, rebuildCollapsedDots, 
 import { showWorktreeDialog, showCloneDialog, showDeleteDialog, showWorktreeRemoveDialog, showWorktreeSwitchDialog, showCommitPushDialog, showCreatePrDialog, setCloneReposDir, registerSidebarFns, registerRemoveRepoGroup, registerOnCloneComplete } from './dialogs/index.js';
 import { cycleWorkspace, registerTabButtonFns } from './workspace-manager.js';
 import { getActive } from './state.js';
-import { toggleTerminal } from './terminal-panel.js';
+import { toggleTerminal, createTerminal, showTerminal, showCloseButton } from './terminal-panel.js';
 import { getState, saveDirectories, resetDirectories, STORAGE_KEY } from './storage.js';
 
 // Wire cross-module dependencies (avoids circular imports)
@@ -148,6 +148,31 @@ const startupEl = document.getElementById('startup-status');
 window.startupAPI.onStatus((msg) => {
   startupEl.textContent = msg || '';
 });
+
+// ===== AZ CLI check on startup =====
+
+async function checkAndInstallAz() {
+  const { installed } = await window.azInstallAPI.check();
+  if (installed) return;
+
+  showTerminal('Installing Azure CLI...');
+  const xterm = createTerminal();
+
+  window.azInstallAPI.onData((data) => { xterm.write(data); });
+  window.azInstallAPI.onExit(({ exitCode }) => {
+    if (exitCode === 0) {
+      xterm.write('\r\n\x1b[32mAzure CLI installed successfully.\x1b[0m\r\n');
+    } else {
+      xterm.write(`\r\n\x1b[31mAzure CLI installation failed (exit code ${exitCode}).\x1b[0m\r\n`);
+    }
+    showCloseButton();
+  });
+
+  await window.azInstallAPI.start();
+  window.azInstallAPI.ready();
+}
+
+checkAndInstallAz();
 
 // ===== Restore on startup =====
 

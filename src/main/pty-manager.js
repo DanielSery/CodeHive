@@ -144,4 +144,26 @@ function createPrCreatePty(mainWindow, { wtPath, sourceBranch, targetBranch, tit
   return { proc };
 }
 
-module.exports = { createWorktreePty, createClonePty, createDeletePty, createWorktreeRemovePty, createWorktreeSwitchPty, createCommitPushPty, createPrCreatePty };
+function createAzInstallPty(mainWindow) {
+  const isWin = process.platform === 'win32';
+  const cmd = isWin
+    ? 'winget install -e --id Microsoft.AzureCLI'
+    : 'curl -sL https://aka.ms/InstallAzureCLIDeb | sudo bash';
+  const proc = spawnProc(cmd, process.env.HOME || process.cwd());
+
+  proc.onData((data) => {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('azInstall:data', data);
+    }
+  });
+
+  proc.onExit(({ exitCode }) => {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('azInstall:exit', { exitCode });
+    }
+  });
+
+  return { proc };
+}
+
+module.exports = { createWorktreePty, createClonePty, createDeletePty, createWorktreeRemovePty, createWorktreeSwitchPty, createCommitPushPty, createPrCreatePty, createAzInstallPty };

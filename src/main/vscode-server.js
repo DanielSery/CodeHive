@@ -120,6 +120,16 @@ function findCodeCmd() {
   return isWin ? 'code.cmd' : 'code';
 }
 
+function isVSCodeInstalled() {
+  const isWin = os.platform() === 'win32';
+  try {
+    execSync(isWin ? 'where code.cmd' : 'which code', { encoding: 'utf8', shell: true, stdio: 'pipe' });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 function installExtensions(sendStatus) {
   const cmd = findCodeCmd();
   const env = { ...process.env };
@@ -281,4 +291,4 @@ function killServer(proc) {
   }
 }
 
-module.exports = { resolvePort, installExtensions, seedDefaultSettings, startServer, buildFolderUrl, killServer, killServerOnPort };
+module.exports = { resolvePort, installExtensions, seedDefaultSettings, startServer, buildFolderUrl, killServer, killServerOnPort, isVSCodeInstalled };

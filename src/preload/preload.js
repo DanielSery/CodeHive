@@ -95,6 +95,18 @@ contextBridge.exposeInMainWorld('prCreateAPI', {
   }
 });
 
+contextBridge.exposeInMainWorld('azInstallAPI', {
+  check: () => ipcRenderer.invoke('azInstall:check'),
+  start: () => ipcRenderer.invoke('azInstall:start'),
+  ready: () => ipcRenderer.send('azInstall:ready'),
+  onData: (cb) => ipcRenderer.on('azInstall:data', (_, data) => cb(data)),
+  onExit: (cb) => ipcRenderer.on('azInstall:exit', (_, info) => cb(info)),
+  removeListeners: () => {
+    ipcRenderer.removeAllListeners('azInstall:data');
+    ipcRenderer.removeAllListeners('azInstall:exit');
+  }
+});
+
 contextBridge.exposeInMainWorld('claudeAPI', {
   run: (prompt) => ipcRenderer.invoke('claude:run', prompt),
 });

@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, shell } = require('electron');
 const path = require('path');
 const vscode = require('./vscode-server');
 const ipcHandlers = require('./ipc-handlers');
@@ -64,6 +64,21 @@ app.whenReady().then(async () => {
       mainWindow.webContents.send('startup:status', msg);
     }
   };
+
+  if (!vscode.isVSCodeInstalled()) {
+    const { response } = await dialog.showMessageBox(mainWindow, {
+      type: 'error',
+      title: 'VS Code Not Found',
+      message: 'Visual Studio Code is not installed or not in PATH.',
+      detail: 'CodeHive requires VS Code to run the embedded editor. Please install it and restart the app.',
+      buttons: ['Download VS Code', 'Close'],
+      defaultId: 0,
+      cancelId: 1
+    });
+    if (response === 0) shell.openExternal('https://code.visualstudio.com/');
+    app.quit();
+    return;
+  }
 
   sendStatus('Installing extensions...');
   console.log('Installing VS Code extensions...');
