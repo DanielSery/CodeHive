@@ -1,7 +1,7 @@
 import { createTerminal, showTerminal, showCloseButton, setTitle, closeTerminal } from '../terminal-panel.js';
 import { getCachedBranchesFromState, saveBranchCache } from '../storage.js';
 import { parseAzureRemoteUrl, buildAzureContext, fetchWorkItemTitle } from '../azure-api.js';
-import { loadStoredPat, AZURE_PAT_KEY } from './utils.js';
+import { loadStoredPat, AZURE_PAT_KEY, fuzzyMatch, fuzzyScore } from './utils.js';
 import { showPatDialog } from './dialog-pat.js';
 
 const createPrDialogOverlay = document.getElementById('create-pr-dialog-overlay');
@@ -18,13 +18,13 @@ let _prGroupEl = null;
 
 function getPrFilteredBranches() {
   const q = (prBranchSearch.value || '').toLowerCase();
-  return prAllBranches.filter(b => b.toLowerCase().includes(q));
+  return prAllBranches.filter(b => fuzzyMatch(b, q)).sort((a, b) => fuzzyScore(b, q) - fuzzyScore(a, q));
 }
 
 function renderPrBranchList(filter) {
   prBranchList.innerHTML = '';
   const q = (filter || '').toLowerCase();
-  const filtered = prAllBranches.filter(b => b.toLowerCase().includes(q));
+  const filtered = prAllBranches.filter(b => fuzzyMatch(b, q)).sort((a, b) => fuzzyScore(b, q) - fuzzyScore(a, q));
   if (filtered.length === 0) {
     prBranchList.classList.remove('open');
     prHighlightIndex = -1;
@@ -197,7 +197,7 @@ async function confirmCreatePr() {
 // PR dialog event listeners
 prBranchSearch.addEventListener('input', () => {
   prSelectedBranch = null;
-  prHighlightIndex = -1;
+  prHighlightIndex = prBranchSearch.value.trim() ? 0 : -1;
   renderPrBranchList(prBranchSearch.value);
 });
 

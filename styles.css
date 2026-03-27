@@ -1174,6 +1174,18 @@ html, body {
   background: var(--tab-active-bg);
 }
 
+.combobox-item-desc {
+  font-size: 10px;
+  color: var(--text-muted);
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  margin-top: 2px;
+  font-family: inherit;
+  line-height: 1.4;
+}
+
 /* ===== XTerm Terminal Panel ===== */
 #clone-terminal {
   position: absolute;

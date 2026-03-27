@@ -94,6 +94,10 @@ contextBridge.exposeInMainWorld('prCreateAPI', {
   }
 });
 
+contextBridge.exposeInMainWorld('claudeAPI', {
+  run: (prompt) => ipcRenderer.invoke('claude:run', prompt),
+});
+
 contextBridge.exposeInMainWorld('shellAPI', {
   openInExplorer: (folderPath) => ipcRenderer.invoke('shell:openInExplorer', folderPath),
   openExternal: (url) => ipcRenderer.invoke('shell:openExternal', url),

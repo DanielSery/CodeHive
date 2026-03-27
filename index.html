@@ -104,17 +104,11 @@
     <div class="dialog-box">
       <h3 class="dialog-title">New Worktree</h3>
       <p class="dialog-desc">Create a new worktree from a remote branch</p>
-      <label class="dialog-label">Source Branch</label>
-      <div class="combobox">
-        <input id="wt-branch-search" type="text" class="dialog-input combobox-input" placeholder="Search branches..." spellcheck="false" autocomplete="off" />
-        <span class="combobox-arrow">&#x25BC;</span>
-        <div id="wt-branch-list" class="combobox-list"></div>
-      </div>
-      <label class="dialog-label">Azure Task <span style="color: var(--text-muted); font-weight: 400;">(optional)</span></label>
+      <label class="dialog-label">Task Name <span style="color: var(--text-muted); font-weight: 400;">(optional)</span></label>
       <div class="combobox" id="wt-task-combobox">
         <input id="wt-task-search" type="text" class="dialog-input combobox-input" placeholder="Loading tasks..." spellcheck="false" autocomplete="off" disabled />
-        <span class="combobox-arrow">&#x25BC;</span>
-        <div id="wt-task-list" class="combobox-list"></div>
+        <span class="combobox-arrow" tabindex="-1">&#x25BC;</span>
+        <div id="wt-task-list" class="combobox-list" tabindex="-1"></div>
       </div>
       <div id="wt-task-desc-row" style="display:none">
         <label class="dialog-label">Task Description <span style="color: var(--text-muted); font-weight: 400;">(optional)</span></label>
@@ -127,8 +121,26 @@
           <option value="Bug">Bug</option>
         </select>
       </div>
-      <label class="dialog-label">Worktree Name</label>
-      <input id="wt-name-input" type="text" class="dialog-input" placeholder="e.g. Test new features" spellcheck="false" maxlength="50" />
+      <div id="wt-feature-row" style="display:none">
+        <label class="dialog-label">Parent Feature <span style="color: var(--text-muted); font-weight: 400;">(optional)</span></label>
+        <div class="combobox" id="wt-feature-combobox">
+          <input id="wt-feature-search" type="text" class="dialog-input combobox-input" placeholder="Loading features..." spellcheck="false" autocomplete="off" disabled />
+          <span class="combobox-arrow" tabindex="-1">&#x25BC;</span>
+          <div id="wt-feature-list" class="combobox-list" tabindex="-1"></div>
+        </div>
+      </div>
+      <label class="dialog-label">Source Branch</label>
+      <div class="combobox" id="wt-source-combobox">
+        <input id="wt-branch-search" type="text" class="dialog-input combobox-input" placeholder="Search branches..." spellcheck="false" autocomplete="off" />
+        <span class="combobox-arrow" tabindex="-1">&#x25BC;</span>
+        <div id="wt-branch-list" class="combobox-list" tabindex="-1"></div>
+      </div>
+      <label class="dialog-label">Target Branch</label>
+      <div class="combobox" id="wt-target-combobox">
+        <input id="wt-target-search" type="text" class="dialog-input combobox-input" placeholder="e.g. jd/123-my-feature" spellcheck="false" autocomplete="off" />
+        <span class="combobox-arrow" tabindex="-1">&#x25BC;</span>
+        <div id="wt-target-list" class="combobox-list" tabindex="-1"></div>
+      </div>
       <div id="wt-preview" class="dialog-preview"></div>
       <div class="dialog-buttons">
         <button id="wt-cancel-btn" class="dialog-btn dialog-btn-cancel" tabindex="-1">Cancel</button>
@@ -142,17 +154,11 @@
     <div class="dialog-box">
       <h3 class="dialog-title">Switch Worktree</h3>
       <p class="dialog-desc">Change the source branch and directory name for this worktree</p>
-      <label class="dialog-label">Source Branch</label>
-      <div class="combobox" id="wt-switch-combobox">
-        <input id="wt-switch-branch-search" type="text" class="dialog-input combobox-input" placeholder="Search branches..." spellcheck="false" autocomplete="off" />
-        <span class="combobox-arrow">&#x25BC;</span>
-        <div id="wt-switch-branch-list" class="combobox-list"></div>
-      </div>
-      <label class="dialog-label">Azure Task <span style="color: var(--text-muted); font-weight: 400;">(optional)</span></label>
+      <label class="dialog-label">Task Name <span style="color: var(--text-muted); font-weight: 400;">(optional)</span></label>
       <div class="combobox" id="wt-switch-task-combobox">
         <input id="wt-switch-task-search" type="text" class="dialog-input combobox-input" placeholder="Loading tasks..." spellcheck="false" autocomplete="off" disabled />
-        <span class="combobox-arrow">&#x25BC;</span>
-        <div id="wt-switch-task-list" class="combobox-list"></div>
+        <span class="combobox-arrow" tabindex="-1">&#x25BC;</span>
+        <div id="wt-switch-task-list" class="combobox-list" tabindex="-1"></div>
       </div>
       <div id="wt-switch-task-desc-row" style="display:none">
         <label class="dialog-label">Task Description <span style="color: var(--text-muted); font-weight: 400;">(optional)</span></label>
@@ -165,8 +171,26 @@
           <option value="Bug">Bug</option>
         </select>
       </div>
-      <label class="dialog-label">Worktree Name</label>
-      <input id="wt-switch-name-input" type="text" class="dialog-input" placeholder="e.g. Test new features" spellcheck="false" maxlength="50" />
+      <div id="wt-switch-feature-row" style="display:none">
+        <label class="dialog-label">Parent Feature <span style="color: var(--text-muted); font-weight: 400;">(optional)</span></label>
+        <div class="combobox" id="wt-switch-feature-combobox">
+          <input id="wt-switch-feature-search" type="text" class="dialog-input combobox-input" placeholder="Loading features..." spellcheck="false" autocomplete="off" disabled />
+          <span class="combobox-arrow" tabindex="-1">&#x25BC;</span>
+          <div id="wt-switch-feature-list" class="combobox-list" tabindex="-1"></div>
+        </div>
+      </div>
+      <label class="dialog-label">Source Branch</label>
+      <div class="combobox" id="wt-switch-combobox">
+        <input id="wt-switch-branch-search" type="text" class="dialog-input combobox-input" placeholder="Search branches..." spellcheck="false" autocomplete="off" />
+        <span class="combobox-arrow" tabindex="-1">&#x25BC;</span>
+        <div id="wt-switch-branch-list" class="combobox-list" tabindex="-1"></div>
+      </div>
+      <label class="dialog-label">Target Branch</label>
+      <div class="combobox" id="wt-switch-target-combobox">
+        <input id="wt-switch-target-search" type="text" class="dialog-input combobox-input" placeholder="e.g. jd/123-my-feature" spellcheck="false" autocomplete="off" />
+        <span class="combobox-arrow" tabindex="-1">&#x25BC;</span>
+        <div id="wt-switch-target-list" class="combobox-list" tabindex="-1"></div>
+      </div>
       <div id="wt-switch-preview" class="dialog-preview"></div>
       <div class="dialog-buttons">
         <button id="wt-switch-cancel-btn" class="dialog-btn dialog-btn-cancel" tabindex="-1">Cancel</button>
@@ -217,8 +241,8 @@
       <label class="dialog-label">Target Branch</label>
       <div class="combobox" id="pr-branch-combobox">
         <input id="pr-branch-search" type="text" class="dialog-input combobox-input" placeholder="Search branches..." spellcheck="false" autocomplete="off" />
-        <span class="combobox-arrow">&#x25BC;</span>
-        <div id="pr-branch-list" class="combobox-list"></div>
+        <span class="combobox-arrow" tabindex="-1">&#x25BC;</span>
+        <div id="pr-branch-list" class="combobox-list" tabindex="-1"></div>
       </div>
       <label class="dialog-label">Title</label>
       <input id="pr-title-input" type="text" class="dialog-input" placeholder="e.g. Add user authentication" spellcheck="false" />

@@ -46,12 +46,12 @@ export async function fetchAzureTasks(barePath, pat) {
     if (!wiqlResp.ok) return { error: 'fetch-failed' };
 
     const wiqlData = await wiqlResp.json();
-    const ids = (wiqlData.workItems || []).slice(0, 100).map(wi => wi.id);
+    const ids = (wiqlData.workItems || []).slice(0, 200).map(wi => wi.id);
 
     if (ids.length === 0) return { tasks: [], azureContext: ctx };
 
     const itemsResp = await fetch(
-      `${ctx.apiBase}/wit/workitems?ids=${ids.join(',')}&fields=System.Id,System.Title,System.WorkItemType&api-version=7.0`,
+      `${ctx.apiBase}/wit/workitems?ids=${ids.join(',')}&fields=System.Id,System.Title,System.WorkItemType,System.Description&api-version=7.0`,
       { headers: { 'Authorization': `Basic ${ctx.auth}` } }
     );
 
@@ -61,7 +61,8 @@ export async function fetchAzureTasks(barePath, pat) {
     const tasks = (itemsData.value || []).map(wi => ({
       id: wi.id,
       title: wi.fields['System.Title'] || '',
-      type: wi.fields['System.WorkItemType'] || ''
+      type: wi.fields['System.WorkItemType'] || '',
+      description: wi.fields['System.Description'] || ''
     }));
 
     return { tasks, azureContext: ctx };
@@ -71,12 +72,56 @@ export async function fetchAzureTasks(barePath, pat) {
 }
 
 /**
+ * Fetch Feature-type work items from Azure DevOps.
+ * Returns array of { id, title } on success, empty array on failure.
+ */
+export async function fetchAzureFeatures(ctx) {
+  try {
+    const wiqlResp = await fetch(`${ctx.apiBase}/wit/wiql?api-version=7.0`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Basic ${ctx.auth}` },
+      body: JSON.stringify({ query: `SELECT [System.Id] FROM WorkItems WHERE [System.WorkItemType] = 'Feature' AND [System.State] NOT IN ('Closed', 'Done', 'Resolved', 'Removed') ORDER BY [System.ChangedDate] DESC` })
+    });
+    if (!wiqlResp.ok) return [];
+    const wiqlData = await wiqlResp.json();
+    const ids = (wiqlData.workItems || []).slice(0, 200).map(wi => wi.id);
+    if (ids.length === 0) return [];
+
+    const itemsResp = await fetch(
+      `${ctx.apiBase}/wit/workitems?ids=${ids.join(',')}&fields=System.Id,System.Title,System.Description&api-version=7.0`,
+      { headers: { 'Authorization': `Basic ${ctx.auth}` } }
+    );
+    if (!itemsResp.ok) return [];
+    const itemsData = await itemsResp.json();
+    return (itemsData.value || []).map(wi => ({
+      id: wi.id,
+      title: wi.fields['System.Title'] || '',
+      description: wi.fields['System.Description'] || ''
+    }));
+  } catch {
+    return [];
+  }
+}
+
+/**
  * Create a new Azure DevOps work item.
  * Returns { id, title, type } on success, throws on failure.
+ * If parentId is provided, creates a parent-child relation.
  */
-export async function createAzureWorkItem(ctx, workItemType, title, description) {
+export async function createAzureWorkItem(ctx, workItemType, title, description, parentId) {
   const body = [{ op: 'add', path: '/fields/System.Title', value: title }];
   if (description) body.push({ op: 'add', path: '/fields/System.Description', value: description });
+  if (parentId) {
+    body.push({
+      op: 'add',
+      path: '/relations/-',
+      value: {
+        rel: 'System.LinkTypes.Hierarchy-Reverse',
+        url: `${ctx.apiBase}/wit/workitems/${parentId}`,
+        attributes: { name: 'Parent' }
+      }
+    });
+  }
   const resp = await fetch(`${ctx.apiBase}/wit/workitems/$${encodeURIComponent(workItemType)}?api-version=7.0`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json-patch+json', 'Authorization': `Basic ${ctx.auth}` },
@@ -85,6 +130,42 @@ export async function createAzureWorkItem(ctx, workItemType, title, description)
   if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
   const data = await resp.json();
   return { id: data.id, title, type: workItemType };
+}
+
+/**
+ * Update the state of a work item (e.g. to 'Active'). Silently ignores errors.
+ */
+export async function updateWorkItemState(ctx, id, state) {
+  try {
+    const resp = await fetch(
+      `${ctx.apiBase}/wit/workitems/${id}?api-version=7.0`,
+      {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json-patch+json', 'Authorization': `Basic ${ctx.auth}` },
+        body: JSON.stringify([{ op: 'add', path: '/fields/System.State', value: state }])
+      }
+    );
+    return resp.ok;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Fetch a single work item by ID. Returns { id, title, type } or null.
+ */
+export async function fetchWorkItemById(ctx, id) {
+  try {
+    const resp = await fetch(
+      `${ctx.apiBase}/wit/workitems/${id}?fields=System.Id,System.Title,System.WorkItemType,System.Description&api-version=7.0`,
+      { headers: { Authorization: `Basic ${ctx.auth}` } }
+    );
+    if (!resp.ok) return null;
+    const data = await resp.json();
+    return { id: data.id, title: data.fields['System.Title'] || '', type: data.fields['System.WorkItemType'] || '', description: data.fields['System.Description'] || '' };
+  } catch {
+    return null;
+  }
 }
 
 /**

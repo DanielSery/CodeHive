@@ -1,4 +1,5 @@
 const { ipcMain, dialog, shell } = require('electron');
+const { exec, spawn } = require('child_process');
 const vscode = require('./vscode-server');
 const { scanDirectory, checkClaudeActive, getCachedBranches, fetchAndListBranches, getGitUser, getRemoteUrl, getLaunchConfigs, gitDiffStat } = require('./repo-scanner');
 const { createWorktreePty, createClonePty, createDeletePty, createWorktreeRemovePty, createWorktreeSwitchPty, createCommitPushPty, createPrCreatePty } = require('./pty-manager');
@@ -127,6 +128,19 @@ function register(mainWindow, getServerPort) {
 
   ipcMain.handle('shell:openExternal', (event, url) => {
     return shell.openExternal(url);
+  });
+
+  // Claude CLI
+  ipcMain.handle('claude:run', (event, prompt) => {
+    return new Promise((resolve) => {
+      let output = '';
+      const child = spawn('claude', ['-p', '-'], { shell: true, timeout: 30000 });
+      child.stdout.on('data', (d) => { output += d.toString(); });
+      child.on('close', () => resolve(output.trim()));
+      child.on('error', () => resolve(''));
+      child.stdin.write(prompt);
+      child.stdin.end();
+    });
   });
 
   // Window controls
