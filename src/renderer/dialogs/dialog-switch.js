@@ -152,7 +152,7 @@ async function fetchSwitchTasksForDialog(barePath) {
 
   // Always refresh in background
   const result = await fetchAzureTasks(barePath, pat);
-  if (result.error === 'no-pat') { if (!cached) { wtSwitchTaskSearch.placeholder = 'Enter PAT to load tasks'; wtSwitchTaskSearch.disabled = false; focusTaskSearch(); } return; }
+  if (result.error === 'no-pat') { if (!cached) { wtSwitchTaskSearch.placeholder = 'Configure PAT to load tasks'; wtSwitchTaskSearch.disabled = false; focusTaskSearch(); } return; }
   if (result.error === 'not-azure') { if (!cached) { wtSwitchTaskSearch.placeholder = 'Not an Azure DevOps repository'; wtSwitchTaskSearch.disabled = false; focusTaskSearch(); } return; }
   if (result.error) { if (!cached) { wtSwitchTaskSearch.placeholder = 'Could not load tasks'; wtSwitchTaskSearch.disabled = false; focusTaskSearch(); } return; }
   saveTaskCache(barePath, { tasks: result.tasks, azureContext: result.azureContext });
