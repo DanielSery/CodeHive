@@ -66,8 +66,5 @@ async function confirmRemoveWorktree() {
   }
 }
 
-wtRemoveDialogOverlay.addEventListener('click', (e) => {
-  if (e.target === wtRemoveDialogOverlay) hideWorktreeRemoveDialog();
-});
 document.getElementById('wt-remove-cancel-btn').addEventListener('click', hideWorktreeRemoveDialog);
 document.getElementById('wt-remove-confirm-btn').addEventListener('click', confirmRemoveWorktree);

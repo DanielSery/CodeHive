@@ -35,4 +35,3 @@ azurePatInput.addEventListener('keydown', (e) => {
   if (e.key === 'Enter') { const pat = azurePatInput.value.trim(); if (pat) { saveStoredPat(pat); hidePATButton(); hidePatDialog(pat); } }
   if (e.key === 'Escape') hidePatDialog(null);
 });
-azurePatDialogOverlay.addEventListener('click', (e) => { if (e.target === azurePatDialogOverlay) hidePatDialog(null); });

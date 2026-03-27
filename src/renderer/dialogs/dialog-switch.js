@@ -17,6 +17,7 @@ const wtSwitchBranchList = document.getElementById('wt-switch-branch-list');
 const wtSwitchTargetSearch = document.getElementById('wt-switch-target-search');
 const wtSwitchTargetList = document.getElementById('wt-switch-target-list');
 const wtSwitchPreview = document.getElementById('wt-switch-preview');
+const wtSwitchSkipTaskBtn = document.getElementById('wt-switch-skip-task-btn');
 
 let wtSwitchAllBranches = [];
 let wtSwitchSelectedBranch = null;
@@ -121,6 +122,7 @@ function updateSwitchNewTaskFields() {
   wtSwitchTaskDescRow.style.display = isNewTask ? '' : 'none';
   wtSwitchTaskTypeRow.style.display = isNewTask ? '' : 'none';
   if (isNewTask) wtSwitchTaskType.value = inferWorkItemType(wtSwitchTaskSearch.value.trim());
+  wtSwitchSkipTaskBtn.style.display = (isNewTask && wtSwitchAzureContext) ? '' : 'none';
 }
 
 function selectWtSwitchTask(task) {
@@ -192,6 +194,17 @@ function selectWtSwitchBranch(b) {
 function scrollHighlightedIntoView(listEl) {
   const el = listEl.querySelector('.highlighted');
   if (el) el.scrollIntoView({ block: 'nearest' });
+}
+
+function insertDashForSpace(e) {
+  if (e.key !== ' ') return false;
+  e.preventDefault();
+  const input = e.target;
+  const s = input.selectionStart, end = input.selectionEnd;
+  input.value = input.value.substring(0, s) + '-' + input.value.substring(end);
+  input.selectionStart = input.selectionEnd = s + 1;
+  input.dispatchEvent(new Event('input'));
+  return true;
 }
 
 function applySwitchBranches(branches, preselect) {
@@ -305,12 +318,12 @@ export function hideWorktreeSwitchDialog() {
 
 export async function confirmSwitchWorktree() {
   const targetBranch = wtSwitchSelectedTarget || wtSwitchTargetSearch.value.trim();
-  if (!wtSwitchSelectedBranch || !targetBranch) return;
+  if (!wtSwitchSelectedBranch) return;
+  if (!targetBranch) { wtSwitchTargetSearch.focus(); return; }
   if (!wtSwitchTabEl || !wtSwitchGroupEl) return;
 
   const isNewTask = !wtSwitchSelectedTask && wtSwitchTaskSearch.value.trim().length > 0;
-  if (isNewTask) {
-    if (!wtSwitchAzureContext) { alert('Azure DevOps connection not available. Cannot create task.'); return; }
+  if (isNewTask && wtSwitchAzureContext) {
     const taskTitle = wtSwitchTaskSearch.value.trim();
     const taskDescription = wtSwitchTaskDesc.value.trim();
     const workItemType = wtSwitchTaskType.value || 'Story';
@@ -432,6 +445,7 @@ document.querySelector('#wt-switch-combobox .combobox-arrow').addEventListener('
 
 wtSwitchBranchSearch.addEventListener('keydown', (e) => {
   if (e.key === 'Escape') { hideWorktreeSwitchDialog(); return; }
+  if (insertDashForSpace(e)) return;
   const filtered = getSwitchFilteredBranches();
   if (e.key === 'ArrowDown') { e.preventDefault(); wtSwitchHighlightIndex = Math.min(wtSwitchHighlightIndex + 1, filtered.length - 1); renderSwitchBranchList(wtSwitchBranchSearch.value); scrollHighlightedIntoView(wtSwitchBranchList); }
   else if (e.key === 'ArrowUp') { e.preventDefault(); wtSwitchHighlightIndex = Math.max(wtSwitchHighlightIndex - 1, 0); renderSwitchBranchList(wtSwitchBranchSearch.value); scrollHighlightedIntoView(wtSwitchBranchList); }
@@ -457,6 +471,7 @@ document.querySelector('#wt-switch-target-combobox .combobox-arrow').addEventLis
 
 wtSwitchTargetSearch.addEventListener('keydown', (e) => {
   if (e.key === 'Escape') { hideWorktreeSwitchDialog(); return; }
+  if (insertDashForSpace(e)) return;
   const filtered = getSwitchFilteredTargets();
   if (e.key === 'ArrowDown') { e.preventDefault(); wtSwitchTargetHighlightIndex = Math.min(wtSwitchTargetHighlightIndex + 1, filtered.length - 1); renderSwitchTargetList(wtSwitchTargetSearch.value); scrollHighlightedIntoView(wtSwitchTargetList); }
   else if (e.key === 'ArrowUp') { e.preventDefault(); wtSwitchTargetHighlightIndex = Math.max(wtSwitchTargetHighlightIndex - 1, 0); renderSwitchTargetList(wtSwitchTargetSearch.value); scrollHighlightedIntoView(wtSwitchTargetList); }
@@ -468,6 +483,6 @@ wtSwitchTargetSearch.addEventListener('keydown', (e) => {
 
 // --- Dialog buttons ---
 
-wtSwitchDialogOverlay.addEventListener('click', (e) => { if (e.target === wtSwitchDialogOverlay) hideWorktreeSwitchDialog(); });
 document.getElementById('wt-switch-cancel-btn').addEventListener('click', hideWorktreeSwitchDialog);
+wtSwitchSkipTaskBtn.addEventListener('click', () => { wtSwitchSelectedTask = null; wtSwitchTaskSearch.value = ''; updateSwitchNewTaskFields(); confirmSwitchWorktree(); });
 document.getElementById('wt-switch-confirm-btn').addEventListener('click', confirmSwitchWorktree);

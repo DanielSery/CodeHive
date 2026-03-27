@@ -61,8 +61,5 @@ async function confirmDeleteRepo() {
   }
 }
 
-deleteDialogOverlay.addEventListener('click', (e) => {
-  if (e.target === deleteDialogOverlay) hideDeleteDialog();
-});
 document.getElementById('delete-cancel-btn').addEventListener('click', hideDeleteDialog);
 document.getElementById('delete-confirm-btn').addEventListener('click', confirmDeleteRepo);

@@ -29,6 +29,7 @@ const wtBranchList = document.getElementById('wt-branch-list');
 const wtTargetSearch = document.getElementById('wt-target-search');
 const wtTargetList = document.getElementById('wt-target-list');
 const wtPreview = document.getElementById('wt-preview');
+const wtSkipTaskBtn = document.getElementById('wt-skip-task-btn');
 
 let wtAllBranches = [];
 let wtSelectedBranch = null;
@@ -134,6 +135,7 @@ function updateNewTaskFields() {
   wtTaskDescRow.style.display = isNewTask ? '' : 'none';
   wtTaskTypeRow.style.display = isNewTask ? '' : 'none';
   if (isNewTask) wtTaskType.value = inferWorkItemType(wtTaskSearch.value.trim());
+  wtSkipTaskBtn.style.display = (isNewTask && wtAzureContext) ? '' : 'none';
 }
 
 function selectWtTask(task) {
@@ -205,6 +207,17 @@ function selectWtBranch(b) {
 function scrollHighlightedIntoView(listEl) {
   const el = listEl.querySelector('.highlighted');
   if (el) el.scrollIntoView({ block: 'nearest' });
+}
+
+function insertDashForSpace(e) {
+  if (e.key !== ' ') return false;
+  e.preventDefault();
+  const input = e.target;
+  const s = input.selectionStart, end = input.selectionEnd;
+  input.value = input.value.substring(0, s) + '-' + input.value.substring(end);
+  input.selectionStart = input.selectionEnd = s + 1;
+  input.dispatchEvent(new Event('input'));
+  return true;
 }
 
 function applyBranches(branches) {
@@ -312,11 +325,11 @@ export function hideWorktreeDialog() {
 
 export async function confirmCreateWorktree() {
   const targetBranch = wtSelectedTarget || wtTargetSearch.value.trim();
-  if (!wtSelectedBranch || !targetBranch) return;
+  if (!wtSelectedBranch) return;
+  if (!targetBranch) { wtTargetSearch.focus(); return; }
 
   const isNewTask = !wtSelectedTask && wtTaskSearch.value.trim().length > 0;
-  if (isNewTask) {
-    if (!wtAzureContext) { alert('Azure DevOps connection not available. Cannot create task.'); return; }
+  if (isNewTask && wtAzureContext) {
     const taskTitle = wtTaskSearch.value.trim();
     const taskDescription = wtTaskDesc.value.trim();
     const workItemType = wtTaskType.value || 'Story';
@@ -438,6 +451,7 @@ document.querySelector('#wt-source-combobox .combobox-arrow').addEventListener('
 
 wtBranchSearch.addEventListener('keydown', (e) => {
   if (e.key === 'Escape') { hideWorktreeDialog(); return; }
+  if (insertDashForSpace(e)) return;
   const filtered = getFilteredBranches();
   if (e.key === 'ArrowDown') { e.preventDefault(); wtHighlightIndex = Math.min(wtHighlightIndex + 1, filtered.length - 1); renderBranchList(wtBranchSearch.value); scrollHighlightedIntoView(wtBranchList); }
   else if (e.key === 'ArrowUp') { e.preventDefault(); wtHighlightIndex = Math.max(wtHighlightIndex - 1, 0); renderBranchList(wtBranchSearch.value); scrollHighlightedIntoView(wtBranchList); }
@@ -463,6 +477,7 @@ document.querySelector('#wt-target-combobox .combobox-arrow').addEventListener('
 
 wtTargetSearch.addEventListener('keydown', (e) => {
   if (e.key === 'Escape') { hideWorktreeDialog(); return; }
+  if (insertDashForSpace(e)) return;
   const filtered = getFilteredTargets();
   if (e.key === 'ArrowDown') { e.preventDefault(); wtTargetHighlightIndex = Math.min(wtTargetHighlightIndex + 1, filtered.length - 1); renderTargetList(wtTargetSearch.value); scrollHighlightedIntoView(wtTargetList); }
   else if (e.key === 'ArrowUp') { e.preventDefault(); wtTargetHighlightIndex = Math.max(wtTargetHighlightIndex - 1, 0); renderTargetList(wtTargetSearch.value); scrollHighlightedIntoView(wtTargetList); }
@@ -474,6 +489,6 @@ wtTargetSearch.addEventListener('keydown', (e) => {
 
 // --- Dialog buttons ---
 
-wtDialogOverlay.addEventListener('click', (e) => { if (e.target === wtDialogOverlay) hideWorktreeDialog(); });
 document.getElementById('wt-cancel-btn').addEventListener('click', hideWorktreeDialog);
+wtSkipTaskBtn.addEventListener('click', () => { wtSelectedTask = null; wtTaskSearch.value = ''; updateNewTaskFields(); confirmCreateWorktree(); });
 document.getElementById('wt-confirm-btn').addEventListener('click', confirmCreateWorktree);

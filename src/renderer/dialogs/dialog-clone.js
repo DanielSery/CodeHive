@@ -88,9 +88,6 @@ async function startClone() {
   }
 }
 
-cloneDialogOverlay.addEventListener('click', (e) => {
-  if (e.target === cloneDialogOverlay) hideCloneDialog();
-});
 document.getElementById('clone-cancel-btn').addEventListener('click', hideCloneDialog);
 document.getElementById('clone-confirm-btn').addEventListener('click', startClone);
 

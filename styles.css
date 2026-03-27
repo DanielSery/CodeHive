@@ -283,7 +283,8 @@ html, body {
 
 #sidebar.collapsed #sidebar-section-label,
 #sidebar.collapsed #btn-open-directory,
-#sidebar.collapsed #btn-clone-repo {
+#sidebar.collapsed #btn-clone-repo,
+#sidebar.collapsed #btn-azure-pat {
   display: none !important;
 }
 
@@ -378,7 +379,8 @@ html, body {
 }
 
 #btn-open-directory,
-#btn-clone-repo {
+#btn-clone-repo,
+#btn-azure-pat {
   padding: 3px;
   border: 1px solid var(--border);
   border-radius: 4px;
@@ -397,7 +399,8 @@ html, body {
 }
 
 #btn-open-directory:hover,
-#btn-clone-repo:hover {
+#btn-clone-repo:hover,
+#btn-azure-pat:hover {
   background: var(--tab-bg);
   color: var(--text);
 }
@@ -1107,6 +1110,17 @@ html, body {
 .dialog-btn-cancel:hover {
   background: var(--tab-bg);
   color: var(--text);
+}
+
+.dialog-btn-secondary {
+  background: transparent;
+  color: var(--text-muted);
+  border-color: var(--accent);
+}
+
+.dialog-btn-secondary:hover {
+  background: var(--tab-bg);
+  color: var(--accent);
 }
 
 .dialog-btn-confirm {

@@ -266,8 +266,5 @@ prDescInput.addEventListener('keydown', (e) => {
   if (e.key === 'Escape') hideCreatePrDialog();
 });
 
-createPrDialogOverlay.addEventListener('click', (e) => {
-  if (e.target === createPrDialogOverlay) hideCreatePrDialog();
-});
 document.getElementById('pr-cancel-btn').addEventListener('click', hideCreatePrDialog);
 document.getElementById('pr-confirm-btn').addEventListener('click', confirmCreatePr);

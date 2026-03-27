@@ -201,9 +201,6 @@ async function confirmCommitPush() {
   }
 }
 
-commitPushDialogOverlay.addEventListener('click', (e) => {
-  if (e.target === commitPushDialogOverlay) hideCommitPushDialog();
-});
 document.getElementById('commit-push-cancel-btn').addEventListener('click', hideCommitPushDialog);
 document.getElementById('commit-push-confirm-btn').addEventListener('click', confirmCommitPush);
 
