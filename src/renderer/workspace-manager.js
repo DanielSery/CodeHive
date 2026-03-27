@@ -176,14 +176,38 @@ async function openWorktree(tabEl, wt) {
   // Suppress popups that navigate to external URLs (e.g. Azure CDN 404s when opening diffs)
   webview.addEventListener('new-window', (e) => {
     const popupUrl = e.url || '';
+    e.preventDefault();
+
     // Allow local VS Code server URLs to open inside the webview
     if (popupUrl.startsWith(`http://127.0.0.1:`)) {
-      e.preventDefault();
       webview.loadURL(popupUrl);
       return;
     }
+
+    // Handle vscode://file/... links (e.g. Claude Code file references) — open inside the webview
+    if (popupUrl.startsWith('vscode://file/')) {
+      const currentUrl = new URL(webview.getURL());
+      const port = currentUrl.port;
+      const token = currentUrl.searchParams.get('tkn');
+      const folder = currentUrl.searchParams.get('folder');
+      if (port && token && folder) {
+        // Parse path from vscode://file/C:/path/to/file:line:col
+        let filePart = popupUrl.slice('vscode://file/'.length);
+        // Windows paths arrive as /C:/... — strip leading slash
+        if (/^\/[A-Za-z]:/.test(filePart)) filePart = filePart.slice(1);
+        // Strip optional :line and :line:col suffix (digits only, not the drive-letter colon)
+        filePart = filePart.replace(/:(\d+)(?::(\d+))?$/, '');
+        // Build VS Code remote URI
+        let normalized = filePart.replace(/\\/g, '/');
+        if (/^[A-Za-z]:/.test(normalized)) normalized = '/' + normalized;
+        const fileUri = `vscode-remote://localhost:${port}${normalized}`;
+        const openUrl = `http://127.0.0.1:${port}/?tkn=${encodeURIComponent(token)}&folder=${encodeURIComponent(folder)}&open-file=${encodeURIComponent(fileUri)}`;
+        webview.loadURL(openUrl);
+      }
+      return;
+    }
+
     // Block all other popups (external CDN requests that cause 404 errors)
-    e.preventDefault();
   });
 
   webview.addEventListener('did-finish-load', () => {

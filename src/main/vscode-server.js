@@ -9,7 +9,7 @@ const REQUIRED_EXTENSIONS = [
   'Catppuccin.catppuccin-vsc',
   'Catppuccin.catppuccin-vsc-icons',
   'anthropic.claude-code',
-  'ms-dotnettools.csharp'
+  'ms-dotnettools.csdevkit'
 ];
 
 function getServerDataDir() {

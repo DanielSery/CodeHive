@@ -49,4 +49,5 @@
   "dotnet.codeLens.enableTestsCodeLens": false,
   "quickInput.position": "center",
   "window.quickOpen.position": "center",
+  "security.workspace.trust.startupPrompt": "always",
 }
