@@ -2,7 +2,6 @@ import { createTerminal, showTerminal, showCloseButton, setTitle, closeTerminal 
 import { getCachedBranchesFromState, saveBranchCache } from '../storage.js';
 import { parseAzureRemoteUrl, buildAzureContext, fetchWorkItemTitle } from '../azure-api.js';
 import { loadStoredPat, AZURE_PAT_KEY, fuzzyMatch, fuzzyScore } from './utils.js';
-import { showPatDialog } from './dialog-pat.js';
 
 const createPrDialogOverlay = document.getElementById('create-pr-dialog-overlay');
 const prBranchSearch = document.getElementById('pr-branch-search');
@@ -163,11 +162,7 @@ async function confirmCreatePr() {
   if (!title || !prSelectedBranch || !_prTabEl) return;
 
   const desc = prDescInput.value.trim();
-  let pat = loadStoredPat();
-  if (!pat) {
-    pat = await showPatDialog();
-    if (!pat) return;
-  }
+  const pat = loadStoredPat();
   const tabEl = _prTabEl;
   const groupEl = _prGroupEl;
   const wtPath = tabEl._wtPath;

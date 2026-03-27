@@ -4,6 +4,11 @@ const azurePatDialogOverlay = document.getElementById('azure-pat-dialog-overlay'
 const azurePatInput = document.getElementById('azure-pat-input');
 let _patDialogResolve = null;
 
+function hidePATButton() {
+  const btn = document.getElementById('btn-azure-pat');
+  if (btn) btn.style.display = 'none';
+}
+
 export function showPatDialog() {
   return new Promise((resolve) => {
     _patDialogResolve = resolve;
@@ -22,11 +27,12 @@ document.getElementById('azure-pat-confirm-btn').addEventListener('click', () =>
   const pat = azurePatInput.value.trim();
   if (!pat) return;
   saveStoredPat(pat);
+  hidePATButton();
   hidePatDialog(pat);
 });
 document.getElementById('azure-pat-cancel-btn').addEventListener('click', () => hidePatDialog(null));
 azurePatInput.addEventListener('keydown', (e) => {
-  if (e.key === 'Enter') { const pat = azurePatInput.value.trim(); if (pat) { saveStoredPat(pat); hidePatDialog(pat); } }
+  if (e.key === 'Enter') { const pat = azurePatInput.value.trim(); if (pat) { saveStoredPat(pat); hidePATButton(); hidePatDialog(pat); } }
   if (e.key === 'Escape') hidePatDialog(null);
 });
 azurePatDialogOverlay.addEventListener('click', (e) => { if (e.target === azurePatDialogOverlay) hidePatDialog(null); });

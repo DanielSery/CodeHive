@@ -4,6 +4,8 @@ import { cycleWorkspace, registerTabButtonFns } from './workspace-manager.js';
 import { getActive } from './state.js';
 import { toggleTerminal, createTerminal, showTerminal, showCloseButton } from './terminal-panel.js';
 import { getState, saveDirectories, resetDirectories, STORAGE_KEY } from './storage.js';
+import { showPatDialog } from './dialogs/dialog-pat.js';
+import { loadStoredPat } from './dialogs/utils.js';
 
 // Wire cross-module dependencies (avoids circular imports)
 registerWorktreeDialog(showWorktreeDialog);
@@ -173,6 +175,12 @@ async function checkAndInstallAz() {
 }
 
 checkAndInstallAz();
+
+// ===== Azure PAT button =====
+
+const btnAzurePat = document.getElementById('btn-azure-pat');
+if (loadStoredPat()) btnAzurePat.style.display = 'none';
+btnAzurePat.addEventListener('click', showPatDialog);
 
 // ===== Restore on startup =====
 
