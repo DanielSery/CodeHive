@@ -808,6 +808,39 @@ html, body {
   color: #1e1e2e;
 }
 
+.workspace-tab-complete-pr {
+  display: none;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 2px 3px;
+  border-radius: 3px;
+  color: var(--green);
+  opacity: 0.85;
+  line-height: 0;
+}
+
+.workspace-tab-complete-pr:hover {
+  background: var(--green);
+  color: #1e1e2e;
+  opacity: 1;
+}
+
+.workspace-tab-complete-pr:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.workspace-tab .workspace-tab-create-pr.has-pr-comments {
+  opacity: 1;
+  color: var(--peach);
+}
+
+.workspace-tab .workspace-tab-create-pr.has-pr-comments:hover {
+  background: var(--peach);
+  color: #1e1e2e;
+}
+
 .workspace-tab .workspace-tab-create-pr.has-pr-succeeded {
   opacity: 1;
   color: var(--yellow);

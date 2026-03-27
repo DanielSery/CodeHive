@@ -12,6 +12,7 @@ const wtSwitchTaskDescRow = document.getElementById('wt-switch-task-desc-row');
 const wtSwitchTaskDesc = document.getElementById('wt-switch-task-desc');
 const wtSwitchTaskTypeRow = document.getElementById('wt-switch-task-type-row');
 const wtSwitchTaskType = document.getElementById('wt-switch-task-type');
+const wtSwitchChangeName = document.getElementById('wt-switch-change-name');
 const wtSwitchBranchSearch = document.getElementById('wt-switch-branch-search');
 const wtSwitchBranchList = document.getElementById('wt-switch-branch-list');
 const wtSwitchTargetSearch = document.getElementById('wt-switch-target-search');
@@ -32,6 +33,7 @@ let wtSwitchAzureContext = null;
 let wtSwitchTargetHighlightIndex = -1;
 let wtSwitchSelectedTarget = null;
 let wtSwitchFetchByIdTimer = null;
+let wtSwitchChangeNameEdited = false;
 
 // Injected by index.js
 let _createWorktreeTab = null;
@@ -51,20 +53,28 @@ function getTaskName() {
 
 function buildTargetFromTask(name) {
   if (!name) return '';
+  let result;
   if (wtSwitchSelectedTask) {
     const namePart = sanitizePathPart(name).trim().replace(/\s+/g, '-');
-    return `${userToPrefix(wtSwitchGitUser)}/${wtSwitchSelectedTask.id}-${namePart}`;
+    result = `${userToPrefix(wtSwitchGitUser)}/${wtSwitchSelectedTask.id}-${namePart}`;
+  } else {
+    result = nameToBranch(wtSwitchGitUser, name);
   }
-  return nameToBranch(wtSwitchGitUser, name);
+  return result.substring(0, 30).replace(/-+$/, '');
 }
 
 function updateTargetFromTask() {
-  const name = getTaskName();
+  const name = wtSwitchChangeName.value.trim() || getTaskName();
   if (!name) return;
   const target = buildTargetFromTask(name);
   wtSwitchTargetSearch.value = target;
   wtSwitchSelectedTarget = null;
   updateWtSwitchPreview();
+}
+
+function syncSwitchChangeNameFromTask() {
+  if (wtSwitchChangeNameEdited) return;
+  wtSwitchChangeName.value = getTaskName();
 }
 
 function getDirName() {
@@ -130,7 +140,11 @@ function selectWtSwitchTask(task) {
   wtSwitchTaskSearch.value = task ? `#${task.id} ${task.title}` : '';
   wtSwitchTaskList.classList.remove('open');
   wtSwitchTaskHighlightIndex = -1;
-  if (task) updateTargetFromTask();
+  if (task) {
+    wtSwitchChangeNameEdited = false;
+    wtSwitchChangeName.value = task.title;
+    updateTargetFromTask();
+  }
   updateSwitchNewTaskFields();
 }
 
@@ -279,6 +293,8 @@ export async function showWorktreeSwitchDialog(tabEl, groupEl) {
   wtSwitchTaskDesc.value = '';
   wtSwitchTaskTypeRow.style.display = 'none';
 
+  wtSwitchChangeName.value = '';
+  wtSwitchChangeNameEdited = false;
   wtSwitchDialogOverlay.classList.add('visible');
 
   const repoName = groupEl.dataset.repoName;
@@ -391,6 +407,7 @@ export async function confirmSwitchWorktree() {
 wtSwitchTaskSearch.addEventListener('input', () => {
   wtSwitchSelectedTask = null; wtSwitchTaskHighlightIndex = wtSwitchTaskSearch.value.trim() ? 0 : -1; renderSwitchTaskList(wtSwitchTaskSearch.value); updateSwitchNewTaskFields();
   const typed = wtSwitchTaskSearch.value.trim();
+  syncSwitchChangeNameFromTask();
   if (typed) updateTargetFromTask();
   clearTimeout(wtSwitchFetchByIdTimer);
   const idMatch = typed.match(/^#?(\d+)$/);
@@ -415,6 +432,7 @@ wtSwitchTaskSearch.addEventListener('blur', () => {
   }, 200);
 });
 
+document.querySelector('#wt-switch-task-combobox .combobox-arrow').addEventListener('mousedown', (e) => e.preventDefault());
 document.querySelector('#wt-switch-task-combobox .combobox-arrow').addEventListener('click', () => {
   if (wtSwitchTaskList.classList.contains('open')) { wtSwitchTaskList.classList.remove('open'); }
   else if (wtSwitchAllTasks.length > 0) { wtSwitchTaskSearch.value = ''; wtSwitchTaskHighlightIndex = -1; renderSwitchTaskList(''); wtSwitchTaskSearch.focus(); }
@@ -425,8 +443,17 @@ wtSwitchTaskSearch.addEventListener('keydown', (e) => {
   const filtered = getFilteredSwitchTasks();
   if (e.key === 'ArrowDown') { e.preventDefault(); wtSwitchTaskHighlightIndex = Math.min(wtSwitchTaskHighlightIndex + 1, filtered.length - 1); renderSwitchTaskList(wtSwitchTaskSearch.value); scrollHighlightedIntoView(wtSwitchTaskList); }
   else if (e.key === 'ArrowUp') { e.preventDefault(); wtSwitchTaskHighlightIndex = Math.max(wtSwitchTaskHighlightIndex - 1, 0); renderSwitchTaskList(wtSwitchTaskSearch.value); scrollHighlightedIntoView(wtSwitchTaskList); }
-  else if (e.key === 'Enter' && wtSwitchTaskHighlightIndex >= 0 && wtSwitchTaskHighlightIndex < filtered.length) { e.preventDefault(); selectWtSwitchTask(filtered[wtSwitchTaskHighlightIndex]); wtSwitchBranchSearch.focus(); }
+  else if (e.key === 'Enter' && wtSwitchTaskHighlightIndex >= 0 && wtSwitchTaskHighlightIndex < filtered.length) { e.preventDefault(); selectWtSwitchTask(filtered[wtSwitchTaskHighlightIndex]); wtSwitchChangeName.focus(); }
 });
+
+// --- Event listeners: Change name ---
+
+wtSwitchChangeName.addEventListener('focus', () => { wtSwitchChangeName.select(); });
+wtSwitchChangeName.addEventListener('input', () => {
+  wtSwitchChangeNameEdited = true;
+  updateTargetFromTask();
+});
+wtSwitchChangeName.addEventListener('keydown', (e) => { if (e.key === 'Escape') hideWorktreeSwitchDialog(); });
 
 // --- Event listeners: Task description ---
 
@@ -435,9 +462,10 @@ wtSwitchTaskDesc.addEventListener('keydown', (e) => { if (e.key === 'Escape') hi
 // --- Event listeners: Source branch ---
 
 wtSwitchBranchSearch.addEventListener('input', () => { wtSwitchSelectedBranch = null; wtSwitchHighlightIndex = wtSwitchBranchSearch.value.trim() ? 0 : -1; renderSwitchBranchList(wtSwitchBranchSearch.value); });
-wtSwitchBranchSearch.addEventListener('focus', () => { wtSwitchBranchSearch.value = ''; wtSwitchHighlightIndex = -1; renderSwitchBranchList(''); });
+wtSwitchBranchSearch.addEventListener('focus', () => { wtSwitchBranchSearch.select(); wtSwitchHighlightIndex = -1; renderSwitchBranchList(''); });
 wtSwitchBranchSearch.addEventListener('blur', () => { setTimeout(() => { wtSwitchBranchList.classList.remove('open'); if (wtSwitchSelectedBranch) wtSwitchBranchSearch.value = wtSwitchSelectedBranch; }, 200); });
 
+document.querySelector('#wt-switch-combobox .combobox-arrow').addEventListener('mousedown', (e) => e.preventDefault());
 document.querySelector('#wt-switch-combobox .combobox-arrow').addEventListener('click', () => {
   if (wtSwitchBranchList.classList.contains('open')) { wtSwitchBranchList.classList.remove('open'); }
   else { wtSwitchBranchSearch.value = ''; wtSwitchHighlightIndex = -1; renderSwitchBranchList(''); wtSwitchBranchSearch.focus(); }
@@ -455,7 +483,7 @@ wtSwitchBranchSearch.addEventListener('keydown', (e) => {
 // --- Event listeners: Target branch ---
 
 wtSwitchTargetSearch.addEventListener('input', () => { wtSwitchSelectedTarget = null; wtSwitchTargetHighlightIndex = wtSwitchTargetSearch.value.trim() ? 0 : -1; renderSwitchTargetList(wtSwitchTargetSearch.value); updateWtSwitchPreview(); });
-wtSwitchTargetSearch.addEventListener('focus', () => { wtSwitchTargetHighlightIndex = -1; renderSwitchTargetList(wtSwitchTargetSearch.value); });
+wtSwitchTargetSearch.addEventListener('focus', () => { wtSwitchTargetSearch.select(); wtSwitchTargetHighlightIndex = -1; renderSwitchTargetList(wtSwitchTargetSearch.value); });
 wtSwitchTargetSearch.addEventListener('blur', () => {
   setTimeout(() => {
     wtSwitchTargetList.classList.remove('open');
@@ -464,6 +492,7 @@ wtSwitchTargetSearch.addEventListener('blur', () => {
   }, 200);
 });
 
+document.querySelector('#wt-switch-target-combobox .combobox-arrow').addEventListener('mousedown', (e) => e.preventDefault());
 document.querySelector('#wt-switch-target-combobox .combobox-arrow').addEventListener('click', () => {
   if (wtSwitchTargetList.classList.contains('open')) { wtSwitchTargetList.classList.remove('open'); }
   else { wtSwitchTargetSearch.value = ''; wtSwitchTargetHighlightIndex = -1; renderSwitchTargetList(''); wtSwitchTargetSearch.focus(); }

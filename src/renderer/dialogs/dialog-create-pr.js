@@ -225,6 +225,7 @@ prBranchSearch.addEventListener('blur', () => {
   }, 200);
 });
 
+document.querySelector('#pr-branch-combobox .combobox-arrow').addEventListener('mousedown', (e) => e.preventDefault());
 document.querySelector('#pr-branch-combobox .combobox-arrow').addEventListener('click', () => {
   if (prBranchList.classList.contains('open')) {
     prBranchList.classList.remove('open');

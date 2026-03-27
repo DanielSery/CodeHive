@@ -4,12 +4,14 @@ import { getSourceBranch, getTaskId } from '../storage.js';
 import { rebuildCollapsedDots, collapsedDotsEl } from './collapsed-dots.js';
 import { showContextMenu } from './context-menu.js';
 import { _showWorktreeSwitchDialog, _showWorktreeRemoveDialog, _showCommitPushDialog, _showCreatePrDialog, _onStateChange } from './registers.js';
-import { parseAzureRemoteUrl, fetchPolicyEvaluations } from '../azure-api.js';
+import { parseAzureRemoteUrl, fetchPolicyEvaluations, fetchPrUnresolvedThreadCount, completePullRequest, updateWorkItemState } from '../azure-api.js';
 
 const BIN_ICON_SVG = '<svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2 4h12M5.3 4V2.7a1 1 0 011-1h3.4a1 1 0 011 1V4M6.5 7.3v4.4M9.5 7.3v4.4"/><path d="M3.5 4l.7 9.3a1 1 0 001 .9h5.6a1 1 0 001-.9L12.5 4"/></svg>';
 const SWITCH_ICON_SVG = '<svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M11 1l3 3-3 3"/><path d="M14 4H5"/><path d="M5 15l-3-3 3-3"/><path d="M2 12h9"/></svg>';
 const COMMIT_PUSH_ICON_SVG = '<svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M8 12V3"/><path d="M4 7l4-4 4 4"/><circle cx="8" cy="14" r="1.5"/></svg>';
 const PR_ICON_SVG = '<svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="4" cy="4" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="4" cy="12" r="2"/><path d="M4 6v4"/><path d="M12 10V6c0-1.1-.9-2-2-2H8"/><path d="M10 2L8 4l2 2"/></svg>';
+const COMPLETE_PR_ICON_SVG = '<svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="4" cy="4" r="2"/><circle cx="4" cy="12" r="2"/><path d="M4 6v4"/><path d="M9 8l2 2 3.5-3.5"/></svg>';
+const RESOLVE_TASK_ICON_SVG = '<svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="6"/><path d="M5.5 8l2 2 3-3"/></svg>';
 
 function formatBranchLabel(branch) {
   let name = branch.includes('/') ? branch.substring(branch.indexOf('/') + 1) : branch;
@@ -29,7 +31,11 @@ export async function checkExistingPr(tabEl) {
   if (!remoteUrl) return;
 
   const parsed = parseAzureRemoteUrl(remoteUrl);
-  if (!parsed) return;
+  const createPrBtnEarly = tabEl.querySelector('.workspace-tab-create-pr');
+  if (!parsed) {
+    if (createPrBtnEarly) createPrBtnEarly.style.display = 'none';
+    return;
+  }
 
   const pat = localStorage.getItem('codehive-azure-pat');
   if (!pat) return;
@@ -46,18 +52,29 @@ export async function checkExistingPr(tabEl) {
     data = await resp.json();
   } catch { return; }
 
-  if (!data.value || data.value.length === 0) return;
+  if (!data.value || data.value.length === 0) {
+    if (createPrBtnEarly) {
+      createPrBtnEarly.classList.remove('has-pr', 'has-pr-succeeded', 'has-pr-approved', 'has-pr-failed', 'has-pr-comments');
+      createPrBtnEarly.style.display = '';
+      createPrBtnEarly.title = 'Create Pull Request (Ctrl+Alt+M)';
+    }
+    return;
+  }
 
   const pr = data.value[0];
   const prUrl = `https://dev.azure.com/${encodeURIComponent(org)}/${encodeURIComponent(project)}/_git/${encodeURIComponent(pr.repository.name)}/pullrequest/${pr.pullRequestId}`;
   tabEl._existingPrUrl = prUrl;
+  tabEl._prData = { id: pr.pullRequestId, repoId: pr.repository.id, lastCommitId: pr.lastMergeSourceCommit?.commitId, org, project, auth };
 
   const createPrBtn = tabEl.querySelector('.workspace-tab-create-pr');
   if (!createPrBtn) return;
 
   let statusClass = 'has-pr';
 
-  const evaluations = await fetchPolicyEvaluations(org, project, auth, pr.repository.project.id, pr.pullRequestId);
+  const [evaluations, unresolvedCount] = await Promise.all([
+    fetchPolicyEvaluations(org, project, auth, pr.repository.project.id, pr.pullRequestId),
+    fetchPrUnresolvedThreadCount(org, project, auth, pr.repository.id, pr.pullRequestId),
+  ]);
   const reviewerRejected = (pr.reviewers || []).some(r => r.vote <= -10);
 
   if (evaluations.length > 0 || reviewerRejected) {
@@ -69,15 +86,31 @@ export async function checkExistingPr(tabEl) {
       const nonBuildEvals = evaluations.filter(e => !e.context?.buildId);
       const allBuildsApproved = buildEvals.length > 0 && buildEvals.every(e => e.status === 'approved');
       const allApproved = evaluations.every(e => e.status === 'approved');
-      if (allApproved) statusClass = 'has-pr-approved';
+      if (allApproved && unresolvedCount === 0) statusClass = 'has-pr-approved';
+      else if (unresolvedCount > 0) statusClass = 'has-pr-comments';
       else if (allBuildsApproved && nonBuildEvals.some(e => e.status === 'queued' || e.status === 'running')) statusClass = 'has-pr-succeeded';
     }
+  } else if (unresolvedCount > 0) {
+    statusClass = 'has-pr-comments';
   }
 
-  createPrBtn.classList.remove('has-pr', 'has-pr-succeeded', 'has-pr-approved', 'has-pr-failed');
+  createPrBtn.classList.remove('has-pr', 'has-pr-succeeded', 'has-pr-approved', 'has-pr-failed', 'has-pr-comments');
   createPrBtn.classList.add(statusClass);
   createPrBtn.style.display = '';
   createPrBtn.title = `View Pull Request #${pr.pullRequestId} (Ctrl+Alt+M)`;
+
+  const completePrBtn = tabEl.querySelector('.workspace-tab-complete-pr');
+  if (completePrBtn && tabEl._completePrState !== 'can-resolve') {
+    if (statusClass === 'has-pr-approved') {
+      completePrBtn.innerHTML = COMPLETE_PR_ICON_SVG;
+      completePrBtn.title = 'Complete Pull Request (merge + delete branch)';
+      completePrBtn.style.display = '';
+      tabEl._completePrState = 'can-complete';
+    } else {
+      completePrBtn.style.display = 'none';
+      tabEl._completePrState = null;
+    }
+  }
 }
 
 export function showTabCloseButton(tabEl) {
@@ -89,7 +122,7 @@ export function showTabCloseButton(tabEl) {
   if (switchBtn) switchBtn.style.display = 'none';
   if (removeBtn) removeBtn.style.display = 'none';
   if (commitPushBtn) commitPushBtn.style.display = '';
-  if (createPrBtn) createPrBtn.style.display = '';
+  if (createPrBtn) createPrBtn.style.display = 'none';
   if (closeBtn) closeBtn.style.display = '';
   checkExistingPr(tabEl);
 }
@@ -140,6 +173,7 @@ export function createWorktreeTab(wt) {
     <button class="workspace-tab-switch" title="Switch Worktree">${SWITCH_ICON_SVG}</button>
     <button class="workspace-tab-commit-push" title="Commit &amp; Push (Ctrl+Alt+P)" style="display:none">${COMMIT_PUSH_ICON_SVG}</button>
     <button class="workspace-tab-create-pr" title="Create Pull Request (Ctrl+Alt+M)" style="display:none">${PR_ICON_SVG}</button>
+    <button class="workspace-tab-complete-pr" title="Complete Pull Request" style="display:none">${COMPLETE_PR_ICON_SVG}</button>
     <button class="workspace-tab-close" title="Close (Ctrl+Alt+W)" style="display:none">&times;</button>
     <button class="workspace-tab-remove" title="Remove Worktree">${BIN_ICON_SVG}</button>
   `;
@@ -151,6 +185,8 @@ export function createWorktreeTab(wt) {
   tabEl._workspaceId = null;
   tabEl._pollTimer = null;
   tabEl._wasWorking = false;
+  tabEl._prData = null;
+  tabEl._completePrState = null;
 
   const dotEl = document.createElement('button');
   dotEl.className = 'collapsed-dot';
@@ -195,8 +231,38 @@ export function createWorktreeTab(wt) {
     }
   });
 
+  tabEl.querySelector('.workspace-tab-complete-pr').addEventListener('click', async (e) => {
+    e.stopPropagation();
+    const btn = tabEl.querySelector('.workspace-tab-complete-pr');
+    if (tabEl._completePrState === 'can-complete') {
+      const d = tabEl._prData;
+      if (!d) return;
+      btn.disabled = true;
+      const ok = await completePullRequest(d.org, d.project, d.auth, d.repoId, d.id, d.lastCommitId);
+      btn.disabled = false;
+      if (ok) {
+        tabEl._completePrState = 'can-resolve';
+        if (tabEl._wtTaskId) {
+          btn.innerHTML = RESOLVE_TASK_ICON_SVG;
+          btn.title = 'Resolve Azure Task';
+        } else {
+          btn.style.display = 'none';
+          tabEl._completePrState = null;
+        }
+      }
+    } else if (tabEl._completePrState === 'can-resolve') {
+      const d = tabEl._prData;
+      if (!d || !tabEl._wtTaskId) return;
+      btn.disabled = true;
+      const ctx = { org: d.org, project: d.project, auth: d.auth, apiBase: `https://dev.azure.com/${encodeURIComponent(d.org)}/${encodeURIComponent(d.project)}/_apis` };
+      await updateWorkItemState(ctx, tabEl._wtTaskId, 'Resolved');
+      btn.style.display = 'none';
+      tabEl._completePrState = null;
+    }
+  });
+
   tabEl.addEventListener('click', (e) => {
-    if (e.target.closest('.workspace-tab-close') || e.target.closest('.workspace-tab-switch') || e.target.closest('.workspace-tab-remove') || e.target.closest('.workspace-tab-commit-push') || e.target.closest('.workspace-tab-create-pr')) return;
+    if (e.target.closest('.workspace-tab-close') || e.target.closest('.workspace-tab-switch') || e.target.closest('.workspace-tab-remove') || e.target.closest('.workspace-tab-commit-push') || e.target.closest('.workspace-tab-create-pr') || e.target.closest('.workspace-tab-complete-pr')) return;
     openWorktree(tabEl, wt);
   });
 
@@ -263,8 +329,8 @@ export function createWorktreeTab(wt) {
 setInterval(() => {
   for (const tab of document.querySelectorAll('.workspace-tab')) {
     const btn = tab.querySelector('.workspace-tab-create-pr');
-    if (btn && (btn.classList.contains('has-pr') || btn.classList.contains('has-pr-succeeded') || btn.classList.contains('has-pr-approved') || btn.classList.contains('has-pr-failed'))) {
+    if (btn && (btn.classList.contains('has-pr') || btn.classList.contains('has-pr-succeeded') || btn.classList.contains('has-pr-approved') || btn.classList.contains('has-pr-failed') || btn.classList.contains('has-pr-comments'))) {
       checkExistingPr(tab);
     }
   }
-}, 5 * 60 * 1000);
+}, 60 * 1000);

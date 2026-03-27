@@ -24,6 +24,7 @@ const wtTaskDescRow = document.getElementById('wt-task-desc-row');
 const wtTaskDesc = document.getElementById('wt-task-desc');
 const wtTaskTypeRow = document.getElementById('wt-task-type-row');
 const wtTaskType = document.getElementById('wt-task-type');
+const wtChangeName = document.getElementById('wt-change-name');
 const wtBranchSearch = document.getElementById('wt-branch-search');
 const wtBranchList = document.getElementById('wt-branch-list');
 const wtTargetSearch = document.getElementById('wt-target-search');
@@ -44,6 +45,7 @@ let wtAzureContext = null;
 let wtTargetHighlightIndex = -1;
 let wtSelectedTarget = null;
 let wtFetchByIdTimer = null;
+let wtChangeNameEdited = false;
 
 // Injected by index.js
 let _createWorktreeTab = null;
@@ -63,20 +65,28 @@ function getTaskName() {
 
 function buildTargetFromTask(name) {
   if (!name) return '';
+  let result;
   if (wtSelectedTask) {
     const namePart = sanitizePathPart(name).trim().replace(/\s+/g, '-');
-    return `${userToPrefix(wtGitUser)}/${wtSelectedTask.id}-${namePart}`;
+    result = `${userToPrefix(wtGitUser)}/${wtSelectedTask.id}-${namePart}`;
+  } else {
+    result = nameToBranch(wtGitUser, name);
   }
-  return nameToBranch(wtGitUser, name);
+  return result.substring(0, 30).replace(/-+$/, '');
 }
 
 function updateTargetFromTask() {
-  const name = getTaskName();
+  const name = wtChangeName.value.trim() || getTaskName();
   if (!name) return;
   const target = buildTargetFromTask(name);
   wtTargetSearch.value = target;
   wtSelectedTarget = null;
   updateWtPreview();
+}
+
+function syncChangeNameFromTask() {
+  if (wtChangeNameEdited) return;
+  wtChangeName.value = getTaskName();
 }
 
 function getDirName() {
@@ -143,7 +153,11 @@ function selectWtTask(task) {
   wtTaskSearch.value = task ? `#${task.id} ${task.title}` : '';
   wtTaskList.classList.remove('open');
   wtTaskHighlightIndex = -1;
-  if (task) updateTargetFromTask();
+  if (task) {
+    wtChangeNameEdited = false;
+    wtChangeName.value = task.title;
+    updateTargetFromTask();
+  }
   updateNewTaskFields();
 }
 
@@ -287,6 +301,8 @@ export async function showWorktreeDialog(groupEl, tabsEl) {
   wtTaskDesc.value = '';
   wtTaskTypeRow.style.display = 'none';
 
+  wtChangeName.value = '';
+  wtChangeNameEdited = false;
   wtDialogOverlay.classList.add('visible');
 
   const repoName = groupEl.dataset.repoName;
@@ -395,6 +411,7 @@ export async function confirmCreateWorktree() {
 wtTaskSearch.addEventListener('input', () => {
   wtSelectedTask = null; wtTaskHighlightIndex = wtTaskSearch.value.trim() ? 0 : -1; renderTaskList(wtTaskSearch.value); updateNewTaskFields();
   const typed = wtTaskSearch.value.trim();
+  syncChangeNameFromTask();
   if (typed) updateTargetFromTask();
   // Fallback: if query looks like an ID and no matches found, fetch directly
   clearTimeout(wtFetchByIdTimer);
@@ -420,6 +437,7 @@ wtTaskSearch.addEventListener('blur', () => {
   }, 200);
 });
 
+document.querySelector('#wt-task-combobox .combobox-arrow').addEventListener('mousedown', (e) => e.preventDefault());
 document.querySelector('#wt-task-combobox .combobox-arrow').addEventListener('click', () => {
   if (wtTaskList.classList.contains('open')) { wtTaskList.classList.remove('open'); }
   else if (wtAllTasks.length > 0) { wtTaskSearch.value = ''; wtTaskHighlightIndex = -1; renderTaskList(''); wtTaskSearch.focus(); }
@@ -430,9 +448,18 @@ wtTaskSearch.addEventListener('keydown', (e) => {
   const filtered = getFilteredTasks();
   if (e.key === 'ArrowDown') { e.preventDefault(); wtTaskHighlightIndex = Math.min(wtTaskHighlightIndex + 1, filtered.length - 1); renderTaskList(wtTaskSearch.value); scrollHighlightedIntoView(wtTaskList); }
   else if (e.key === 'ArrowUp') { e.preventDefault(); wtTaskHighlightIndex = Math.max(wtTaskHighlightIndex - 1, 0); renderTaskList(wtTaskSearch.value); scrollHighlightedIntoView(wtTaskList); }
-  else if (e.key === 'Enter' && wtTaskHighlightIndex >= 0 && wtTaskHighlightIndex < filtered.length) { e.preventDefault(); selectWtTask(filtered[wtTaskHighlightIndex]); wtBranchSearch.focus(); }
+  else if (e.key === 'Enter' && wtTaskHighlightIndex >= 0 && wtTaskHighlightIndex < filtered.length) { e.preventDefault(); selectWtTask(filtered[wtTaskHighlightIndex]); wtChangeName.focus(); }
   else if (e.key === 'Tab' && !e.shiftKey) { /* natural tab to next field */ }
 });
+
+// --- Event listeners: Change name ---
+
+wtChangeName.addEventListener('focus', () => { wtChangeName.select(); });
+wtChangeName.addEventListener('input', () => {
+  wtChangeNameEdited = true;
+  updateTargetFromTask();
+});
+wtChangeName.addEventListener('keydown', (e) => { if (e.key === 'Escape') hideWorktreeDialog(); });
 
 // --- Event listeners: Task description ---
 
@@ -441,9 +468,10 @@ wtTaskDesc.addEventListener('keydown', (e) => { if (e.key === 'Escape') hideWork
 // --- Event listeners: Source branch ---
 
 wtBranchSearch.addEventListener('input', () => { wtSelectedBranch = null; wtHighlightIndex = wtBranchSearch.value.trim() ? 0 : -1; renderBranchList(wtBranchSearch.value); });
-wtBranchSearch.addEventListener('focus', () => { wtBranchSearch.value = ''; wtHighlightIndex = -1; renderBranchList(''); });
+wtBranchSearch.addEventListener('focus', () => { wtBranchSearch.select(); wtHighlightIndex = -1; renderBranchList(''); });
 wtBranchSearch.addEventListener('blur', () => { setTimeout(() => { wtBranchList.classList.remove('open'); if (wtSelectedBranch) wtBranchSearch.value = wtSelectedBranch; }, 200); });
 
+document.querySelector('#wt-source-combobox .combobox-arrow').addEventListener('mousedown', (e) => e.preventDefault());
 document.querySelector('#wt-source-combobox .combobox-arrow').addEventListener('click', () => {
   if (wtBranchList.classList.contains('open')) { wtBranchList.classList.remove('open'); }
   else { wtBranchSearch.value = ''; wtHighlightIndex = -1; renderBranchList(''); wtBranchSearch.focus(); }
@@ -461,7 +489,7 @@ wtBranchSearch.addEventListener('keydown', (e) => {
 // --- Event listeners: Target branch ---
 
 wtTargetSearch.addEventListener('input', () => { wtSelectedTarget = null; wtTargetHighlightIndex = wtTargetSearch.value.trim() ? 0 : -1; renderTargetList(wtTargetSearch.value); updateWtPreview(); });
-wtTargetSearch.addEventListener('focus', () => { wtTargetHighlightIndex = -1; renderTargetList(wtTargetSearch.value); });
+wtTargetSearch.addEventListener('focus', () => { wtTargetSearch.select(); wtTargetHighlightIndex = -1; renderTargetList(wtTargetSearch.value); });
 wtTargetSearch.addEventListener('blur', () => {
   setTimeout(() => {
     wtTargetList.classList.remove('open');
@@ -470,6 +498,7 @@ wtTargetSearch.addEventListener('blur', () => {
   }, 200);
 });
 
+document.querySelector('#wt-target-combobox .combobox-arrow').addEventListener('mousedown', (e) => e.preventDefault());
 document.querySelector('#wt-target-combobox .combobox-arrow').addEventListener('click', () => {
   if (wtTargetList.classList.contains('open')) { wtTargetList.classList.remove('open'); }
   else { wtTargetSearch.value = ''; wtTargetHighlightIndex = -1; renderTargetList(''); wtTargetSearch.focus(); }

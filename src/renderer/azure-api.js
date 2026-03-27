@@ -213,6 +213,42 @@ export async function fetchPolicyEvaluations(org, project, auth, projectId, prId
 }
 
 /**
+ * Complete a pull request (merge it) and delete the source branch.
+ */
+export async function completePullRequest(org, project, auth, repositoryId, prId, lastCommitId) {
+  const url = `https://dev.azure.com/${encodeURIComponent(org)}/${encodeURIComponent(project)}/_apis/git/repositories/${encodeURIComponent(repositoryId)}/pullRequests/${prId}?api-version=7.0`;
+  try {
+    const resp = await fetch(url, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', Authorization: `Basic ${auth}` },
+      body: JSON.stringify({
+        status: 'completed',
+        lastMergeSourceCommit: { commitId: lastCommitId },
+        completionOptions: { deleteSourceBranch: true }
+      })
+    });
+    return resp.ok;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Fetch PR threads and return the count of unresolved (active) ones.
+ */
+export async function fetchPrUnresolvedThreadCount(org, project, auth, repositoryId, prId) {
+  const url = `https://dev.azure.com/${encodeURIComponent(org)}/${encodeURIComponent(project)}/_apis/git/repositories/${encodeURIComponent(repositoryId)}/pullRequests/${prId}/threads?api-version=7.0`;
+  try {
+    const resp = await fetch(url, { headers: { Authorization: `Basic ${auth}` } });
+    if (!resp.ok) return 0;
+    const data = await resp.json();
+    return (data.value || []).filter(t => t.status === 'active').length;
+  } catch {
+    return 0;
+  }
+}
+
+/**
  * Check if there are any active (in-progress/not-started) builds for a PR.
  */
 export async function fetchActiveBuilds(org, project, auth, sourceRefName, prId) {
