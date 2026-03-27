@@ -15,6 +15,7 @@
   "claudeCode.preferredLocation": "sidebar",
   "explorer.autoReveal": true,
   "explorer.sortOrder": "type",
+  "workbench.quickInput.quickOpen.position": "center",
   "explorer.fileNesting.enabled": true,
   "explorer.fileNesting.expand": false,
   "workbench.statusBar.visible": false,
@@ -48,6 +49,5 @@
   "dotnet.codeLens.enableReferencesCodeLens": false,
   "dotnet.codeLens.enableTestsCodeLens": false,
   "quickInput.position": "center",
-  "window.quickOpen.position": "center",
   "security.workspace.trust.startupPrompt": "always",
 }

@@ -808,6 +808,16 @@ html, body {
   color: #1e1e2e;
 }
 
+.workspace-tab .workspace-tab-create-pr.has-pr-succeeded {
+  opacity: 1;
+  color: var(--yellow);
+}
+
+.workspace-tab .workspace-tab-create-pr.has-pr-succeeded:hover {
+  background: var(--yellow);
+  color: #1e1e2e;
+}
+
 .workspace-tab .workspace-tab-create-pr.has-pr-approved {
   opacity: 1;
   color: var(--green);

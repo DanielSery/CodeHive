@@ -4,7 +4,7 @@ import { getSourceBranch, getTaskId } from '../storage.js';
 import { rebuildCollapsedDots, collapsedDotsEl } from './collapsed-dots.js';
 import { showContextMenu } from './context-menu.js';
 import { _showWorktreeSwitchDialog, _showWorktreeRemoveDialog, _showCommitPushDialog, _showCreatePrDialog, _onStateChange } from './registers.js';
-import { parseAzureRemoteUrl, fetchPrStatuses, fetchActiveBuilds } from '../azure-api.js';
+import { parseAzureRemoteUrl, fetchPolicyEvaluations } from '../azure-api.js';
 
 const BIN_ICON_SVG = '<svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2 4h12M5.3 4V2.7a1 1 0 011-1h3.4a1 1 0 011 1V4M6.5 7.3v4.4M9.5 7.3v4.4"/><path d="M3.5 4l.7 9.3a1 1 0 001 .9h5.6a1 1 0 001-.9L12.5 4"/></svg>';
 const SWITCH_ICON_SVG = '<svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M11 1l3 3-3 3"/><path d="M14 4H5"/><path d="M5 15l-3-3 3-3"/><path d="M2 12h9"/></svg>';
@@ -57,25 +57,24 @@ export async function checkExistingPr(tabEl) {
 
   let statusClass = 'has-pr';
 
-  const latestVals = await fetchPrStatuses(org, project, auth, pr.repository.id, pr.pullRequestId);
-  const hasFailed = latestVals.some(s => s.state === 'failed' || s.state === 'error');
-  if (hasFailed) {
-    const maxFailedId = Math.max(...latestVals.filter(s => s.state === 'failed' || s.state === 'error').map(s => s.id));
-    const hasPendingNewer = latestVals.some(s => s.state === 'pending' && s.id > maxFailedId);
-    if (!hasPendingNewer) {
-      const hasActiveBuild = await fetchActiveBuilds(org, project, auth, pr.sourceRefName, pr.pullRequestId);
-      if (!hasActiveBuild) statusClass = 'has-pr-failed';
+  const evaluations = await fetchPolicyEvaluations(org, project, auth, pr.repository.project.id, pr.pullRequestId);
+  const reviewerRejected = (pr.reviewers || []).some(r => r.vote <= -10);
+
+  if (evaluations.length > 0 || reviewerRejected) {
+    const hasFailed = reviewerRejected || evaluations.some(e => e.status === 'rejected' || e.status === 'broken');
+    if (hasFailed) {
+      statusClass = 'has-pr-failed';
+    } else {
+      const buildEvals = evaluations.filter(e => e.context?.buildId);
+      const nonBuildEvals = evaluations.filter(e => !e.context?.buildId);
+      const allBuildsApproved = buildEvals.length > 0 && buildEvals.every(e => e.status === 'approved');
+      const allApproved = evaluations.every(e => e.status === 'approved');
+      if (allApproved) statusClass = 'has-pr-approved';
+      else if (allBuildsApproved && nonBuildEvals.some(e => e.status === 'queued' || e.status === 'running')) statusClass = 'has-pr-succeeded';
     }
   }
 
-  if (statusClass === 'has-pr') {
-    const reviewers = pr.reviewers || [];
-    const approved = reviewers.some(r => r.vote >= 10);
-    const rejected = reviewers.some(r => r.vote <= -10);
-    if (approved && !rejected) statusClass = 'has-pr-approved';
-  }
-
-  createPrBtn.classList.remove('has-pr', 'has-pr-approved', 'has-pr-failed');
+  createPrBtn.classList.remove('has-pr', 'has-pr-succeeded', 'has-pr-approved', 'has-pr-failed');
   createPrBtn.classList.add(statusClass);
   createPrBtn.style.display = '';
   createPrBtn.title = `View Pull Request #${pr.pullRequestId} (Ctrl+Alt+M)`;
@@ -264,7 +263,7 @@ export function createWorktreeTab(wt) {
 setInterval(() => {
   for (const tab of document.querySelectorAll('.workspace-tab')) {
     const btn = tab.querySelector('.workspace-tab-create-pr');
-    if (btn && (btn.classList.contains('has-pr') || btn.classList.contains('has-pr-approved') || btn.classList.contains('has-pr-failed'))) {
+    if (btn && (btn.classList.contains('has-pr') || btn.classList.contains('has-pr-succeeded') || btn.classList.contains('has-pr-approved') || btn.classList.contains('has-pr-failed'))) {
       checkExistingPr(tab);
     }
   }

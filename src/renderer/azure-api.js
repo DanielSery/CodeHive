@@ -187,6 +187,32 @@ export async function fetchPrStatuses(org, project, auth, repoId, prId) {
 }
 
 /**
+ * Fetch policy evaluations for a PR. Returns only blocking evaluations.
+ * Statuses: 'approved', 'rejected', 'broken', 'queued', 'running'
+ * Build policies have context.buildId; reviewer/comment/work-item policies do not.
+ */
+export async function fetchPolicyEvaluations(org, project, auth, projectId, prId) {
+  const artifactId = `vstfs:///CodeReview/CodeReviewId/${projectId}/${prId}`;
+  const url = `https://dev.azure.com/${encodeURIComponent(org)}/${encodeURIComponent(project)}/_apis/policy/evaluations?artifactId=${encodeURIComponent(artifactId)}&api-version=7.1-preview.1`;
+  console.log('[fetchPolicyEvaluations] projectId=%s prId=%s url=%s', projectId, prId, url);
+  try {
+    const resp = await fetch(url, { headers: { Authorization: `Basic ${auth}` } });
+    if (!resp.ok) {
+      console.warn('[fetchPolicyEvaluations] HTTP %d', resp.status, await resp.text().catch(() => ''));
+      return [];
+    }
+    const data = await resp.json();
+    const all = data.value || [];
+    const blocking = all.filter(e => e.configuration?.isBlocking);
+    console.log('[fetchPolicyEvaluations] total=%d blocking=%d', all.length, blocking.length, blocking.map(e => `${e.configuration?.type?.displayName}:${e.status}`));
+    return blocking;
+  } catch (err) {
+    console.warn('[fetchPolicyEvaluations] error:', err);
+    return [];
+  }
+}
+
+/**
  * Check if there are any active (in-progress/not-started) builds for a PR.
  */
 export async function fetchActiveBuilds(org, project, auth, sourceRefName, prId) {

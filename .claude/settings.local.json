@@ -1,0 +1,7 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(find /c/Repos/CodeHive/master -type f \\\\\\(-name *.css -o -name *.html \\\\\\))"
+    ]
+  }
+}

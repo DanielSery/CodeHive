@@ -2,6 +2,7 @@ import { setTabStatus } from './claude-poll.js';
 import { openWorktree, closeWorkspace } from './workspace-manager.js';
 import { getActive } from './state.js';
 import { getSourceBranch, getTaskId } from './storage.js';
+import { fetchPolicyEvaluations } from './azure-api.js';
 
 const BIN_ICON_SVG = '<svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2 4h12M5.3 4V2.7a1 1 0 011-1h3.4a1 1 0 011 1V4M6.5 7.3v4.4M9.5 7.3v4.4"/><path d="M3.5 4l.7 9.3a1 1 0 001 .9h5.6a1 1 0 001-.9L12.5 4"/></svg>';
 const SWITCH_ICON_SVG = '<svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M11 1l3 3-3 3"/><path d="M14 4H5"/><path d="M5 15l-3-3 3-3"/><path d="M2 12h9"/></svg>';
@@ -348,62 +349,27 @@ async function checkExistingPr(tabEl) {
   const createPrBtn = tabEl.querySelector('.workspace-tab-create-pr');
   if (!createPrBtn) return;
 
-  // Determine status class: failed > approved > default
+  // Determine status class: failed > approved > succeeded > default
   let statusClass = 'has-pr';
 
-  // Check pipeline statuses
-  const statusesUrl = `https://dev.azure.com/${encodeURIComponent(org)}/${encodeURIComponent(project)}/_apis/git/repositories/${encodeURIComponent(pr.repository.id)}/pullRequests/${pr.pullRequestId}/statuses?api-version=7.0`;
-  try {
-    const sResp = await fetch(statusesUrl, { headers: { Authorization: `Basic ${auth}` } });
-    if (sResp.ok) {
-      const sData = await sResp.json();
-      const statuses = sData.value || [];
-      // Deduplicate: keep latest status per context key
-      const latest = {};
-      for (const s of statuses) {
-        const key = `${s.context?.genre}/${s.context?.name}`;
-        if (!latest[key] || s.id > latest[key].id) latest[key] = s;
-      }
-      const latestVals = Object.values(latest);
-      const hasFailed = latestVals.some(s => s.state === 'failed' || s.state === 'error');
-      if (hasFailed) {
-        const maxFailedId = Math.max(...latestVals.filter(s => s.state === 'failed' || s.state === 'error').map(s => s.id));
-        const hasPendingNewer = latestVals.some(s => s.state === 'pending' && s.id > maxFailedId);
-        if (!hasPendingNewer) {
-          // Also check Builds API — a manually re-triggered build won't post a pending PR status.
-          // PR-triggered builds run on refs/pull/<id>/merge, not on the source branch ref.
-          let hasActiveBuild = false;
-          try {
-            const prMergeRef = `refs/pull/${pr.pullRequestId}/merge`;
-            const [bResp1, bResp2] = await Promise.all([
-              fetch(`https://dev.azure.com/${encodeURIComponent(org)}/${encodeURIComponent(project)}/_apis/build/builds?branchName=${encodeURIComponent(pr.sourceRefName)}&$top=5&api-version=7.0`, { headers: { Authorization: `Basic ${auth}` } }),
-              fetch(`https://dev.azure.com/${encodeURIComponent(org)}/${encodeURIComponent(project)}/_apis/build/builds?branchName=${encodeURIComponent(prMergeRef)}&$top=5&api-version=7.0`, { headers: { Authorization: `Basic ${auth}` } })
-            ]);
-            const isActive = b => b.status === 'inProgress' || b.status === 'notStarted';
-            if (bResp1.ok) {
-              const bData = await bResp1.json();
-              hasActiveBuild = (bData.value || []).some(isActive);
-            }
-            if (!hasActiveBuild && bResp2.ok) {
-              const bData = await bResp2.json();
-              hasActiveBuild = (bData.value || []).some(isActive);
-            }
-          } catch { /* ignore */ }
-          if (!hasActiveBuild) statusClass = 'has-pr-failed';
-        }
-      }
-    }
-  } catch { /* ignore */ }
+  const evaluations = await fetchPolicyEvaluations(org, project, auth, pr.repository.project.id, pr.pullRequestId);
+  const reviewerRejected = (pr.reviewers || []).some(r => r.vote <= -10);
 
-  // Check reviewer approval (only if pipeline not failed)
-  if (statusClass === 'has-pr') {
-    const reviewers = pr.reviewers || [];
-    const approved = reviewers.some(r => r.vote >= 10);
-    const rejected = reviewers.some(r => r.vote <= -10);
-    if (approved && !rejected) statusClass = 'has-pr-approved';
+  if (evaluations.length > 0 || reviewerRejected) {
+    const hasFailed = reviewerRejected || evaluations.some(e => e.status === 'rejected' || e.status === 'broken');
+    if (hasFailed) {
+      statusClass = 'has-pr-failed';
+    } else {
+      const buildEvals = evaluations.filter(e => e.context?.buildId);
+      const nonBuildEvals = evaluations.filter(e => !e.context?.buildId);
+      const allBuildsApproved = buildEvals.length > 0 && buildEvals.every(e => e.status === 'approved');
+      const allApproved = evaluations.every(e => e.status === 'approved');
+      if (allApproved) statusClass = 'has-pr-approved';
+      else if (allBuildsApproved && nonBuildEvals.some(e => e.status === 'queued' || e.status === 'running')) statusClass = 'has-pr-succeeded';
+    }
   }
 
-  createPrBtn.classList.remove('has-pr', 'has-pr-approved', 'has-pr-failed');
+  createPrBtn.classList.remove('has-pr', 'has-pr-succeeded', 'has-pr-approved', 'has-pr-failed');
   createPrBtn.classList.add(statusClass);
   createPrBtn.style.display = '';
   createPrBtn.title = `View Pull Request #${pr.pullRequestId} (Ctrl+Alt+M)`;
@@ -919,7 +885,7 @@ window.addEventListener('blur', () => {
 setInterval(() => {
   for (const tab of document.querySelectorAll('.workspace-tab')) {
     const btn = tab.querySelector('.workspace-tab-create-pr');
-    if (btn && (btn.classList.contains('has-pr') || btn.classList.contains('has-pr-approved') || btn.classList.contains('has-pr-failed'))) {
+    if (btn && (btn.classList.contains('has-pr') || btn.classList.contains('has-pr-succeeded') || btn.classList.contains('has-pr-approved') || btn.classList.contains('has-pr-failed'))) {
       checkExistingPr(tab);
     }
   }

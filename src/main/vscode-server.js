@@ -116,6 +116,23 @@ function findCodeCmd() {
       const result = execSync('where code.cmd', { encoding: 'utf8', shell: true }).split('\n')[0].trim();
       if (result) return result;
     } catch {}
+    // Check user installation path (VS Code user installer on Windows)
+    const userInstallPath = path.join(process.env.LOCALAPPDATA || '', 'Programs', 'Microsoft VS Code', 'bin', 'code.cmd');
+    if (fs.existsSync(userInstallPath)) return userInstallPath;
+  } else {
+    try {
+      const result = execSync('which code', { encoding: 'utf8', shell: true }).trim();
+      if (result) return result;
+    } catch {}
+    // Check common user installation paths on macOS/Linux
+    const userPaths = [
+      path.join(os.homedir(), 'Applications', 'Visual Studio Code.app', 'Contents', 'Resources', 'app', 'bin', 'code'),
+      '/usr/local/bin/code',
+      '/snap/bin/code',
+    ];
+    for (const p of userPaths) {
+      if (fs.existsSync(p)) return p;
+    }
   }
   return isWin ? 'code.cmd' : 'code';
 }
@@ -125,9 +142,19 @@ function isVSCodeInstalled() {
   try {
     execSync(isWin ? 'where code.cmd' : 'which code', { encoding: 'utf8', shell: true, stdio: 'pipe' });
     return true;
-  } catch {
-    return false;
+  } catch {}
+  if (isWin) {
+    const userInstallPath = path.join(process.env.LOCALAPPDATA || '', 'Programs', 'Microsoft VS Code', 'bin', 'code.cmd');
+    if (fs.existsSync(userInstallPath)) return true;
+  } else {
+    const userPaths = [
+      path.join(os.homedir(), 'Applications', 'Visual Studio Code.app', 'Contents', 'Resources', 'app', 'bin', 'code'),
+      '/usr/local/bin/code',
+      '/snap/bin/code',
+    ];
+    if (userPaths.some(p => fs.existsSync(p))) return true;
   }
+  return false;
 }
 
 function installExtensions(sendStatus) {
