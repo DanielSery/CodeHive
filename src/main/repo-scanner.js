@@ -255,4 +255,17 @@ function gitDiffStat(wtPath) {
   return result;
 }
 
-module.exports = { scanDirectory, checkClaudeActive, getCachedBranches, fetchAndListBranches, getGitUser, getRemoteUrl, getLaunchConfigs, gitDiffStat };
+function getFirstBranchCommit(wtPath, sourceBranch) {
+  try {
+    const out = execSync(`git log --format=%s --reverse origin/${sourceBranch}..HEAD`, {
+      cwd: wtPath,
+      encoding: 'utf8',
+      timeout: 5000
+    });
+    return out.trim().split('\n')[0].trim() || null;
+  } catch {
+    return null;
+  }
+}
+
+module.exports = { scanDirectory, checkClaudeActive, getCachedBranches, fetchAndListBranches, getGitUser, getRemoteUrl, getLaunchConfigs, gitDiffStat, getFirstBranchCommit };

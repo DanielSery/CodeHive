@@ -1,7 +1,7 @@
 const { ipcMain, dialog, shell } = require('electron');
 const { exec, spawn } = require('child_process');
 const vscode = require('./vscode-server');
-const { scanDirectory, checkClaudeActive, getCachedBranches, fetchAndListBranches, getGitUser, getRemoteUrl, getLaunchConfigs, gitDiffStat } = require('./repo-scanner');
+const { scanDirectory, checkClaudeActive, getCachedBranches, fetchAndListBranches, getGitUser, getRemoteUrl, getLaunchConfigs, gitDiffStat, getFirstBranchCommit } = require('./repo-scanner');
 const { createWorktreePty, createClonePty, createDeletePty, createWorktreeRemovePty, createWorktreeSwitchPty, createCommitPushPty, createPrCreatePty } = require('./pty-manager');
 
 let worktreePty = null;
@@ -55,6 +55,10 @@ function register(mainWindow, getServerPort) {
 
   ipcMain.handle('repos:gitDiffStat', (event, wtPath) => {
     return gitDiffStat(wtPath);
+  });
+
+  ipcMain.handle('repos:firstBranchCommit', (event, { wtPath, sourceBranch }) => {
+    return getFirstBranchCommit(wtPath, sourceBranch);
   });
 
 
@@ -134,10 +138,16 @@ function register(mainWindow, getServerPort) {
   ipcMain.handle('claude:run', (event, prompt) => {
     return new Promise((resolve) => {
       let output = '';
-      const child = spawn('claude', ['-p', '-'], { shell: true, timeout: 30000 });
+      const start = Date.now();
+      const child = spawn('claude', ['-p', '--model', 'claude-haiku-4-5', '-'], { shell: true, timeout: 30000 });
+      let stderr = '';
       child.stdout.on('data', (d) => { output += d.toString(); });
-      child.on('close', () => resolve(output.trim()));
-      child.on('error', () => resolve(''));
+      child.stderr.on('data', (d) => { stderr += d.toString(); });
+      child.on('close', (code) => {
+        console.log(`[Claude] response time: ${Date.now() - start}ms, exit: ${code}, stderr: ${stderr.trim()}, response: ${output.trim()}`);
+        resolve(output.trim());
+      });
+      child.on('error', (e) => { console.log('[Claude] spawn error:', e); resolve(''); });
       child.stdin.write(prompt);
       child.stdin.end();
     });

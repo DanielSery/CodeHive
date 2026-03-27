@@ -1002,7 +1002,7 @@ html, body {
   border: 1px solid var(--border);
   border-radius: 4px;
   background: var(--bg);
-  max-height: 140px;
+  max-height: 180px;
   overflow-y: auto;
   margin-bottom: 12px;
   font-size: 11px;
@@ -1021,6 +1021,15 @@ html, body {
   padding: 3px 10px;
   gap: 8px;
   border-bottom: 1px solid var(--border);
+  cursor: pointer;
+}
+
+.commit-file-checkbox {
+  flex-shrink: 0;
+  width: 13px;
+  height: 13px;
+  accent-color: var(--accent, #0078d4);
+  cursor: pointer;
 }
 
 .commit-file-row:last-child {
@@ -1045,6 +1054,34 @@ html, body {
 .commit-file-added { color: var(--green); }
 .commit-file-removed { color: var(--red); }
 .commit-file-new { color: var(--text-muted); font-style: italic; }
+
+.commit-tree-folder {
+  display: flex;
+  align-items: center;
+  padding: 3px 10px 3px 4px;
+  gap: 6px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-secondary, var(--bg));
+}
+
+.commit-tree-arrow {
+  flex-shrink: 0;
+  width: 10px;
+  color: var(--text-muted);
+  cursor: pointer;
+  user-select: none;
+  font-size: 10px;
+}
+
+.commit-tree-folder-name {
+  flex: 1;
+  color: var(--text-muted);
+  cursor: pointer;
+  user-select: none;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 
 .dialog-buttons {
   display: flex;
@@ -1158,6 +1195,11 @@ html, body {
 
 .combobox-list.open {
   display: block;
+}
+
+#wt-task-list,
+#wt-switch-task-list {
+  max-height: 340px;
 }
 
 .combobox-item {

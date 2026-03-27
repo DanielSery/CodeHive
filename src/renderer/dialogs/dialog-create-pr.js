@@ -15,6 +15,7 @@ let prSelectedBranch = null;
 let prHighlightIndex = -1;
 let _prTabEl = null;
 let _prGroupEl = null;
+let _prAutoTitle = null;
 
 function getPrFilteredBranches() {
   const q = (prBranchSearch.value || '').toLowerCase();
@@ -73,6 +74,7 @@ export async function showCreatePrDialog(tabEl, groupEl) {
   _prGroupEl = groupEl;
   prSelectedBranch = null;
   prAllBranches = [];
+  _prAutoTitle = null;
   prBranchSearch.value = '';
   prBranchSearch.placeholder = 'Fetching branches...';
   prBranchSearch.disabled = true;
@@ -82,6 +84,16 @@ export async function showCreatePrDialog(tabEl, groupEl) {
   prBranchList.classList.remove('open');
 
   createPrDialogOverlay.classList.add('visible');
+
+  const sourceBranch = tabEl._wtSourceBranch;
+  if (sourceBranch) {
+    window.reposAPI.firstBranchCommit(tabEl._wtPath, sourceBranch).then(msg => {
+      if (msg && !prTitleInput.value && createPrDialogOverlay.classList.contains('visible') && _prTabEl === tabEl) {
+        prTitleInput.value = msg;
+        _prAutoTitle = msg;
+      }
+    });
+  }
 
   const taskId = tabEl._wtTaskId;
   if (taskId) {
@@ -93,8 +105,11 @@ export async function showCreatePrDialog(tabEl, groupEl) {
         if (parsed && pat) {
           const ctx = buildAzureContext(parsed, pat);
           const taskTitle = await fetchWorkItemTitle(ctx, taskId);
-          if (taskTitle && !prTitleInput.value) {
-            prTitleInput.value = `#${taskId}: ${taskTitle}`;
+          if (taskTitle && createPrDialogOverlay.classList.contains('visible') && _prTabEl === tabEl) {
+            if (!prTitleInput.value || prTitleInput.value === _prAutoTitle) {
+              prTitleInput.value = `#${taskId}: ${taskTitle}`;
+              _prAutoTitle = prTitleInput.value;
+            }
           }
         }
       } catch {}
@@ -140,6 +155,7 @@ function hideCreatePrDialog() {
   prBranchList.classList.remove('open');
   _prTabEl = null;
   _prGroupEl = null;
+  _prAutoTitle = null;
 }
 
 async function confirmCreatePr() {

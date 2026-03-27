@@ -137,7 +137,7 @@ function buildWorktreeRemoveScript(barePath, wtPath) {
   return { cmd, cwd: barePath, scriptPath };
 }
 
-function buildCommitPushScript(wtPath, { title, description, branch }) {
+function buildCommitPushScript(wtPath, { title, description, branch, files }) {
   const isWin = process.platform === 'win32';
   const scriptExt = isWin ? '.cmd' : '.sh';
   const scriptPath = path.join(os.tmpdir(), `codehive-commit-push-${Date.now()}${scriptExt}`);
@@ -148,8 +148,8 @@ function buildCommitPushScript(wtPath, { title, description, branch }) {
   const lines = [];
   if (isWin) {
     lines.push('@echo off');
-    lines.push('echo Staging all changes...');
-    lines.push('git add -A');
+    lines.push('echo Staging selected files...');
+    for (const f of files) lines.push(`git add -- "${f.replace(/"/g, '""')}"`);
     lines.push('echo.');
     lines.push('echo Creating commit...');
     lines.push(`git commit -m "${escapedMsg}"`);
@@ -171,8 +171,8 @@ function buildCommitPushScript(wtPath, { title, description, branch }) {
   } else {
     lines.push('#!/bin/sh');
     lines.push('set -e');
-    lines.push('echo "Staging all changes..."');
-    lines.push('git add -A');
+    lines.push('echo "Staging selected files..."');
+    for (const f of files) lines.push(`git add -- "${f.replace(/"/g, '\\"')}"`);
     lines.push('echo ""');
     lines.push('echo "Creating commit..."');
     lines.push(`git commit -m "${escapedMsg}"`);

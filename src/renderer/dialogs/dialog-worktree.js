@@ -1,13 +1,22 @@
 import { openWorktree } from '../workspace-manager.js';
 import { createTerminal, showTerminal, showCloseButton, setTitle, closeTerminal } from '../terminal-panel.js';
 import { getCachedBranchesFromState, saveBranchCache, saveSourceBranch, saveTaskId } from '../storage.js';
-import { fetchAzureTasks, fetchAzureFeatures, createAzureWorkItem, buildAzureTaskUrl, fetchWorkItemById, updateWorkItemState } from '../azure-api.js';
-import { inferWorkItemType, sanitizePathPart, userToPrefix, nameToBranch, loadStoredPat, fuzzyMatch, fuzzyScore, getCachedFeatures, saveFeatureCache, getCachedTasks, saveTaskCache } from './utils.js';
+import { fetchAzureTasks, createAzureWorkItem, buildAzureTaskUrl, fetchWorkItemById, updateWorkItemState } from '../azure-api.js';
+import { inferWorkItemType, sanitizePathPart, userToPrefix, nameToBranch, loadStoredPat, fuzzyMatch, fuzzyScore, getCachedTasks, saveTaskCache } from './utils.js';
 
 const wtDialogOverlay = document.getElementById('worktree-dialog-overlay');
 
 export function stripHtml(html) {
-  return html.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+  return html
+    .replace(/<[^>]*>/g, ' ')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&quot;/g, '"')
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&#\d+;/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
 }
 const wtTaskSearch = document.getElementById('wt-task-search');
 const wtTaskList = document.getElementById('wt-task-list');
@@ -15,9 +24,6 @@ const wtTaskDescRow = document.getElementById('wt-task-desc-row');
 const wtTaskDesc = document.getElementById('wt-task-desc');
 const wtTaskTypeRow = document.getElementById('wt-task-type-row');
 const wtTaskType = document.getElementById('wt-task-type');
-const wtFeatureRow = document.getElementById('wt-feature-row');
-const wtFeatureSearch = document.getElementById('wt-feature-search');
-const wtFeatureList = document.getElementById('wt-feature-list');
 const wtBranchSearch = document.getElementById('wt-branch-search');
 const wtBranchList = document.getElementById('wt-branch-list');
 const wtTargetSearch = document.getElementById('wt-target-search');
@@ -34,9 +40,6 @@ let wtAllTasks = [];
 let wtSelectedTask = null;
 let wtTaskHighlightIndex = -1;
 let wtAzureContext = null;
-let wtAllFeatures = [];
-let wtSelectedFeature = null;
-let wtFeatureHighlightIndex = -1;
 let wtTargetHighlightIndex = -1;
 let wtSelectedTarget = null;
 let wtFetchByIdTimer = null;
@@ -130,7 +133,6 @@ function updateNewTaskFields() {
   const isNewTask = !wtSelectedTask && wtTaskSearch.value.trim().length > 0;
   wtTaskDescRow.style.display = isNewTask ? '' : 'none';
   wtTaskTypeRow.style.display = isNewTask ? '' : 'none';
-  wtFeatureRow.style.display = isNewTask ? '' : 'none';
   if (isNewTask) wtTaskType.value = inferWorkItemType(wtTaskSearch.value.trim());
 }
 
@@ -151,23 +153,13 @@ function applyWtTasks(tasks, azureContext, focusTaskSearch) {
   focusTaskSearch();
 }
 
-function applyWtFeatures(features) {
-  wtAllFeatures = features;
-  wtFeatureSearch.placeholder = features.length === 0 ? 'No features found' : 'Search features...';
-  wtFeatureSearch.disabled = features.length === 0;
-}
-
 async function fetchTasksForDialog(barePath) {
   const focusTaskSearch = () => { if (wtDialogOverlay.classList.contains('visible')) wtTaskSearch.focus(); };
   const pat = loadStoredPat();
 
   // Apply caches immediately
   const cached = getCachedTasks(barePath);
-  if (cached) {
-    applyWtTasks(cached.tasks, cached.azureContext, focusTaskSearch);
-    const cachedFeatures = getCachedFeatures(barePath);
-    if (cachedFeatures) applyWtFeatures(cachedFeatures);
-  }
+  if (cached) applyWtTasks(cached.tasks, cached.azureContext, focusTaskSearch);
 
   // Always refresh in background
   const result = await fetchAzureTasks(barePath, pat);
@@ -176,96 +168,6 @@ async function fetchTasksForDialog(barePath) {
   if (result.error) { if (!cached) { wtTaskSearch.placeholder = 'Could not load tasks'; wtTaskSearch.disabled = false; focusTaskSearch(); } return; }
   saveTaskCache(barePath, { tasks: result.tasks, azureContext: result.azureContext });
   applyWtTasks(result.tasks, result.azureContext, focusTaskSearch);
-
-  fetchAzureFeatures(wtAzureContext).then(features => {
-    saveFeatureCache(barePath, features);
-    applyWtFeatures(features);
-  });
-}
-
-// --- Feature combobox ---
-
-function getFilteredFeatures() {
-  const q = (wtFeatureSearch.value || '').toLowerCase();
-  return wtAllFeatures.filter(f => fuzzyMatch(`#${f.id} ${f.title}`, q)).sort((a, b) => fuzzyScore(`#${b.id} ${b.title}`, q) - fuzzyScore(`#${a.id} ${a.title}`, q));
-}
-
-function renderFeatureList(filter) {
-  wtFeatureList.innerHTML = '';
-  const q = (filter || '').toLowerCase();
-  const filtered = wtAllFeatures.filter(f => fuzzyMatch(`#${f.id} ${f.title}`, q)).sort((a, b) => fuzzyScore(`#${b.id} ${b.title}`, q) - fuzzyScore(`#${a.id} ${a.title}`, q));
-  if (filtered.length === 0) { wtFeatureList.classList.remove('open'); wtFeatureHighlightIndex = -1; return; }
-  filtered.forEach((f, i) => {
-    const item = document.createElement('div');
-    item.className = 'combobox-item';
-    if (wtSelectedFeature && f.id === wtSelectedFeature.id) item.classList.add('selected');
-    if (i === wtFeatureHighlightIndex) item.classList.add('highlighted');
-    const titleLine = document.createElement('div');
-    titleLine.textContent = `#${f.id} ${f.title}`;
-    item.appendChild(titleLine);
-    if (f.description) {
-      const desc = stripHtml(f.description).substring(0, 300);
-      if (desc) {
-        const descLine = document.createElement('div');
-        descLine.className = 'combobox-item-desc';
-        descLine.textContent = desc;
-        item.appendChild(descLine);
-      }
-    }
-    item.addEventListener('mousedown', (e) => { e.preventDefault(); selectWtFeature(f); });
-    wtFeatureList.appendChild(item);
-  });
-  wtFeatureList.classList.add('open');
-}
-
-function selectWtFeature(f) {
-  wtSelectedFeature = f;
-  wtFeatureSearch.value = f ? `#${f.id} ${f.title}` : '';
-  wtFeatureList.classList.remove('open');
-  wtFeatureHighlightIndex = -1;
-}
-
-async function suggestFeatures() {
-  if (wtAllFeatures.length === 0) return;
-  const taskName = wtTaskSearch.value.trim();
-  const taskDesc = wtTaskDesc.value.trim();
-  if (!taskName) return;
-
-  const featureListStr = wtAllFeatures.map(f => {
-    const desc = f.description ? stripHtml(f.description).substring(0, 300) : '';
-    return desc ? `${f.id}: ${f.title}\n  ${desc}` : `${f.id}: ${f.title}`;
-  }).join('\n');
-  const prompt = `Given these Azure DevOps features:\n${featureListStr}\n\nWhich top 5 features best match this task?\nTask name: ${taskName}\nTask description: ${taskDesc || '(none)'}\n\nReturn ONLY a comma-separated list of feature IDs (numbers only), best match first. No explanation.`;
-
-  try {
-    const response = await window.claudeAPI.run(prompt);
-    const ids = response.match(/\d+/g);
-    if (!ids || ids.length === 0) return;
-
-    const topIds = ids.slice(0, 5).map(Number);
-    // Reorder: top matches first, then the rest
-    const topFeatures = [];
-    const restFeatures = [];
-    for (const f of wtAllFeatures) {
-      if (topIds.includes(f.id)) topFeatures.push(f);
-      else restFeatures.push(f);
-    }
-    // Sort top features by their position in the AI response
-    topFeatures.sort((a, b) => topIds.indexOf(a.id) - topIds.indexOf(b.id));
-    wtAllFeatures = [...topFeatures, ...restFeatures];
-
-    // Pre-select the best match, but don't close the list if user is actively browsing
-    if (topFeatures.length > 0) {
-      if (wtFeatureList.classList.contains('open')) {
-        wtSelectedFeature = topFeatures[0];
-        renderFeatureList(wtFeatureSearch.value);
-      } else {
-        selectWtFeature(topFeatures[0]);
-      }
-    }
-  } catch {
-    // Claude CLI not available, features remain in default order
-  }
 }
 
 // --- Source branch combobox ---
@@ -371,14 +273,6 @@ export async function showWorktreeDialog(groupEl, tabsEl) {
   wtTaskDescRow.style.display = 'none';
   wtTaskDesc.value = '';
   wtTaskTypeRow.style.display = 'none';
-  wtFeatureRow.style.display = 'none';
-  wtAllFeatures = [];
-  wtSelectedFeature = null;
-  wtFeatureSearch.value = '';
-  wtFeatureSearch.placeholder = 'Loading features...';
-  wtFeatureSearch.disabled = true;
-  wtFeatureList.innerHTML = '';
-  wtFeatureList.classList.remove('open');
 
   wtDialogOverlay.classList.add('visible');
 
@@ -410,11 +304,9 @@ export function hideWorktreeDialog() {
   wtDialogOverlay.classList.remove('visible');
   wtBranchList.classList.remove('open');
   wtTaskList.classList.remove('open');
-  wtFeatureList.classList.remove('open');
   wtTargetList.classList.remove('open');
   wtTaskDescRow.style.display = 'none';
   wtTaskTypeRow.style.display = 'none';
-  wtFeatureRow.style.display = 'none';
   wtTaskDesc.value = '';
 }
 
@@ -428,9 +320,8 @@ export async function confirmCreateWorktree() {
     const taskTitle = wtTaskSearch.value.trim();
     const taskDescription = wtTaskDesc.value.trim();
     const workItemType = wtTaskType.value || 'Story';
-    const parentId = wtSelectedFeature ? wtSelectedFeature.id : null;
     try {
-      wtSelectedTask = await createAzureWorkItem(wtAzureContext, workItemType, taskTitle, taskDescription, parentId);
+      wtSelectedTask = await createAzureWorkItem(wtAzureContext, workItemType, taskTitle, taskDescription, null);
       window.shellAPI.openExternal(buildAzureTaskUrl(wtAzureContext, wtSelectedTask.id));
     } catch (err) { alert(`Failed to create task: ${err.message}`); return; }
   }
@@ -513,9 +404,6 @@ wtTaskSearch.addEventListener('blur', () => {
     wtTaskList.classList.remove('open');
     if (wtSelectedTask) { wtTaskSearch.value = `#${wtSelectedTask.id} ${wtSelectedTask.title}`; }
     updateNewTaskFields();
-    // Trigger feature suggestion when leaving task field with a new task name
-    const isNewTask = !wtSelectedTask && wtTaskSearch.value.trim().length > 0;
-    if (isNewTask && wtAllFeatures.length > 0) suggestFeatures();
   }, 200);
 });
 
@@ -535,39 +423,7 @@ wtTaskSearch.addEventListener('keydown', (e) => {
 
 // --- Event listeners: Task description ---
 
-wtTaskDesc.addEventListener('blur', () => {
-  // Re-trigger feature suggestion when description changes
-  setTimeout(() => {
-    const isNewTask = !wtSelectedTask && wtTaskSearch.value.trim().length > 0;
-    if (isNewTask && wtAllFeatures.length > 0) suggestFeatures();
-  }, 200);
-});
 wtTaskDesc.addEventListener('keydown', (e) => { if (e.key === 'Escape') hideWorktreeDialog(); });
-
-// --- Event listeners: Feature ---
-
-wtFeatureSearch.addEventListener('input', () => { wtSelectedFeature = null; wtFeatureHighlightIndex = wtFeatureSearch.value.trim() ? 0 : -1; renderFeatureList(wtFeatureSearch.value); });
-wtFeatureSearch.addEventListener('focus', () => { if (wtAllFeatures.length > 0) { wtFeatureSearch.value = ''; wtFeatureHighlightIndex = -1; renderFeatureList(''); } });
-wtFeatureSearch.addEventListener('blur', () => {
-  setTimeout(() => {
-    wtFeatureList.classList.remove('open');
-    hideFeaturePopupNow();
-    if (wtSelectedFeature) wtFeatureSearch.value = `#${wtSelectedFeature.id} ${wtSelectedFeature.title}`;
-  }, 200);
-});
-
-document.querySelector('#wt-feature-combobox .combobox-arrow').addEventListener('click', () => {
-  if (wtFeatureList.classList.contains('open')) { wtFeatureList.classList.remove('open'); }
-  else if (wtAllFeatures.length > 0) { wtFeatureSearch.value = ''; wtFeatureHighlightIndex = -1; renderFeatureList(''); wtFeatureSearch.focus(); }
-});
-
-wtFeatureSearch.addEventListener('keydown', (e) => {
-  if (e.key === 'Escape') { hideWorktreeDialog(); return; }
-  const filtered = getFilteredFeatures();
-  if (e.key === 'ArrowDown') { e.preventDefault(); wtFeatureHighlightIndex = Math.min(wtFeatureHighlightIndex + 1, filtered.length - 1); renderFeatureList(wtFeatureSearch.value); scrollHighlightedIntoView(wtFeatureList); }
-  else if (e.key === 'ArrowUp') { e.preventDefault(); wtFeatureHighlightIndex = Math.max(wtFeatureHighlightIndex - 1, 0); renderFeatureList(wtFeatureSearch.value); scrollHighlightedIntoView(wtFeatureList); }
-  else if (e.key === 'Enter' && wtFeatureHighlightIndex >= 0 && wtFeatureHighlightIndex < filtered.length) { e.preventDefault(); selectWtFeature(filtered[wtFeatureHighlightIndex]); wtBranchSearch.focus(); }
-});
 
 // --- Event listeners: Source branch ---
 

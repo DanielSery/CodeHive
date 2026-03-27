@@ -76,10 +76,6 @@ export const AZURE_PAT_KEY = 'codehive-azure-pat';
 export function loadStoredPat() { return localStorage.getItem(AZURE_PAT_KEY) || ''; }
 export function saveStoredPat(pat) { if (pat) localStorage.setItem(AZURE_PAT_KEY, pat); }
 
-const _featureCache = {};
-export function getCachedFeatures(barePath) { return _featureCache[barePath] || null; }
-export function saveFeatureCache(barePath, features) { _featureCache[barePath] = features; }
-
 const _taskCache = {};
 export function getCachedTasks(barePath) { return _taskCache[barePath] || null; }
 export function saveTaskCache(barePath, data) { _taskCache[barePath] = data; }

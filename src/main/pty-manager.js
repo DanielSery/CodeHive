@@ -104,8 +104,8 @@ function createWorktreeSwitchPty(mainWindow, { oldWtPath, branchName, sourceBran
   return { proc, wtPath: oldWtForGit, branchName, dirName };
 }
 
-function createCommitPushPty(mainWindow, { wtPath, title, description, branch }) {
-  const { cmd, cwd, scriptPath } = buildCommitPushScript(wtPath, { title, description, branch });
+function createCommitPushPty(mainWindow, { wtPath, title, description, branch, files }) {
+  const { cmd, cwd, scriptPath } = buildCommitPushScript(wtPath, { title, description, branch, files });
   const proc = spawnProc(cmd, cwd);
 
   proc.onData((data) => {

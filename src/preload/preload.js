@@ -15,6 +15,7 @@ contextBridge.exposeInMainWorld('reposAPI', {
   remoteUrl: (barePath) => ipcRenderer.invoke('repos:remoteUrl', barePath),
   launchConfigs: (wtPath) => ipcRenderer.invoke('repos:launchConfigs', wtPath),
   gitDiffStat: (wtPath) => ipcRenderer.invoke('repos:gitDiffStat', wtPath),
+  firstBranchCommit: (wtPath, sourceBranch) => ipcRenderer.invoke('repos:firstBranchCommit', { wtPath, sourceBranch }),
 });
 
 contextBridge.exposeInMainWorld('worktreeAPI', {
