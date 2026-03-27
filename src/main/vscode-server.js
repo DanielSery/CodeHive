@@ -164,33 +164,37 @@ function installExtensions(sendStatus) {
   delete env.ELECTRON_NO_ASAR;
   const extensionsDir = path.join(getServerDataDir(), 'extensions');
 
-  // Run in background — spawn a single shell with all installs chained
+  // Run as awaitable — spawn a single shell with all installs chained and resolve when done
   const cmds = REQUIRED_EXTENSIONS.map(ext =>
     `"${cmd}" --install-extension ${ext} --extensions-dir "${extensionsDir}"`
   ).join(' && ');
 
-  const proc = spawn(cmds, [], {
-    cwd: path.dirname(cmd),
-    env,
-    shell: true,
-    stdio: ['ignore', 'pipe', 'pipe']
-  });
+  return new Promise((resolve) => {
+    const proc = spawn(cmds, [], {
+      cwd: path.dirname(cmd),
+      env,
+      shell: true,
+      stdio: ['ignore', 'pipe', 'pipe']
+    });
 
-  proc.stdout.on('data', (data) => {
-    const msg = data.toString().trim();
-    console.log('[extensions]', msg);
-    // Show which extension is being installed
-    const match = msg.match(/Installing extensions?:\s*(.+)/i);
-    if (match && sendStatus) sendStatus(`Installing extension: ${match[1]}`);
-  });
-  proc.stderr.on('data', (data) => {
-    console.warn('[extensions]', data.toString().trim());
-  });
-  proc.on('close', (code) => {
-    console.log(`[extensions] Install finished with exit code ${code}`);
-  });
-  proc.on('error', (err) => {
-    console.warn('[extensions] Install failed:', err.message);
+    proc.stdout.on('data', (data) => {
+      const msg = data.toString().trim();
+      console.log('[extensions]', msg);
+      // Show which extension is being installed
+      const match = msg.match(/Installing extensions?:\s*(.+)/i);
+      if (match && sendStatus) sendStatus(`Installing extension: ${match[1]}`);
+    });
+    proc.stderr.on('data', (data) => {
+      console.warn('[extensions]', data.toString().trim());
+    });
+    proc.on('close', (code) => {
+      console.log(`[extensions] Install finished with exit code ${code}`);
+      resolve();
+    });
+    proc.on('error', (err) => {
+      console.warn('[extensions] Install failed:', err.message);
+      resolve(); // don't block startup on install failure
+    });
   });
 }
 

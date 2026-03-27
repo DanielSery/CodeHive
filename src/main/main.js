@@ -82,7 +82,7 @@ app.whenReady().then(async () => {
 
   sendStatus('Installing extensions...');
   console.log('Installing VS Code extensions...');
-  vscode.installExtensions(sendStatus);
+  await vscode.installExtensions(sendStatus);
 
   sendStatus('Starting VS Code server...');
   console.log('[startup] Resolving port...');
