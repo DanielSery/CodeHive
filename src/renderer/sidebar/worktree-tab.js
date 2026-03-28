@@ -11,6 +11,7 @@ const BIN_ICON_SVG = '<svg width="12" height="12" viewBox="0 0 16 16" fill="none
 const SWITCH_ICON_SVG = '<svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M11 1l3 3-3 3"/><path d="M14 4H5"/><path d="M5 15l-3-3 3-3"/><path d="M2 12h9"/></svg>';
 const COMMIT_PUSH_ICON_SVG = '<svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M8 12V3"/><path d="M4 7l4-4 4 4"/><circle cx="8" cy="14" r="1.5"/></svg>';
 const PR_ICON_SVG = '<svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="4" cy="4" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="4" cy="12" r="2"/><path d="M4 6v4"/><path d="M12 10V6c0-1.1-.9-2-2-2H8"/><path d="M10 2L8 4l2 2"/></svg>';
+const OPEN_PR_ICON_SVG = '<svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="4" cy="4" r="2"/><circle cx="4" cy="12" r="2"/><path d="M4 6v4"/><path d="M9 3h4v4"/><path d="M13 3L8 8"/></svg>';
 const COMPLETE_PR_ICON_SVG = '<svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="4" cy="4" r="2"/><circle cx="4" cy="12" r="2"/><path d="M4 6v4"/><path d="M9 8l2 2 3.5-3.5"/></svg>';
 const RESOLVE_TASK_ICON_SVG = '<svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="6"/><path d="M5.5 8l2 2 3-3"/></svg>';
 const OPEN_TASK_ICON_SVG = '<svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="2" width="10" height="12" rx="1.5"/><path d="M6 6h4M6 9h3"/></svg>';
@@ -18,7 +19,7 @@ const OPEN_TASK_ICON_SVG = '<svg width="12" height="12" viewBox="0 0 16 16" fill
 // Collapsed-dot action icons (14x14)
 const DOT_COMMIT_PUSH_SVG = '<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M8 12V3"/><path d="M4 7l4-4 4 4"/><circle cx="8" cy="14" r="1.5"/></svg>';
 const DOT_CREATE_PR_SVG = '<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="4" cy="4" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="4" cy="12" r="2"/><path d="M4 6v4"/><path d="M12 10V6c0-1.1-.9-2-2-2H8"/><path d="M10 2L8 4l2 2"/></svg>';
-const DOT_OPEN_PR_SVG = '<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="8" height="8" rx="1.5"/><path d="M8 2h6v6"/><path d="M14 2L7 9"/></svg>';
+const DOT_OPEN_PR_SVG = '<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="4" cy="4" r="2"/><circle cx="4" cy="12" r="2"/><path d="M4 6v4"/><path d="M9 3h4v4"/><path d="M13 3L8 8"/></svg>';
 const DOT_COMPLETE_PR_SVG = '<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="4" cy="4" r="2"/><circle cx="4" cy="12" r="2"/><path d="M4 6v4"/><path d="M9 8l2 2 3.5-3.5"/></svg>';
 const DOT_RESOLVE_TASK_SVG = '<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="6"/><path d="M5.5 8l2 2 3-3"/></svg>';
 const DOT_OPEN_TASK_SVG = '<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="2" width="10" height="12" rx="1.5"/><path d="M6 6h4M6 9h3"/></svg>';
@@ -236,6 +237,7 @@ async function _checkExistingPrInner(tabEl) {
   if (!data.value || data.value.length === 0) {
     if (createPrBtnEarly) {
       createPrBtnEarly.classList.remove('has-pr', 'has-pr-succeeded', 'has-pr-approved', 'has-pr-failed', 'has-pr-comments');
+      createPrBtnEarly.innerHTML = PR_ICON_SVG;
       createPrBtnEarly.title = 'Create Pull Request (Ctrl+Alt+M)';
     }
     if (tabEl._wtTaskId && tabEl._completePrState !== 'can-resolve') {
@@ -299,6 +301,7 @@ async function _checkExistingPrInner(tabEl) {
 
   createPrBtn.classList.remove(...PR_STATUS_CLASSES);
   createPrBtn.classList.add(statusClass);
+  createPrBtn.innerHTML = OPEN_PR_ICON_SVG;
   createPrBtn.title = `View Pull Request #${pr.pullRequestId} (Ctrl+Alt+M)`;
 
   applyActionButtonVisibility(tabEl, { statusClass, switchBtn });

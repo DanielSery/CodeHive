@@ -13,9 +13,7 @@ function registerTabButtonFns(showClose, showRemove) {
 const editorArea = document.getElementById('editor-area');
 const placeholder = document.getElementById('editor-placeholder');
 const titlebarCommitBtn = document.getElementById('btn-titlebar-commit');
-const titlebarCreatePrBtn = document.getElementById('btn-titlebar-create-pr');
-const titlebarOpenPrBtn = document.getElementById('btn-titlebar-open-pr');
-const titlebarCompletePrBtn = document.getElementById('btn-titlebar-complete-pr');
+const titlebarPrBtn = document.getElementById('btn-titlebar-pr');
 const titlebarResolveTaskBtn = document.getElementById('btn-titlebar-resolve-task');
 const titlebarOpenTaskBtn = document.getElementById('btn-titlebar-open-task');
 const titlebarSwitchBtn = document.getElementById('btn-titlebar-switch');
@@ -119,7 +117,7 @@ titlebarDebugBtn.addEventListener('click', () => {
   ws.webview.sendInputEvent({ type: 'keyUp', keyCode: 'F5', modifiers: [] });
 });
 
-const allTitlebarActionBtns = [titlebarCommitBtn, titlebarCreatePrBtn, titlebarOpenPrBtn, titlebarCompletePrBtn, titlebarResolveTaskBtn, titlebarOpenTaskBtn, titlebarSwitchBtn];
+const allTitlebarActionBtns = [titlebarCommitBtn, titlebarPrBtn, titlebarResolveTaskBtn, titlebarOpenTaskBtn, titlebarSwitchBtn];
 
 function updateTitlebarActions(hasActive) {
   if (!hasActive) {
@@ -153,22 +151,33 @@ function syncTitlebarToTab() {
   const showCreatePr = !hasChanges && hasPushed && !hasPr && !canComplete && !canResolve;
 
   titlebarCommitBtn.classList.toggle('visible', isOpen && hasChanges);
-  titlebarCreatePrBtn.classList.toggle('visible', showCreatePr);
-  titlebarOpenPrBtn.classList.toggle('visible', hasPr);
-  titlebarCompletePrBtn.classList.toggle('visible', !hasChanges && canComplete);
   titlebarResolveTaskBtn.classList.toggle('visible', !hasChanges && canResolve);
   titlebarOpenTaskBtn.classList.toggle('visible', hasTask);
   titlebarSwitchBtn.classList.toggle('visible', true);
 
-  // Sync open-pr button color to PR state
-  if (hasPr) {
-    const createPrBtn = tabEl.querySelector('.workspace-tab-create-pr');
-    let color = 'var(--accent)';
-    if (createPrBtn && createPrBtn.classList.contains('has-pr-approved')) color = 'var(--green)';
-    else if (createPrBtn && createPrBtn.classList.contains('has-pr-failed')) color = 'var(--red)';
-    else if (createPrBtn && createPrBtn.classList.contains('has-pr-comments')) color = 'var(--peach)';
-    else if (createPrBtn && createPrBtn.classList.contains('has-pr-succeeded')) color = 'var(--yellow)';
-    titlebarOpenPrBtn.style.color = color;
+  // Single PR button: adapts icon, title, and color based on state
+  const showPrBtn = showCreatePr || hasPr || (!hasChanges && canComplete);
+  titlebarPrBtn.classList.toggle('visible', showPrBtn);
+  if (showPrBtn) {
+    if (!hasChanges && canComplete) {
+      titlebarPrBtn.innerHTML = '<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="4" cy="4" r="2"/><circle cx="4" cy="12" r="2"/><path d="M4 6v4"/><path d="M9 8l2 2 3.5-3.5"/></svg>';
+      titlebarPrBtn.title = 'Complete Pull Request';
+      titlebarPrBtn.style.color = '';
+    } else if (hasPr) {
+      titlebarPrBtn.innerHTML = '<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="4" cy="4" r="2"/><circle cx="4" cy="12" r="2"/><path d="M4 6v4"/><path d="M9 3h4v4"/><path d="M13 3L8 8"/></svg>';
+      titlebarPrBtn.title = 'View Pull Request (Ctrl+Alt+M)';
+      const createPrBtn = tabEl.querySelector('.workspace-tab-create-pr');
+      let color = 'var(--accent)';
+      if (createPrBtn && createPrBtn.classList.contains('has-pr-approved')) color = 'var(--green)';
+      else if (createPrBtn && createPrBtn.classList.contains('has-pr-failed')) color = 'var(--red)';
+      else if (createPrBtn && createPrBtn.classList.contains('has-pr-comments')) color = 'var(--peach)';
+      else if (createPrBtn && createPrBtn.classList.contains('has-pr-succeeded')) color = 'var(--yellow)';
+      titlebarPrBtn.style.color = color;
+    } else {
+      titlebarPrBtn.innerHTML = '<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="4" cy="4" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="4" cy="12" r="2"/><path d="M4 6v4"/><path d="M12 10V6c0-1.1-.9-2-2-2H8"/><path d="M10 2L8 4l2 2"/></svg>';
+      titlebarPrBtn.title = 'Create Pull Request (Ctrl+Alt+M)';
+      titlebarPrBtn.style.color = '';
+    }
   }
 }
 
