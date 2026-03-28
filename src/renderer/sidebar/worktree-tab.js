@@ -199,7 +199,7 @@ async function _checkExistingPrInner(tabEl) {
     tabEl._hasPushedCommits = await window.reposAPI.hasPushedCommits(tabEl._wtPath, branch, sourceBranch);
   } catch { tabEl._hasPushedCommits = false; }
   if (commitPushBtn) commitPushBtn.style.display = tabEl._hasUncommittedChanges ? '' : 'none';
-  if (isOpen) {
+  if (isOpen || tabEl._hasUncommittedChanges) {
     if (switchBtn) switchBtn.style.display = 'none';
   }
 

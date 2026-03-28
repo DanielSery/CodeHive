@@ -353,6 +353,7 @@ function closeWorkspace(id) {
   stopClaudePoll(id);
   ws.webview.remove();
   ws.tabEl.classList.remove('active');
+  if (ws.tabEl._dotEl) ws.tabEl._dotEl.classList.remove('active');
   ws.tabEl._workspaceId = null;
   ws.tabEl._wasWorking = false;
   setTabStatus(ws.tabEl, 'idle');
