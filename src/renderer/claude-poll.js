@@ -1,6 +1,7 @@
 import { getWorkspace, getActiveId } from './state.js';
 
-const POLL_INTERVAL = 3000;
+// Map folderPath → workspace id for routing pushed status events
+const pathToId = new Map();
 
 function setTabStatus(tabEl, status) {
   tabEl.dataset.status = status;
@@ -10,39 +11,37 @@ function setTabStatus(tabEl, status) {
 function startClaudePoll(id) {
   const ws = getWorkspace(id);
   if (!ws) return;
-  ws.tabEl._pollTimer = setInterval(() => pollClaudeStatus(id), POLL_INTERVAL);
+  pathToId.set(ws.folderPath, id);
+  window.reposAPI.watchClaude(ws.folderPath);
 }
 
 function stopClaudePoll(id) {
   const ws = getWorkspace(id);
-  if (!ws || !ws.tabEl._pollTimer) return;
-  clearInterval(ws.tabEl._pollTimer);
-  ws.tabEl._pollTimer = null;
+  if (!ws) return;
+  pathToId.delete(ws.folderPath);
+  window.reposAPI.unwatchClaude(ws.folderPath);
 }
 
-async function pollClaudeStatus(id) {
+// Listen for pushed status updates from the main process
+window.reposAPI.onClaudeStatus((wtPath, status) => {
+  const id = pathToId.get(wtPath);
+  if (id == null) return;
   const ws = getWorkspace(id);
   if (!ws || ws.tabEl._workspaceId === null || ws.tabEl.dataset.status === 'idle') return;
 
-  try {
-    const result = await window.reposAPI.checkClaudeActive(ws.folderPath);
-
-    if (result === 'working') {
-      setTabStatus(ws.tabEl, 'working');
-      ws.tabEl._wasWorking = true;
-    } else if (result === 'waiting') {
-      setTabStatus(ws.tabEl, 'waiting');
-      ws.tabEl._wasWorking = true;
-    } else if (result === 'error') {
-      setTabStatus(ws.tabEl, 'error');
-      ws.tabEl._wasWorking = true;
-    } else if (ws.tabEl._wasWorking) {
-      ws.tabEl._wasWorking = false;
-      setTabStatus(ws.tabEl, id === getActiveId() ? 'open' : 'done');
-    }
-  } catch {
-    // Ignore errors
+  if (status === 'working') {
+    setTabStatus(ws.tabEl, 'working');
+    ws.tabEl._wasWorking = true;
+  } else if (status === 'waiting') {
+    setTabStatus(ws.tabEl, 'waiting');
+    ws.tabEl._wasWorking = true;
+  } else if (status === 'error') {
+    setTabStatus(ws.tabEl, 'error');
+    ws.tabEl._wasWorking = true;
+  } else if (ws.tabEl._wasWorking) {
+    ws.tabEl._wasWorking = false;
+    setTabStatus(ws.tabEl, id === getActiveId() ? 'open' : 'done');
   }
-}
+});
 
 export { setTabStatus, startClaudePoll, stopClaudePoll };

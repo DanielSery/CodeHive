@@ -321,12 +321,7 @@ export function showTabRemoveButton(tabEl) {
   const createPrBtn = tabEl.querySelector('.workspace-tab-create-pr');
   const completePrBtn = tabEl.querySelector('.workspace-tab-complete-pr');
   const closeBtn = tabEl.querySelector('.workspace-tab-close');
-  if (switchBtn) {
-    switchBtn.innerHTML = SWITCH_ICON_SVG;
-    switchBtn.title = 'Switch Worktree';
-    tabEl._switchMode = 'switch';
-    switchBtn.style.display = '';
-  }
+  if (switchBtn) switchBtn.style.display = 'none';
   if (removeBtn) removeBtn.style.display = '';
   if (commitPushBtn) commitPushBtn.style.display = 'none';
   if (createPrBtn) createPrBtn.style.display = 'none';

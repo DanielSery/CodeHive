@@ -369,6 +369,7 @@ html, body {
 }
 
 .collapsed-dot {
+  position: relative;
   width: 100%;
   height: 32px;
   border: none;
@@ -948,7 +949,8 @@ html, body {
   to   { opacity: 1; transform: translateY(-50%) scale(1); }
 }
 
-.show-shortcut-numbers .workspace-tab-shortcut-badge {
+.show-shortcut-numbers .workspace-tab-shortcut-badge,
+.collapsed-dot .workspace-tab-shortcut-badge {
   display: flex;
 }
 

@@ -8,19 +8,36 @@ const SHORTCUT_HOLD_DELAY = 300;
 let _shortcutHoldTimer = null;
 let _shortcutBadgesVisible = false;
 
-export function showShortcutBadges() {
-  const tabs = Array.from(document.querySelectorAll('.repo-group-tabs.expanded .workspace-tab'))
+function getOpenTabs() {
+  return Array.from(document.querySelectorAll('.workspace-tab'))
     .filter(tab => tab._workspaceId !== null);
+}
+
+export function showShortcutBadges() {
+  // Remove all stale badges first (closed tabs may still have them)
+  for (const old of document.querySelectorAll('.workspace-tab-shortcut-badge')) {
+    old.remove();
+  }
+  const tabs = getOpenTabs();
   const digits = ['1','2','3','4','5','6','7','8','9','0'];
+  const isCollapsed = document.getElementById('sidebar').classList.contains('collapsed');
   tabs.forEach((tab, i) => {
     if (i >= digits.length) return;
-    let badge = tab.querySelector('.workspace-tab-shortcut-badge');
-    if (!badge) {
-      badge = document.createElement('span');
-      badge.className = 'workspace-tab-shortcut-badge';
-      tab.insertBefore(badge, tab.firstChild);
-    }
+    // Badge on the tab itself (expanded sidebar)
+    const badge = document.createElement('span');
+    badge.className = 'workspace-tab-shortcut-badge';
     badge.textContent = digits[i];
+    tab.insertBefore(badge, tab.firstChild);
+    // Badge on the collapsed dot
+    if (isCollapsed && tab._dotEl) {
+      let dotBadge = tab._dotEl.querySelector('.workspace-tab-shortcut-badge');
+      if (!dotBadge) {
+        dotBadge = document.createElement('span');
+        dotBadge.className = 'workspace-tab-shortcut-badge';
+        tab._dotEl.appendChild(dotBadge);
+      }
+      dotBadge.textContent = digits[i];
+    }
   });
   repoGroupsEl.classList.add('show-shortcut-numbers');
   _shortcutBadgesVisible = true;
@@ -28,6 +45,10 @@ export function showShortcutBadges() {
 
 export function hideShortcutBadges() {
   repoGroupsEl.classList.remove('show-shortcut-numbers');
+  // Remove badges from collapsed dots
+  for (const badge of document.querySelectorAll('.collapsed-dot .workspace-tab-shortcut-badge')) {
+    badge.remove();
+  }
   _shortcutBadgesVisible = false;
   _shortcutHoldTimer = null;
 }
@@ -50,8 +71,7 @@ export function handleCtrlAltShortcut(key) {
   const digits = ['1','2','3','4','5','6','7','8','9','0'];
   const digitIdx = digits.indexOf(key);
   if (digitIdx !== -1) {
-    const tabs = Array.from(document.querySelectorAll('.repo-group-tabs.expanded .workspace-tab'))
-      .filter(tab => tab._workspaceId !== null);
+    const tabs = getOpenTabs();
     const tab = tabs[digitIdx];
     if (tab) openWorktree(tab, { path: tab._wtPath, branch: tab._wtBranch });
     return;

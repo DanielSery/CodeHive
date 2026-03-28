@@ -5,6 +5,7 @@ const path = require('path');
 const { app } = require('electron');
 const vscode = require('./vscode-server');
 const { scanDirectory, checkClaudeActive, getCachedBranches, fetchAndListBranches, getGitUser, getRemoteUrl, getLaunchConfigs, gitDiffStat, getFirstBranchCommit, hasUncommittedChanges, hasPushedCommits } = require('./repo-scanner');
+const { watchClaude, unwatchClaude } = require('./claude-status');
 const { createWorktreePty, createClonePty, createDeletePty, createWorktreeRemovePty, createWorktreeSwitchPty, createCommitPushPty, createPrCreatePty, createAzInstallPty } = require('./pty-manager');
 
 let worktreePty = null;
@@ -35,6 +36,19 @@ function register(mainWindow, getServerPort) {
 
   ipcMain.handle('repos:claudeActive', (event, wtPath) => {
     return checkClaudeActive(wtPath);
+  });
+
+  // Claude status watching (push-based via fs.watch)
+  ipcMain.on('claude:watch', (event, wtPath) => {
+    watchClaude(wtPath, (watchedPath, status) => {
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send('claude:status', watchedPath, status);
+      }
+    });
+  });
+
+  ipcMain.on('claude:unwatch', (event, wtPath) => {
+    unwatchClaude(wtPath);
   });
 
   ipcMain.handle('repos:cachedBranches', (event, barePath) => {
