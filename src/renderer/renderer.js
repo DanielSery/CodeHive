@@ -122,9 +122,35 @@ document.getElementById('btn-titlebar-commit').addEventListener('click', () => {
   const ws = getActive();
   if (ws) showCommitPushDialog(ws.tabEl, ws.tabEl.closest('.repo-group'));
 });
-document.getElementById('btn-titlebar-pr').addEventListener('click', () => {
+document.getElementById('btn-titlebar-create-pr').addEventListener('click', () => {
   const ws = getActive();
   if (ws) showCreatePrDialog(ws.tabEl, ws.tabEl.closest('.repo-group'));
+});
+document.getElementById('btn-titlebar-open-pr').addEventListener('click', () => {
+  const ws = getActive();
+  if (ws && ws.tabEl._existingPrUrl) window.shellAPI.openExternal(ws.tabEl._existingPrUrl);
+});
+document.getElementById('btn-titlebar-complete-pr').addEventListener('click', () => {
+  const ws = getActive();
+  if (ws) {
+    const btn = ws.tabEl.querySelector('.workspace-tab-complete-pr');
+    if (btn) btn.click();
+  }
+});
+document.getElementById('btn-titlebar-resolve-task').addEventListener('click', () => {
+  const ws = getActive();
+  if (ws) {
+    const btn = ws.tabEl.querySelector('.workspace-tab-complete-pr');
+    if (btn) btn.click();
+  }
+});
+document.getElementById('btn-titlebar-open-task').addEventListener('click', () => {
+  const ws = getActive();
+  if (ws && ws.tabEl._taskUrl) window.shellAPI.openExternal(ws.tabEl._taskUrl);
+});
+document.getElementById('btn-titlebar-switch').addEventListener('click', () => {
+  const ws = getActive();
+  if (ws) showWorktreeSwitchDialog(ws.tabEl, ws.tabEl.closest('.repo-group'));
 });
 
 // ===== Theme toggle =====

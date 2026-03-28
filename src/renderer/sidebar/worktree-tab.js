@@ -1,5 +1,5 @@
 import { setTabStatus } from '../claude-poll.js';
-import { openWorktree, closeWorkspace } from '../workspace-manager.js';
+import { openWorktree, closeWorkspace, syncTitlebarToTab } from '../workspace-manager.js';
 import { getSourceBranch, getTaskId } from '../storage.js';
 import { rebuildCollapsedDots, collapsedDotsEl } from './collapsed-dots.js';
 import { showContextMenu } from './context-menu.js';
@@ -103,7 +103,7 @@ function showFallbackSwitch(tabEl) {
 }
 
 export async function checkExistingPr(tabEl) {
-  try { await _checkExistingPrInner(tabEl); } finally { updateDotState(tabEl); }
+  try { await _checkExistingPrInner(tabEl); } finally { updateDotState(tabEl); syncTitlebarToTab(); }
 }
 
 async function _checkExistingPrInner(tabEl) {

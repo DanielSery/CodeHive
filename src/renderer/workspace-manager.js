@@ -13,7 +13,12 @@ function registerTabButtonFns(showClose, showRemove) {
 const editorArea = document.getElementById('editor-area');
 const placeholder = document.getElementById('editor-placeholder');
 const titlebarCommitBtn = document.getElementById('btn-titlebar-commit');
-const titlebarPrBtn = document.getElementById('btn-titlebar-pr');
+const titlebarCreatePrBtn = document.getElementById('btn-titlebar-create-pr');
+const titlebarOpenPrBtn = document.getElementById('btn-titlebar-open-pr');
+const titlebarCompletePrBtn = document.getElementById('btn-titlebar-complete-pr');
+const titlebarResolveTaskBtn = document.getElementById('btn-titlebar-resolve-task');
+const titlebarOpenTaskBtn = document.getElementById('btn-titlebar-open-task');
+const titlebarSwitchBtn = document.getElementById('btn-titlebar-switch');
 const titlebarRunGroup = document.getElementById('titlebar-run-group');
 const titlebarStartBtn = document.getElementById('btn-titlebar-start');
 const titlebarDebugBtn = document.getElementById('btn-titlebar-debug');
@@ -114,15 +119,56 @@ titlebarDebugBtn.addEventListener('click', () => {
   ws.webview.sendInputEvent({ type: 'keyUp', keyCode: 'F5', modifiers: [] });
 });
 
+const allTitlebarActionBtns = [titlebarCommitBtn, titlebarCreatePrBtn, titlebarOpenPrBtn, titlebarCompletePrBtn, titlebarResolveTaskBtn, titlebarOpenTaskBtn, titlebarSwitchBtn];
+
 function updateTitlebarActions(hasActive) {
-  titlebarCommitBtn.classList.toggle('visible', hasActive);
-  titlebarPrBtn.classList.toggle('visible', hasActive);
   if (!hasActive) {
+    for (const btn of allTitlebarActionBtns) btn.classList.remove('visible');
     titlebarRunGroup.classList.remove('visible');
     titlebarStartBtn.classList.remove('visible');
     titlebarDebugBtn.classList.remove('visible');
     launchConfigs = [];
     selectedLaunchConfig = null;
+    return;
+  }
+  syncTitlebarToTab();
+}
+
+function syncTitlebarToTab() {
+  const ws = getActive();
+  if (!ws) {
+    for (const btn of allTitlebarActionBtns) btn.classList.remove('visible');
+    return;
+  }
+  const tabEl = ws.tabEl;
+
+  // Use the same logic as context-menu.js showContextMenu
+  const isOpen = tabEl._workspaceId !== null;
+  const hasTask = !!tabEl._wtTaskId;
+  const hasPr = !!tabEl._existingPrUrl;
+  const canComplete = tabEl._completePrState === 'can-complete';
+  const canResolve = tabEl._completePrState === 'can-resolve';
+  const hasChanges = !!tabEl._hasUncommittedChanges;
+  const hasPushed = !!tabEl._hasPushedCommits;
+  const showCreatePr = !hasChanges && hasPushed && !hasPr && !canComplete && !canResolve;
+
+  titlebarCommitBtn.classList.toggle('visible', isOpen && hasChanges);
+  titlebarCreatePrBtn.classList.toggle('visible', showCreatePr);
+  titlebarOpenPrBtn.classList.toggle('visible', hasPr);
+  titlebarCompletePrBtn.classList.toggle('visible', !hasChanges && canComplete);
+  titlebarResolveTaskBtn.classList.toggle('visible', !hasChanges && canResolve);
+  titlebarOpenTaskBtn.classList.toggle('visible', hasTask);
+  titlebarSwitchBtn.classList.toggle('visible', true);
+
+  // Sync open-pr button color to PR state
+  if (hasPr) {
+    const createPrBtn = tabEl.querySelector('.workspace-tab-create-pr');
+    let color = 'var(--accent)';
+    if (createPrBtn && createPrBtn.classList.contains('has-pr-approved')) color = 'var(--green)';
+    else if (createPrBtn && createPrBtn.classList.contains('has-pr-failed')) color = 'var(--red)';
+    else if (createPrBtn && createPrBtn.classList.contains('has-pr-comments')) color = 'var(--peach)';
+    else if (createPrBtn && createPrBtn.classList.contains('has-pr-succeeded')) color = 'var(--yellow)';
+    titlebarOpenPrBtn.style.color = color;
   }
 }
 
@@ -325,4 +371,4 @@ function cycleWorkspace(forward) {
   switchWorkspace(ids[next]);
 }
 
-export { openWorktree, switchWorkspace, closeWorkspace, cycleWorkspace, registerTabButtonFns };
+export { openWorktree, switchWorkspace, closeWorkspace, cycleWorkspace, registerTabButtonFns, syncTitlebarToTab };
