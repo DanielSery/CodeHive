@@ -7,6 +7,7 @@ const titleEl = document.getElementById('clone-terminal-title');
 const closeBtn = document.getElementById('clone-terminal-close');
 const placeholder = document.getElementById('editor-placeholder');
 const sidebarTab = document.getElementById('sidebar-terminal-tab');
+const collapsedTerminalBtn = document.getElementById('collapsed-terminal-btn');
 
 let xterm = null;
 let fitAddon = null;
@@ -29,6 +30,7 @@ function showTerminal(title) {
   terminalEl.classList.add('active');
   placeholder.style.display = 'none';
   sidebarTab.classList.add('active');
+  collapsedTerminalBtn.classList.add('active');
 
   // Deselect active worktree tab visually
   const ws = getActive();
@@ -49,11 +51,13 @@ function setTitle(title) {
 
 function deactivateTerminalTab() {
   sidebarTab.classList.remove('active');
+  collapsedTerminalBtn.classList.remove('active');
 }
 
 function closeTerminal() {
   terminalEl.classList.remove('active');
   sidebarTab.classList.remove('active');
+  collapsedTerminalBtn.classList.remove('active');
   window.cloneAPI.removeListeners();
   window.worktreeAPI.removeListeners();
   window.deleteAPI.removeListeners();
@@ -79,6 +83,7 @@ function toggleTerminal() {
     // Hide terminal, restore workspace
     terminalEl.classList.remove('active');
     sidebarTab.classList.remove('active');
+    collapsedTerminalBtn.classList.remove('active');
     const ws = getActive();
     if (ws) {
       ws.webview.classList.add('active');
@@ -92,6 +97,7 @@ function toggleTerminal() {
     if (!xterm) createTerminal();
     terminalEl.classList.add('active');
     sidebarTab.classList.add('active');
+    collapsedTerminalBtn.classList.add('active');
     placeholder.style.display = 'none';
     // Deselect active worktree tab visually
     const ws = getActive();
@@ -120,6 +126,7 @@ function isActive() {
 
 closeBtn.addEventListener('click', closeTerminal);
 sidebarTab.addEventListener('click', toggleTerminal);
+collapsedTerminalBtn.addEventListener('click', toggleTerminal);
 
 window.addEventListener('resize', () => {
   if (!isActive()) return;

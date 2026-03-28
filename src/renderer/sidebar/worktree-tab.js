@@ -15,6 +15,16 @@ const COMPLETE_PR_ICON_SVG = '<svg width="12" height="12" viewBox="0 0 16 16" fi
 const RESOLVE_TASK_ICON_SVG = '<svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="6"/><path d="M5.5 8l2 2 3-3"/></svg>';
 const OPEN_TASK_ICON_SVG = '<svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="2" width="10" height="12" rx="1.5"/><path d="M6 6h4M6 9h3"/></svg>';
 
+// Collapsed-dot action icons (14x14)
+const DOT_COMMIT_PUSH_SVG = '<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M8 12V3"/><path d="M4 7l4-4 4 4"/><circle cx="8" cy="14" r="1.5"/></svg>';
+const DOT_CREATE_PR_SVG = '<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="4" cy="4" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="4" cy="12" r="2"/><path d="M4 6v4"/><path d="M12 10V6c0-1.1-.9-2-2-2H8"/><path d="M10 2L8 4l2 2"/></svg>';
+const DOT_OPEN_PR_SVG = '<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="4" cy="4" r="2"/><circle cx="4" cy="12" r="2"/><path d="M4 6v4"/><path d="M9 3h4v4"/><path d="M13 3L8 8"/></svg>';
+const DOT_COMPLETE_PR_SVG = '<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="4" cy="4" r="2"/><circle cx="4" cy="12" r="2"/><path d="M4 6v4"/><path d="M9 8l2 2 3.5-3.5"/></svg>';
+const DOT_RESOLVE_TASK_SVG = '<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="6"/><path d="M5.5 8l2 2 3-3"/></svg>';
+const DOT_OPEN_TASK_SVG = '<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="2" width="10" height="12" rx="1.5"/><path d="M6 6h4M6 9h3"/></svg>';
+const DOT_SWITCH_SVG = '<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M11 1l3 3-3 3"/><path d="M14 4H5"/><path d="M5 15l-3-3 3-3"/><path d="M2 12h9"/></svg>';
+const DOT_DONE_SVG = '<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8.5l3.5 3.5 6.5-8"/></svg>';
+
 function formatBranchLabel(branch) {
   let name = branch.includes('/') ? branch.substring(branch.indexOf('/') + 1) : branch;
   name = name.replace(/^\d+-/, '');
@@ -25,6 +35,54 @@ function extractTaskIdFromBranch(branch) {
   const afterSlash = branch.includes('/') ? branch.substring(branch.indexOf('/') + 1) : branch;
   const m = afterSlash.match(/^(\d+)-/);
   return m ? m[1] : null;
+}
+
+function updateDotState(tabEl) {
+  const dotEl = tabEl._dotEl;
+  if (!dotEl) return;
+
+  const commitPushBtn = tabEl.querySelector('.workspace-tab-commit-push');
+  const completePrBtn = tabEl.querySelector('.workspace-tab-complete-pr');
+  const createPrBtn = tabEl.querySelector('.workspace-tab-create-pr');
+  const switchBtn = tabEl.querySelector('.workspace-tab-switch');
+
+  let icon = DOT_SWITCH_SVG;
+  let color = 'var(--text-muted)';
+
+  if (commitPushBtn && commitPushBtn.style.display !== 'none') {
+    icon = DOT_COMMIT_PUSH_SVG;
+    color = 'var(--green)';
+  } else if (completePrBtn && completePrBtn.style.display !== 'none') {
+    if (tabEl._completePrState === 'can-resolve') {
+      icon = DOT_RESOLVE_TASK_SVG;
+      color = 'var(--green)';
+    } else {
+      icon = DOT_COMPLETE_PR_SVG;
+      color = 'var(--green)';
+    }
+  } else if (createPrBtn && createPrBtn.style.display !== 'none') {
+    const hasPr = createPrBtn.classList.contains('has-pr') || createPrBtn.classList.contains('has-pr-succeeded') || createPrBtn.classList.contains('has-pr-approved') || createPrBtn.classList.contains('has-pr-failed') || createPrBtn.classList.contains('has-pr-comments');
+    icon = hasPr ? DOT_OPEN_PR_SVG : DOT_CREATE_PR_SVG;
+    if (createPrBtn.classList.contains('has-pr-approved')) color = 'var(--green)';
+    else if (createPrBtn.classList.contains('has-pr-failed')) color = 'var(--red)';
+    else if (createPrBtn.classList.contains('has-pr-comments')) color = 'var(--peach)';
+    else if (createPrBtn.classList.contains('has-pr-succeeded')) color = 'var(--yellow)';
+    else color = 'var(--accent)';
+  } else if (switchBtn && switchBtn.style.display !== 'none') {
+    if (tabEl._switchMode === 'open-task') {
+      icon = DOT_OPEN_TASK_SVG;
+      color = 'var(--accent)';
+    } else {
+      icon = DOT_SWITCH_SVG;
+      color = 'var(--text-muted)';
+    }
+  } else if (tabEl._taskResolved) {
+    icon = DOT_DONE_SVG;
+    color = 'var(--green)';
+  }
+
+  dotEl.innerHTML = icon;
+  dotEl.style.color = color;
 }
 
 function showFallbackSwitch(tabEl) {
@@ -45,25 +103,29 @@ function showFallbackSwitch(tabEl) {
 }
 
 export async function checkExistingPr(tabEl) {
+  try { await _checkExistingPrInner(tabEl); } finally { updateDotState(tabEl); }
+}
+
+async function _checkExistingPrInner(tabEl) {
   const groupEl = tabEl.closest('.repo-group');
   if (!groupEl) return;
   const barePath = groupEl._barePath;
   const branch = tabEl._wtBranch;
   if (!barePath || !branch) return;
 
-  // Check for uncommitted changes and pushed commits to determine button visibility
+  // Check for uncommitted changes and pushed commits
   const commitPushBtn = tabEl.querySelector('.workspace-tab-commit-push');
   const switchBtn = tabEl.querySelector('.workspace-tab-switch');
   const isOpen = tabEl._workspaceId !== null;
+  try {
+    tabEl._hasUncommittedChanges = await window.reposAPI.hasUncommittedChanges(tabEl._wtPath);
+  } catch { tabEl._hasUncommittedChanges = false; }
+  const sourceBranch = tabEl._wtSourceBranch || 'master';
+  try {
+    tabEl._hasPushedCommits = await window.reposAPI.hasPushedCommits(tabEl._wtPath, branch, sourceBranch);
+  } catch { tabEl._hasPushedCommits = false; }
+  if (commitPushBtn) commitPushBtn.style.display = tabEl._hasUncommittedChanges ? '' : 'none';
   if (isOpen) {
-    try {
-      tabEl._hasUncommittedChanges = await window.reposAPI.hasUncommittedChanges(tabEl._wtPath);
-    } catch { tabEl._hasUncommittedChanges = false; }
-    const sourceBranch = tabEl._wtSourceBranch || 'master';
-    try {
-      tabEl._hasPushedCommits = await window.reposAPI.hasPushedCommits(tabEl._wtPath, branch, sourceBranch);
-    } catch { tabEl._hasPushedCommits = false; }
-    if (commitPushBtn) commitPushBtn.style.display = tabEl._hasUncommittedChanges ? '' : 'none';
     if (switchBtn) switchBtn.style.display = 'none';
   }
 
@@ -307,8 +369,14 @@ export function createWorktreeTab(wt) {
   dotEl.className = 'collapsed-dot';
   dotEl.dataset.status = 'idle';
   dotEl.title = wt.branch;
-  dotEl.innerHTML = '<span class="collapsed-dot-indicator"></span>';
+  dotEl.innerHTML = DOT_SWITCH_SVG;
+  dotEl.style.color = 'var(--text-muted)';
   dotEl.addEventListener('click', () => openWorktree(tabEl, wt));
+  dotEl.addEventListener('contextmenu', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    showContextMenu(e.clientX, e.clientY, tabEl);
+  });
   collapsedDotsEl.appendChild(dotEl);
   tabEl._dotEl = dotEl;
 

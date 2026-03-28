@@ -106,6 +106,33 @@ export function handleCtrlAltShortcut(key) {
     return;
   }
 
+  // Ctrl+Alt+; — smart action: trigger the visible action button on active tab
+  if (key === ';') {
+    const tabEl = _activeTab();
+    if (!tabEl) return;
+    const commitPushBtn = tabEl.querySelector('.workspace-tab-commit-push');
+    if (commitPushBtn && commitPushBtn.style.display !== 'none') {
+      commitPushBtn.click();
+      return;
+    }
+    const completePrBtn = tabEl.querySelector('.workspace-tab-complete-pr');
+    if (completePrBtn && completePrBtn.style.display !== 'none') {
+      completePrBtn.click();
+      return;
+    }
+    const createPrBtn = tabEl.querySelector('.workspace-tab-create-pr');
+    if (createPrBtn && createPrBtn.style.display !== 'none') {
+      createPrBtn.click();
+      return;
+    }
+    const switchBtn = tabEl.querySelector('.workspace-tab-switch');
+    if (switchBtn && switchBtn.style.display !== 'none') {
+      switchBtn.click();
+      return;
+    }
+    return;
+  }
+
   if (lkey === 'e') {
     const tabEl = _activeTab();
     if (tabEl) window.shellAPI.openInExplorer(tabEl._wtPath);

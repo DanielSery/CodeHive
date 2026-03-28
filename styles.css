@@ -331,6 +331,36 @@ html, body {
   display: flex;
 }
 
+.collapsed-terminal-btn {
+  display: none;
+  width: 100%;
+  height: 32px;
+  border: none;
+  border-top: 1px solid var(--border);
+  border-radius: 0;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s, color 0.15s;
+  flex-shrink: 0;
+}
+
+#sidebar.collapsed .collapsed-terminal-btn {
+  display: flex;
+}
+
+.collapsed-terminal-btn:hover {
+  background: var(--tab-hover-bg);
+  color: var(--text);
+}
+
+.collapsed-terminal-btn.active {
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+}
+
 .collapsed-dots-separator {
   border: none;
   border-top: 1px solid var(--border);
@@ -353,46 +383,38 @@ html, body {
 }
 
 .collapsed-dot:hover {
-  background: var(--tab-hover-bg);
+  background: var(--tab-hover-bg) !important;
+  animation: none !important;
 }
 
 .collapsed-dot.active {
   background: var(--tab-active-bg);
 }
 
-.collapsed-dot-indicator {
-  width: 12px;
-  height: 12px;
-  border-radius: 50%;
-  background: var(--text-muted);
-  transition: background 0.3s, box-shadow 0.3s;
+.collapsed-dot svg {
+  flex-shrink: 0;
 }
 
-.collapsed-dot[data-status="open"] .collapsed-dot-indicator {
-  background: var(--accent);
-  box-shadow: 0 0 4px var(--accent);
+.collapsed-dot[data-status="open"] {
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
 }
 
-.collapsed-dot[data-status="working"] .collapsed-dot-indicator {
-  background: var(--yellow);
-  box-shadow: 0 0 6px var(--yellow);
+.collapsed-dot[data-status="working"] {
+  background: color-mix(in srgb, var(--yellow) 25%, transparent);
 }
 
-.collapsed-dot[data-status="done"] .collapsed-dot-indicator {
-  background: var(--green);
-  box-shadow: 0 0 4px var(--green);
+.collapsed-dot[data-status="done"] {
+  background: color-mix(in srgb, var(--green) 25%, transparent);
 }
 
-.collapsed-dot[data-status="waiting"] .collapsed-dot-indicator {
-  background: var(--peach);
-  box-shadow: 0 0 6px var(--peach);
-  animation: pulse 1.5s ease-in-out infinite;
+.collapsed-dot[data-status="waiting"] {
+  background: color-mix(in srgb, var(--peach) 25%, transparent);
+  animation: tab-pulse-waiting 1.5s ease-in-out infinite;
 }
 
-.collapsed-dot[data-status="error"] .collapsed-dot-indicator {
-  background: var(--red);
-  box-shadow: 0 0 4px var(--red);
-  animation: pulse 1.5s ease-in-out infinite;
+.collapsed-dot[data-status="error"] {
+  background: color-mix(in srgb, var(--red) 25%, transparent);
+  animation: tab-pulse-error 1.5s ease-in-out infinite;
 }
 
 #btn-open-directory,
