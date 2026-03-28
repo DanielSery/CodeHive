@@ -4,6 +4,7 @@ import { parseAzureRemoteUrl, buildAzureContext, fetchWorkItemTitle } from '../a
 import { loadStoredPat, AZURE_PAT_KEY } from './utils.js';
 import { toast } from '../toast.js';
 import { createCombobox } from './combobox.js';
+import { _checkExistingPr } from '../sidebar/registers.js';
 
 const createPrDialogOverlay = document.getElementById('create-pr-dialog-overlay');
 const prBranchSearch = document.getElementById('pr-branch-search');
@@ -120,10 +121,11 @@ export async function showCreatePrDialog(tabEl, groupEl) {
 
   const stateCache = getCachedBranchesFromState(repoName);
 
-  const [cached] = await Promise.all([
+  const [cachedResult] = await Promise.all([
     window.reposAPI.cachedBranches(groupEl._barePath),
     window.reposAPI.gitUser(groupEl._barePath)
   ]);
+  const cached = cachedResult.value;
 
   const initialBranches = cached.length > 0 ? cached : stateCache;
   if (initialBranches.length > 0) {
@@ -131,7 +133,8 @@ export async function showCreatePrDialog(tabEl, groupEl) {
     prTitleInput.focus();
   }
 
-  window.reposAPI.fetchBranches(groupEl._barePath).then((fetched) => {
+  window.reposAPI.fetchBranches(groupEl._barePath).then((fetchResult) => {
+    const fetched = fetchResult.value;
     if (!createPrDialogOverlay.classList.contains('visible')) return;
     if (_prGroupEl !== groupEl) return;
     applyPrBranches(fetched, preselect);
@@ -186,6 +189,7 @@ async function confirmCreatePr() {
       xterm.writeln('\x1b[32mPull request created successfully!\x1b[0m');
       setTitle('Pull request created');
       toast.success('Pull request created');
+      if (_checkExistingPr) _checkExistingPr(tabEl);
       setTimeout(() => closeTerminal(), 1200);
     } else {
       xterm.writeln('');

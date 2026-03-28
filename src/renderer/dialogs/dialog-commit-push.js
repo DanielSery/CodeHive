@@ -1,5 +1,6 @@
 import { createTerminal, showTerminal, showCloseButton, setTitle, closeTerminal } from '../terminal-panel.js';
 import { toast } from '../toast.js';
+import { _checkExistingPr } from '../sidebar/registers.js';
 
 const commitPushDialogOverlay = document.getElementById('commit-push-dialog-overlay');
 const commitPushTitleInput = document.getElementById('commit-push-title-input');
@@ -184,6 +185,7 @@ async function confirmCommitPush() {
       xterm.writeln('\x1b[32mCommit & push completed successfully!\x1b[0m');
       setTitle('Commit & push complete');
       toast.success(`Pushed ${branch} successfully`);
+      if (_checkExistingPr) _checkExistingPr(tabEl);
       setTimeout(() => closeTerminal(), 1200);
     } else {
       xterm.writeln('');

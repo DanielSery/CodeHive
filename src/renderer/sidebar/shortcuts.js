@@ -130,25 +130,20 @@ export function handleCtrlAltShortcut(key) {
   if (key === 'Enter') {
     const tabEl = _activeTab();
     if (!tabEl) return;
-    const commitPushBtn = tabEl.querySelector('.workspace-tab-commit-push');
-    if (commitPushBtn && commitPushBtn.style.display !== 'none') {
-      commitPushBtn.click();
-      return;
-    }
-    const completePrBtn = tabEl.querySelector('.workspace-tab-complete-pr');
-    if (completePrBtn && completePrBtn.style.display !== 'none') {
-      completePrBtn.click();
-      return;
-    }
-    const createPrBtn = tabEl.querySelector('.workspace-tab-create-pr');
-    if (createPrBtn && createPrBtn.style.display !== 'none') {
-      createPrBtn.click();
-      return;
-    }
-    const switchBtn = tabEl.querySelector('.workspace-tab-switch');
-    if (switchBtn && switchBtn.style.display !== 'none') {
-      switchBtn.click();
-      return;
+    const btns = [
+      '.workspace-tab-commit-push',
+      '.workspace-tab-complete-pr',
+      '.workspace-tab-resolve-task',
+      '.workspace-tab-create-pr',
+      '.workspace-tab-open-pr',
+      '.workspace-tab-switch'
+    ];
+    for (const sel of btns) {
+      const btn = tabEl.querySelector(sel);
+      if (btn && btn.style.display !== 'none') {
+        btn.click();
+        return;
+      }
     }
     return;
   }

@@ -54,6 +54,8 @@ function isButtonVisible(btn) {
 function getTabDotState(tabEl) {
   const commitPushBtn = tabEl.querySelector('.workspace-tab-commit-push');
   const completePrBtn = tabEl.querySelector('.workspace-tab-complete-pr');
+  const resolveTaskBtn = tabEl.querySelector('.workspace-tab-resolve-task');
+  const openPrBtn = tabEl.querySelector('.workspace-tab-open-pr');
   const createPrBtn = tabEl.querySelector('.workspace-tab-create-pr');
   const switchBtn = tabEl.querySelector('.workspace-tab-switch');
 
@@ -61,19 +63,21 @@ function getTabDotState(tabEl) {
     return { icon: DOT_COMMIT_PUSH_SVG, color: 'var(--green)' };
   }
   if (isButtonVisible(completePrBtn)) {
-    return tabEl._completePrState === 'can-resolve'
-      ? { icon: DOT_RESOLVE_TASK_SVG, color: 'var(--green)' }
-      : { icon: DOT_COMPLETE_PR_SVG, color: 'var(--green)' };
+    return { icon: DOT_COMPLETE_PR_SVG, color: 'var(--green)' };
+  }
+  if (isButtonVisible(resolveTaskBtn)) {
+    return { icon: DOT_RESOLVE_TASK_SVG, color: 'var(--green)' };
+  }
+  if (isButtonVisible(openPrBtn)) {
+    let color = 'var(--accent)';
+    if (openPrBtn.classList.contains('has-pr-approved')) color = 'var(--green)';
+    else if (openPrBtn.classList.contains('has-pr-failed')) color = 'var(--red)';
+    else if (openPrBtn.classList.contains('has-pr-comments')) color = 'var(--peach)';
+    else if (openPrBtn.classList.contains('has-pr-succeeded')) color = 'var(--yellow)';
+    return { icon: DOT_OPEN_PR_SVG, color };
   }
   if (isButtonVisible(createPrBtn)) {
-    const hasPr = hasPrStatusClass(createPrBtn);
-    const icon = hasPr ? DOT_OPEN_PR_SVG : DOT_CREATE_PR_SVG;
-    let color = 'var(--accent)';
-    if (createPrBtn.classList.contains('has-pr-approved')) color = 'var(--green)';
-    else if (createPrBtn.classList.contains('has-pr-failed')) color = 'var(--red)';
-    else if (createPrBtn.classList.contains('has-pr-comments')) color = 'var(--peach)';
-    else if (createPrBtn.classList.contains('has-pr-succeeded')) color = 'var(--yellow)';
-    return { icon, color };
+    return { icon: DOT_CREATE_PR_SVG, color: 'var(--accent)' };
   }
   if (isButtonVisible(switchBtn)) {
     return tabEl._switchMode === 'open-task'
@@ -123,32 +127,28 @@ function computePrStatusClass(reviewers, evaluations, unresolvedCount) {
  * Only one primary action is shown at a time (priority: commit > complete/resolve > PR > switch).
  */
 function applyActionButtonVisibility(tabEl, { statusClass, switchBtn }) {
-  const createPrBtn = tabEl.querySelector('.workspace-tab-create-pr');
+  const openPrBtn = tabEl.querySelector('.workspace-tab-open-pr');
   const completePrBtn = tabEl.querySelector('.workspace-tab-complete-pr');
   let actionShown = false;
 
-  if (completePrBtn && tabEl._completePrState !== 'can-resolve') {
-    if (statusClass === 'has-pr-approved') {
-      completePrBtn.innerHTML = COMPLETE_PR_ICON_SVG;
-      completePrBtn.title = 'Complete Pull Request (merge + delete branch)';
-      tabEl._completePrState = 'can-complete';
-      if (!tabEl._hasUncommittedChanges) {
-        if (createPrBtn) createPrBtn.style.display = 'none';
-        completePrBtn.style.display = 'inline-flex';
-        actionShown = true;
-      } else {
-        if (createPrBtn) createPrBtn.style.display = 'none';
-        completePrBtn.style.display = 'none';
-      }
+  if (statusClass === 'has-pr-approved') {
+    tabEl._canCompletePr = true;
+    if (!tabEl._hasUncommittedChanges) {
+      if (completePrBtn) completePrBtn.style.display = 'inline-flex';
+      if (openPrBtn) openPrBtn.style.display = 'inline-flex';
+      actionShown = true;
     } else {
-      completePrBtn.style.display = 'none';
-      tabEl._completePrState = null;
-      if (!tabEl._hasUncommittedChanges) {
-        if (createPrBtn) createPrBtn.style.display = '';
-        actionShown = true;
-      } else {
-        if (createPrBtn) createPrBtn.style.display = 'none';
-      }
+      if (completePrBtn) completePrBtn.style.display = 'none';
+      if (openPrBtn) openPrBtn.style.display = 'none';
+    }
+  } else {
+    tabEl._canCompletePr = false;
+    if (completePrBtn) completePrBtn.style.display = 'none';
+    if (!tabEl._hasUncommittedChanges) {
+      if (openPrBtn) openPrBtn.style.display = 'inline-flex';
+      actionShown = true;
+    } else {
+      if (openPrBtn) openPrBtn.style.display = 'none';
     }
   }
 
@@ -192,11 +192,15 @@ async function _checkExistingPrInner(tabEl) {
   const switchBtn = tabEl.querySelector('.workspace-tab-switch');
   const isOpen = tabEl._workspaceId !== null;
   try {
-    tabEl._hasUncommittedChanges = await window.reposAPI.hasUncommittedChanges(tabEl._wtPath);
+    const ucResult = await window.reposAPI.hasUncommittedChanges(tabEl._wtPath);
+    tabEl._hasUncommittedChanges = ucResult.value;
+    if (ucResult.error) console.warn('[checkExistingPr] hasUncommittedChanges error:', ucResult.message);
   } catch { tabEl._hasUncommittedChanges = false; }
   const sourceBranch = tabEl._wtSourceBranch || 'master';
   try {
-    tabEl._hasPushedCommits = await window.reposAPI.hasPushedCommits(tabEl._wtPath, branch, sourceBranch);
+    const pcResult = await window.reposAPI.hasPushedCommits(tabEl._wtPath, branch, sourceBranch);
+    tabEl._hasPushedCommits = pcResult.value;
+    if (pcResult.error) console.warn('[checkExistingPr] hasPushedCommits error:', pcResult.message);
   } catch { tabEl._hasPushedCommits = false; }
   if (commitPushBtn) commitPushBtn.style.display = tabEl._hasUncommittedChanges ? '' : 'none';
   if (isOpen || tabEl._hasUncommittedChanges) {
@@ -208,9 +212,15 @@ async function _checkExistingPrInner(tabEl) {
   if (!remoteUrl) { showFallbackSwitch(tabEl); return; }
 
   const parsed = parseAzureRemoteUrl(remoteUrl);
-  const createPrBtnEarly = tabEl.querySelector('.workspace-tab-create-pr');
   if (!parsed) {
-    if (createPrBtnEarly) createPrBtnEarly.style.display = 'none';
+    const createPrBtn = tabEl.querySelector('.workspace-tab-create-pr');
+    const openPrBtn = tabEl.querySelector('.workspace-tab-open-pr');
+    const completePrBtn = tabEl.querySelector('.workspace-tab-complete-pr');
+    const resolveTaskBtn = tabEl.querySelector('.workspace-tab-resolve-task');
+    if (createPrBtn) createPrBtn.style.display = 'none';
+    if (openPrBtn) openPrBtn.style.display = 'none';
+    if (completePrBtn) completePrBtn.style.display = 'none';
+    if (resolveTaskBtn) resolveTaskBtn.style.display = 'none';
     showFallbackSwitch(tabEl);
     return;
   }
@@ -234,41 +244,46 @@ async function _checkExistingPrInner(tabEl) {
     data = await resp.json();
   } catch { showFallbackSwitch(tabEl); return; }
 
+  const createPrBtn = tabEl.querySelector('.workspace-tab-create-pr');
+  const openPrBtn = tabEl.querySelector('.workspace-tab-open-pr');
+  const completePrBtn = tabEl.querySelector('.workspace-tab-complete-pr');
+  const resolveTaskBtn = tabEl.querySelector('.workspace-tab-resolve-task');
+
+  // Reset PR-related buttons
+  tabEl._existingPrUrl = null;
+  if (openPrBtn) { openPrBtn.style.display = 'none'; openPrBtn.classList.remove(...PR_STATUS_CLASSES); }
+
   if (!data.value || data.value.length === 0) {
-    if (createPrBtnEarly) {
-      createPrBtnEarly.classList.remove('has-pr', 'has-pr-succeeded', 'has-pr-approved', 'has-pr-failed', 'has-pr-comments');
-      createPrBtnEarly.innerHTML = PR_ICON_SVG;
-      createPrBtnEarly.title = 'Create Pull Request (Ctrl+Alt+M)';
-    }
-    if (tabEl._wtTaskId && tabEl._completePrState !== 'can-resolve') {
+    // No active PR — check for completed PR (resolve task flow)
+    if (tabEl._wtTaskId && !tabEl._canResolveTask) {
       const completedUrl = `https://dev.azure.com/${encodeURIComponent(org)}/${encodeURIComponent(project)}/_apis/git/pullrequests?searchCriteria.sourceRefName=${encodeURIComponent(sourceRef)}&searchCriteria.status=completed&$top=1&api-version=7.0`;
       try {
         const cResp = await fetch(completedUrl, { headers: { Authorization: `Basic ${auth}` } });
         if (cResp.ok) {
           const cData = await cResp.json();
           if (cData.value && cData.value.length > 0) {
-            const completePrBtn = tabEl.querySelector('.workspace-tab-complete-pr');
-            if (completePrBtn) {
-              const cPr = cData.value[0];
-              // Check if the task is already resolved/closed before showing the button
-              const taskCtx = { org, project, auth, apiBase: `https://dev.azure.com/${encodeURIComponent(org)}/${encodeURIComponent(project)}/_apis` };
-              const wi = await fetchWorkItemById(taskCtx, tabEl._wtTaskId);
-              if (wi && ['Resolved', 'Closed', 'Done', 'Removed'].includes(wi.state)) {
-                tabEl._taskResolved = true;
-                showFallbackSwitch(tabEl);
-                return;
-              }
-              if (createPrBtnEarly) createPrBtnEarly.style.display = 'none';
-              tabEl._prData = { id: cPr.pullRequestId, repoId: cPr.repository.id, lastCommitId: cPr.lastMergeSourceCommit?.commitId, org, project, auth, targetRefName: cPr.targetRefName };
-              completePrBtn.innerHTML = RESOLVE_TASK_ICON_SVG;
-              completePrBtn.title = 'Resolve Azure Task';
-              tabEl._completePrState = 'can-resolve';
-              if (tabEl._hasUncommittedChanges) {
-                completePrBtn.style.display = 'none';
-              } else {
-                completePrBtn.style.display = 'inline-flex';
-                if (switchBtn) switchBtn.style.display = 'none';
-              }
+            const cPr = cData.value[0];
+            const taskCtx = { org, project, auth, apiBase: `https://dev.azure.com/${encodeURIComponent(org)}/${encodeURIComponent(project)}/_apis` };
+            const wi = await fetchWorkItemById(taskCtx, tabEl._wtTaskId);
+            if (wi && ['Resolved', 'Closed', 'Done', 'Removed'].includes(wi.state)) {
+              tabEl._taskResolved = true;
+              tabEl._canResolveTask = false;
+              if (completePrBtn) completePrBtn.style.display = 'none';
+              if (resolveTaskBtn) resolveTaskBtn.style.display = 'none';
+              if (createPrBtn) createPrBtn.style.display = 'none';
+              showFallbackSwitch(tabEl);
+              return;
+            }
+            tabEl._prData = { id: cPr.pullRequestId, repoId: cPr.repository.id, lastCommitId: cPr.lastMergeSourceCommit?.commitId, org, project, auth, targetRefName: cPr.targetRefName };
+            tabEl._canResolveTask = true;
+            tabEl._canCompletePr = false;
+            if (createPrBtn) createPrBtn.style.display = 'none';
+            if (completePrBtn) completePrBtn.style.display = 'none';
+            if (tabEl._hasUncommittedChanges) {
+              if (resolveTaskBtn) resolveTaskBtn.style.display = 'none';
+            } else {
+              if (resolveTaskBtn) resolveTaskBtn.style.display = 'inline-flex';
+              if (switchBtn) switchBtn.style.display = 'none';
             }
             return;
           }
@@ -277,21 +292,29 @@ async function _checkExistingPrInner(tabEl) {
     }
     // No active PR, no completed PR — show Create PR only if pushed commits exist and no uncommitted changes
     const canShowCreatePr = !tabEl._hasUncommittedChanges && tabEl._hasPushedCommits;
-    if (createPrBtnEarly && tabEl._completePrState !== 'can-resolve') {
-      createPrBtnEarly.style.display = canShowCreatePr ? '' : 'none';
-      if (canShowCreatePr && switchBtn) switchBtn.style.display = 'none';
+    if (!tabEl._canResolveTask) {
+      if (completePrBtn) completePrBtn.style.display = 'none';
+      if (resolveTaskBtn) resolveTaskBtn.style.display = 'none';
+      tabEl._canCompletePr = false;
+      if (createPrBtn) {
+        createPrBtn.style.display = canShowCreatePr ? '' : 'none';
+        if (canShowCreatePr && switchBtn) switchBtn.style.display = 'none';
+      }
+      if (!canShowCreatePr) showFallbackSwitch(tabEl);
     }
-    if (!canShowCreatePr && tabEl._completePrState !== 'can-resolve') showFallbackSwitch(tabEl);
     return;
   }
 
+  // Active PR found
   const pr = data.value[0];
   const prUrl = `https://dev.azure.com/${encodeURIComponent(org)}/${encodeURIComponent(project)}/_git/${encodeURIComponent(pr.repository.name)}/pullrequest/${pr.pullRequestId}`;
   tabEl._existingPrUrl = prUrl;
   tabEl._prData = { id: pr.pullRequestId, repoId: pr.repository.id, lastCommitId: pr.lastMergeSourceCommit?.commitId, org, project, auth, targetRefName: pr.targetRefName };
 
-  const createPrBtn = tabEl.querySelector('.workspace-tab-create-pr');
-  if (!createPrBtn) return;
+  // Hide create-pr since there's already an active PR
+  if (createPrBtn) createPrBtn.style.display = 'none';
+  if (resolveTaskBtn) resolveTaskBtn.style.display = 'none';
+  tabEl._canResolveTask = false;
 
   const [evaluations, unresolvedCount] = await Promise.all([
     fetchPolicyEvaluations(org, project, auth, pr.repository.project.id, pr.pullRequestId),
@@ -299,10 +322,12 @@ async function _checkExistingPrInner(tabEl) {
   ]);
   const statusClass = computePrStatusClass(pr.reviewers, evaluations, unresolvedCount);
 
-  createPrBtn.classList.remove(...PR_STATUS_CLASSES);
-  createPrBtn.classList.add(statusClass);
-  createPrBtn.innerHTML = OPEN_PR_ICON_SVG;
-  createPrBtn.title = `View Pull Request #${pr.pullRequestId} (Ctrl+Alt+M)`;
+  // Show open-pr button with status coloring
+  if (openPrBtn) {
+    openPrBtn.classList.remove(...PR_STATUS_CLASSES);
+    openPrBtn.classList.add(statusClass);
+    openPrBtn.title = `View Pull Request #${pr.pullRequestId} (Ctrl+Alt+M)`;
+  }
 
   applyActionButtonVisibility(tabEl, { statusClass, switchBtn });
 }
@@ -322,13 +347,17 @@ export function showTabRemoveButton(tabEl) {
   const removeBtn = tabEl.querySelector('.workspace-tab-remove');
   const commitPushBtn = tabEl.querySelector('.workspace-tab-commit-push');
   const createPrBtn = tabEl.querySelector('.workspace-tab-create-pr');
+  const openPrBtn = tabEl.querySelector('.workspace-tab-open-pr');
   const completePrBtn = tabEl.querySelector('.workspace-tab-complete-pr');
+  const resolveTaskBtn = tabEl.querySelector('.workspace-tab-resolve-task');
   const closeBtn = tabEl.querySelector('.workspace-tab-close');
   if (switchBtn) switchBtn.style.display = 'none';
   if (removeBtn) removeBtn.style.display = '';
   if (commitPushBtn) commitPushBtn.style.display = 'none';
   if (createPrBtn) createPrBtn.style.display = 'none';
+  if (openPrBtn) openPrBtn.style.display = 'none';
   if (completePrBtn) completePrBtn.style.display = 'none';
+  if (resolveTaskBtn) resolveTaskBtn.style.display = 'none';
   if (closeBtn) closeBtn.style.display = 'none';
   tabEl._hasUncommittedChanges = false;
   checkExistingPr(tabEl);
@@ -366,7 +395,9 @@ export function createWorktreeTab(wt) {
     <button class="workspace-tab-switch" title="Switch Worktree">${SWITCH_ICON_SVG}</button>
     <button class="workspace-tab-commit-push" title="Commit &amp; Push (Ctrl+Alt+P)" style="display:none">${COMMIT_PUSH_ICON_SVG}</button>
     <button class="workspace-tab-create-pr" title="Create Pull Request (Ctrl+Alt+M)" style="display:none">${PR_ICON_SVG}</button>
+    <button class="workspace-tab-open-pr" title="View Pull Request" style="display:none">${OPEN_PR_ICON_SVG}</button>
     <button class="workspace-tab-complete-pr" title="Complete Pull Request" style="display:none">${COMPLETE_PR_ICON_SVG}</button>
+    <button class="workspace-tab-resolve-task" title="Resolve Azure Task" style="display:none">${RESOLVE_TASK_ICON_SVG}</button>
     <button class="workspace-tab-close" title="Close (Ctrl+Alt+W)" style="display:none">&times;</button>
     <button class="workspace-tab-remove" title="Remove Worktree">${BIN_ICON_SVG}</button>
   `;
@@ -379,7 +410,8 @@ export function createWorktreeTab(wt) {
   tabEl._pollTimer = null;
   tabEl._wasWorking = false;
   tabEl._prData = null;
-  tabEl._completePrState = null;
+  tabEl._canCompletePr = false;
+  tabEl._canResolveTask = false;
 
   const dotEl = document.createElement('button');
   dotEl.className = 'collapsed-dot';
@@ -424,59 +456,64 @@ export function createWorktreeTab(wt) {
 
   tabEl.querySelector('.workspace-tab-create-pr').addEventListener('click', (e) => {
     e.stopPropagation();
-    if (tabEl._existingPrUrl) {
-      window.shellAPI.openExternal(tabEl._existingPrUrl);
-    } else if (_showCreatePrDialog) {
+    if (_showCreatePrDialog) {
       const groupEl = tabEl.closest('.repo-group');
       _showCreatePrDialog(tabEl, groupEl);
+    }
+  });
+
+  tabEl.querySelector('.workspace-tab-open-pr').addEventListener('click', (e) => {
+    e.stopPropagation();
+    if (tabEl._existingPrUrl) {
+      window.shellAPI.openExternal(tabEl._existingPrUrl);
     }
   });
 
   tabEl.querySelector('.workspace-tab-complete-pr').addEventListener('click', async (e) => {
     e.stopPropagation();
     const btn = tabEl.querySelector('.workspace-tab-complete-pr');
-    if (tabEl._completePrState === 'can-complete') {
-      const d = tabEl._prData;
-      if (!d) return;
-      btn.disabled = true;
-      const ok = await completePullRequest(d.org, d.project, d.auth, d.repoId, d.id, d.lastCommitId);
-      btn.disabled = false;
-      if (ok) {
-        tabEl._completePrState = 'can-resolve';
-        if (tabEl._wtTaskId) {
-          btn.innerHTML = RESOLVE_TASK_ICON_SVG;
-          btn.title = 'Resolve Azure Task';
-        } else {
-          btn.style.display = 'none';
-          tabEl._completePrState = null;
-        }
-      }
-    } else if (tabEl._completePrState === 'can-resolve') {
-      const d = tabEl._prData;
-      if (!d || !tabEl._wtTaskId) return;
-      const ctx = { org: d.org, project: d.project, auth: d.auth, apiBase: `https://dev.azure.com/${encodeURIComponent(d.org)}/${encodeURIComponent(d.project)}/_apis` };
-      const targetBranch = d.targetRefName || `refs/heads/${tabEl._wtSourceBranch || 'master'}`;
-      const result = await showResolveTaskDialog(ctx, tabEl._wtTaskId, { org: d.org, project: d.project, auth: d.auth, targetBranch });
-      if (result === 'resolved') {
-        tabEl._taskResolved = true;
-        tabEl._completePrState = null;
-      }
-      if (result === 'resolved' || result === 'commented') {
-        // Switch slot 1 to Switch Worktree (resolve still available in context menu)
+    const d = tabEl._prData;
+    if (!d) return;
+    btn.disabled = true;
+    const ok = await completePullRequest(d.org, d.project, d.auth, d.repoId, d.id, d.lastCommitId);
+    btn.disabled = false;
+    if (ok) {
+      btn.style.display = 'none';
+      tabEl._canCompletePr = false;
+      if (tabEl._wtTaskId) {
+        tabEl._canResolveTask = true;
+        const resolveBtn = tabEl.querySelector('.workspace-tab-resolve-task');
+        if (resolveBtn) resolveBtn.style.display = 'inline-flex';
         const switchBtn = tabEl.querySelector('.workspace-tab-switch');
-        if (switchBtn) {
-          switchBtn.innerHTML = SWITCH_ICON_SVG;
-          switchBtn.title = 'Switch Worktree';
-          tabEl._switchMode = 'switch';
-          switchBtn.style.display = '';
-        }
-        btn.style.display = 'none';
+        if (switchBtn) switchBtn.style.display = 'none';
       }
+      updateDotState(tabEl);
+      syncTitlebarToTab();
     }
   });
 
+  tabEl.querySelector('.workspace-tab-resolve-task').addEventListener('click', async (e) => {
+    e.stopPropagation();
+    const d = tabEl._prData;
+    if (!d || !tabEl._wtTaskId) return;
+    const ctx = { org: d.org, project: d.project, auth: d.auth, apiBase: `https://dev.azure.com/${encodeURIComponent(d.org)}/${encodeURIComponent(d.project)}/_apis` };
+    const targetBranch = d.targetRefName || `refs/heads/${tabEl._wtSourceBranch || 'master'}`;
+    const result = await showResolveTaskDialog(ctx, tabEl._wtTaskId, { org: d.org, project: d.project, auth: d.auth, targetBranch });
+    if (result === 'resolved') {
+      tabEl._taskResolved = true;
+      tabEl._canResolveTask = false;
+    }
+    if (result === 'resolved' || result === 'commented') {
+      const resolveBtn = tabEl.querySelector('.workspace-tab-resolve-task');
+      if (resolveBtn) resolveBtn.style.display = 'none';
+      showFallbackSwitch(tabEl);
+    }
+    updateDotState(tabEl);
+    syncTitlebarToTab();
+  });
+
   tabEl.addEventListener('click', (e) => {
-    if (e.target.closest('.workspace-tab-close') || e.target.closest('.workspace-tab-switch') || e.target.closest('.workspace-tab-remove') || e.target.closest('.workspace-tab-commit-push') || e.target.closest('.workspace-tab-create-pr') || e.target.closest('.workspace-tab-complete-pr')) return;
+    if (e.target.closest('.workspace-tab-close') || e.target.closest('.workspace-tab-switch') || e.target.closest('.workspace-tab-remove') || e.target.closest('.workspace-tab-commit-push') || e.target.closest('.workspace-tab-create-pr') || e.target.closest('.workspace-tab-open-pr') || e.target.closest('.workspace-tab-complete-pr') || e.target.closest('.workspace-tab-resolve-task')) return;
     openWorktree(tabEl, wt);
   });
 
@@ -543,10 +580,10 @@ export function createWorktreeTab(wt) {
 setInterval(() => {
   for (const tab of document.querySelectorAll('.workspace-tab')) {
     const isOpen = tab._workspaceId !== null;
-    const btn = tab.querySelector('.workspace-tab-create-pr');
-    const hasPrStatus = btn && hasPrStatusClass(btn);
+    const openPrBtn = tab.querySelector('.workspace-tab-open-pr');
+    const hasPrStatus = openPrBtn && hasPrStatusClass(openPrBtn);
     if (isOpen || hasPrStatus) {
       checkExistingPr(tab);
     }
   }
-}, 60 * 1000);
+}, 30 * 1000);

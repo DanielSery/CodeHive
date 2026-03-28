@@ -6,13 +6,14 @@ const { assertSafeRef } = require('./pty-scripts');
 function getCachedBranches(barePath) {
   try {
     const stdout = execSync('git branch -r', { cwd: barePath, encoding: 'utf8', timeout: 10000 });
-    if (!stdout) return [];
-    return stdout.trim().split('\n')
+    if (!stdout) return { value: [], error: false };
+    const value = stdout.trim().split('\n')
       .map(b => b.trim())
       .filter(b => b && !b.includes('->'))
       .map(b => b.replace(/^origin\//, ''));
-  } catch {
-    return [];
+    return { value, error: false };
+  } catch (err) {
+    return { value: [], error: true, message: err.message };
   }
 }
 
@@ -27,14 +28,14 @@ function fetchAndListBranches(barePath) {
       } catch {}
     }
 
-    exec('git fetch --progress origin', { cwd: barePath, encoding: 'utf8', timeout: 60000 }, () => {
+    exec('git fetch --progress origin', { cwd: barePath, encoding: 'utf8', timeout: 60000 }, (fetchErr) => {
       exec('git branch -r', { cwd: barePath, encoding: 'utf8', timeout: 10000 }, (err, stdout) => {
-        if (err || !stdout) { resolve([]); return; }
+        if (err || !stdout) { resolve({ value: [], error: true, message: (fetchErr || err || new Error('no output')).message }); return; }
         const branches = stdout.trim().split('\n')
           .map(b => b.trim())
           .filter(b => b && !b.includes('->'))
           .map(b => b.replace(/^origin\//, ''));
-        resolve(branches);
+        resolve({ value: branches, error: false });
       });
     });
   });
@@ -124,9 +125,9 @@ function getFirstBranchCommit(wtPath, sourceBranch) {
 function hasUncommittedChanges(wtPath) {
   try {
     const out = execSync('git status --porcelain', { cwd: wtPath, encoding: 'utf8', timeout: 5000 });
-    return out.trim().length > 0;
-  } catch {
-    return false;
+    return { value: out.trim().length > 0, error: false };
+  } catch (err) {
+    return { value: false, error: true, message: err.message };
   }
 }
 
@@ -139,9 +140,9 @@ function hasPushedCommits(wtPath, branch, sourceBranch) {
       encoding: 'utf8',
       timeout: 5000
     });
-    return parseInt(out.trim(), 10) > 0;
-  } catch {
-    return false;
+    return { value: parseInt(out.trim(), 10) > 0, error: false };
+  } catch (err) {
+    return { value: false, error: true, message: err.message };
   }
 }
 

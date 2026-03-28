@@ -304,16 +304,18 @@ export async function showWorktreeSwitchDialog(tabEl, groupEl) {
   const preselect = tabEl._wtSourceBranch || null;
   const stateCache = getCachedBranchesFromState(repoName);
 
-  const [cached, user] = await Promise.all([
+  const [cachedResult, user] = await Promise.all([
     window.reposAPI.cachedBranches(groupEl._barePath),
     window.reposAPI.gitUser(groupEl._barePath)
   ]);
+  const cached = cachedResult.value;
   wtSwitchGitUser = user || 'user';
 
   const initialBranches = cached.length > 0 ? cached : stateCache;
   if (initialBranches.length > 0) applySwitchBranches(initialBranches, preselect);
 
-  window.reposAPI.fetchBranches(groupEl._barePath).then((fetched) => {
+  window.reposAPI.fetchBranches(groupEl._barePath).then((fetchResult) => {
+    const fetched = fetchResult.value;
     if (!wtSwitchDialogOverlay.classList.contains('visible')) return;
     if (wtSwitchGroupEl !== groupEl) return;
     applySwitchBranches(fetched, preselect);

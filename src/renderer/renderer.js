@@ -1,4 +1,4 @@
-import { addRepoGroup, clearAllGroups, createWorktreeTab, rebuildCollapsedDots, registerWorktreeDialog, registerDeleteDialog, registerWorktreeRemoveDialog, registerWorktreeSwitchDialog, registerCommitPushDialog, registerCreatePrDialog, registerToggleTerminal, registerOnStateChange, removeRepoGroup, showTabCloseButton, showTabRemoveButton, getRepoOrder, getWorktreeOrders } from './sidebar/index.js';
+import { addRepoGroup, clearAllGroups, createWorktreeTab, rebuildCollapsedDots, registerWorktreeDialog, registerDeleteDialog, registerWorktreeRemoveDialog, registerWorktreeSwitchDialog, registerCommitPushDialog, registerCreatePrDialog, registerToggleTerminal, registerOnStateChange, registerCheckExistingPr, removeRepoGroup, showTabCloseButton, showTabRemoveButton, getRepoOrder, getWorktreeOrders, checkExistingPr } from './sidebar/index.js';
 import { showWorktreeDialog, showCloneDialog, showDeleteDialog, showWorktreeRemoveDialog, showWorktreeSwitchDialog, showCommitPushDialog, showCreatePrDialog, setCloneReposDir, registerSidebarFns, registerRemoveRepoGroup, registerOnCloneComplete } from './dialogs/index.js';
 import { cycleWorkspace, registerTabButtonFns } from './workspace-manager.js';
 import { getActive } from './state.js';
@@ -15,6 +15,7 @@ registerWorktreeSwitchDialog(showWorktreeSwitchDialog);
 registerCommitPushDialog(showCommitPushDialog);
 registerCreatePrDialog(showCreatePrDialog);
 registerToggleTerminal(toggleTerminal);
+registerCheckExistingPr(checkExistingPr);
 registerTabButtonFns(showTabCloseButton, showTabRemoveButton);
 registerSidebarFns(addRepoGroup, createWorktreeTab, rebuildCollapsedDots);
 registerRemoveRepoGroup(removeRepoGroup);
@@ -122,23 +123,25 @@ document.getElementById('btn-titlebar-commit').addEventListener('click', () => {
   const ws = getActive();
   if (ws) showCommitPushDialog(ws.tabEl, ws.tabEl.closest('.repo-group'));
 });
-document.getElementById('btn-titlebar-pr').addEventListener('click', () => {
+document.getElementById('btn-titlebar-create-pr').addEventListener('click', () => {
   const ws = getActive();
-  if (!ws) return;
-  const tabEl = ws.tabEl;
-  if (tabEl._completePrState === 'can-complete') {
-    const btn = tabEl.querySelector('.workspace-tab-complete-pr');
+  if (ws) showCreatePrDialog(ws.tabEl, ws.tabEl.closest('.repo-group'));
+});
+document.getElementById('btn-titlebar-open-pr').addEventListener('click', () => {
+  const ws = getActive();
+  if (ws && ws.tabEl._existingPrUrl) window.shellAPI.openExternal(ws.tabEl._existingPrUrl);
+});
+document.getElementById('btn-titlebar-complete-pr').addEventListener('click', () => {
+  const ws = getActive();
+  if (ws) {
+    const btn = ws.tabEl.querySelector('.workspace-tab-complete-pr');
     if (btn) btn.click();
-  } else if (tabEl._existingPrUrl) {
-    window.shellAPI.openExternal(tabEl._existingPrUrl);
-  } else {
-    showCreatePrDialog(tabEl, tabEl.closest('.repo-group'));
   }
 });
 document.getElementById('btn-titlebar-resolve-task').addEventListener('click', () => {
   const ws = getActive();
   if (ws) {
-    const btn = ws.tabEl.querySelector('.workspace-tab-complete-pr');
+    const btn = ws.tabEl.querySelector('.workspace-tab-resolve-task');
     if (btn) btn.click();
   }
 });

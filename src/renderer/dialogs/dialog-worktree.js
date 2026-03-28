@@ -300,15 +300,17 @@ export async function showWorktreeDialog(groupEl, tabsEl) {
   const stateCache = getCachedBranchesFromState(repoName);
   if (stateCache.length > 0) applyBranches(stateCache);
 
-  const [cached, user] = await Promise.all([
+  const [cachedResult, user] = await Promise.all([
     window.reposAPI.cachedBranches(groupEl._barePath),
     window.reposAPI.gitUser(groupEl._barePath)
   ]);
+  const cached = cachedResult.value;
   wtGitUser = user || 'user';
 
   if (cached.length > 0 && stateCache.length === 0) applyBranches(cached);
 
-  window.reposAPI.fetchBranches(groupEl._barePath).then((fetched) => {
+  window.reposAPI.fetchBranches(groupEl._barePath).then((fetchResult) => {
+    const fetched = fetchResult.value;
     if (!wtDialogOverlay.classList.contains('visible')) return;
     if (wtCurrentGroupEl !== groupEl) return;
     applyBranches(fetched);

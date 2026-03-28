@@ -7,6 +7,7 @@ export let _showCommitPushDialog = null;
 export let _showCreatePrDialog = null;
 export let _onStateChange = null;
 export let _toggleTerminal = null;
+export let _checkExistingPr = null;
 
 export function registerWorktreeDialog(fn) { _showWorktreeDialog = fn; }
 export function registerDeleteDialog(fn) { _showDeleteDialog = fn; }
@@ -16,3 +17,4 @@ export function registerCommitPushDialog(fn) { _showCommitPushDialog = fn; }
 export function registerCreatePrDialog(fn) { _showCreatePrDialog = fn; }
 export function registerOnStateChange(fn) { _onStateChange = fn; }
 export function registerToggleTerminal(fn) { _toggleTerminal = fn; }
+export function registerCheckExistingPr(fn) { _checkExistingPr = fn; }

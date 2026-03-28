@@ -13,8 +13,8 @@ export function showContextMenu(x, y, tabEl) {
   const isOpen = tabEl._workspaceId !== null;
   const hasTask = !!tabEl._wtTaskId;
   const hasPr = !!tabEl._existingPrUrl;
-  const canComplete = tabEl._completePrState === 'can-complete';
-  const canResolve = tabEl._completePrState === 'can-resolve';
+  const canComplete = !!tabEl._canCompletePr;
+  const canResolve = !!tabEl._canResolveTask;
   const hasChanges = !!tabEl._hasUncommittedChanges;
   const hasPushed = !!tabEl._hasPushedCommits;
   // Create PR only when no uncommitted changes, pushed commits exist, no active PR or completion state
@@ -117,8 +117,11 @@ contextMenu.addEventListener('click', (e) => {
       const groupEl = tabEl.closest('.repo-group');
       _showCreatePrDialog(tabEl, groupEl);
     }
-  } else if (action === 'complete-pr' || action === 'resolve-task') {
+  } else if (action === 'complete-pr') {
     const btn = tabEl.querySelector('.workspace-tab-complete-pr');
+    if (btn) btn.click();
+  } else if (action === 'resolve-task') {
+    const btn = tabEl.querySelector('.workspace-tab-resolve-task');
     if (btn) btn.click();
   }
 });

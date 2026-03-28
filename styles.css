@@ -821,17 +821,61 @@ html, body {
   color: #1e1e2e;
 }
 
-.workspace-tab .workspace-tab-create-pr.has-pr {
-  opacity: 1;
+.workspace-tab-open-pr {
+  display: none;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 2px 3px;
+  border-radius: 3px;
   color: var(--accent);
+  opacity: 1;
+  line-height: 0;
 }
 
-.workspace-tab .workspace-tab-create-pr.has-pr:hover {
+.workspace-tab-open-pr:hover {
   background: var(--accent);
   color: #1e1e2e;
 }
 
-.workspace-tab-complete-pr {
+.workspace-tab .workspace-tab-open-pr.has-pr-comments {
+  color: var(--peach);
+}
+
+.workspace-tab .workspace-tab-open-pr.has-pr-comments:hover {
+  background: var(--peach);
+  color: #1e1e2e;
+}
+
+.workspace-tab .workspace-tab-open-pr.has-pr-succeeded {
+  color: var(--yellow);
+}
+
+.workspace-tab .workspace-tab-open-pr.has-pr-succeeded:hover {
+  background: var(--yellow);
+  color: #1e1e2e;
+}
+
+.workspace-tab .workspace-tab-open-pr.has-pr-approved {
+  color: var(--green);
+}
+
+.workspace-tab .workspace-tab-open-pr.has-pr-approved:hover {
+  background: var(--green);
+  color: #1e1e2e;
+}
+
+.workspace-tab .workspace-tab-open-pr.has-pr-failed {
+  color: var(--red);
+}
+
+.workspace-tab .workspace-tab-open-pr.has-pr-failed:hover {
+  background: var(--red);
+  color: #1e1e2e;
+}
+
+.workspace-tab-complete-pr,
+.workspace-tab-resolve-task {
   display: none;
   background: none;
   border: none;
@@ -843,7 +887,8 @@ html, body {
   line-height: 0;
 }
 
-.workspace-tab-complete-pr:hover {
+.workspace-tab-complete-pr:hover,
+.workspace-tab-resolve-task:hover {
   background: var(--green);
   color: #1e1e2e;
   opacity: 1;
@@ -852,46 +897,6 @@ html, body {
 .workspace-tab-complete-pr:disabled {
   opacity: 0.4;
   cursor: not-allowed;
-}
-
-.workspace-tab .workspace-tab-create-pr.has-pr-comments {
-  opacity: 1;
-  color: var(--peach);
-}
-
-.workspace-tab .workspace-tab-create-pr.has-pr-comments:hover {
-  background: var(--peach);
-  color: #1e1e2e;
-}
-
-.workspace-tab .workspace-tab-create-pr.has-pr-succeeded {
-  opacity: 1;
-  color: var(--yellow);
-}
-
-.workspace-tab .workspace-tab-create-pr.has-pr-succeeded:hover {
-  background: var(--yellow);
-  color: #1e1e2e;
-}
-
-.workspace-tab .workspace-tab-create-pr.has-pr-approved {
-  opacity: 1;
-  color: var(--green);
-}
-
-.workspace-tab .workspace-tab-create-pr.has-pr-approved:hover {
-  background: var(--green);
-  color: #1e1e2e;
-}
-
-.workspace-tab .workspace-tab-create-pr.has-pr-failed {
-  opacity: 1;
-  color: var(--red);
-}
-
-.workspace-tab .workspace-tab-create-pr.has-pr-failed:hover {
-  background: var(--red);
-  color: #1e1e2e;
 }
 
 .workspace-tab-close {
