@@ -16,6 +16,8 @@ contextBridge.exposeInMainWorld('reposAPI', {
   launchConfigs: (wtPath) => ipcRenderer.invoke('repos:launchConfigs', wtPath),
   gitDiffStat: (wtPath) => ipcRenderer.invoke('repos:gitDiffStat', wtPath),
   firstBranchCommit: (wtPath, sourceBranch) => ipcRenderer.invoke('repos:firstBranchCommit', { wtPath, sourceBranch }),
+  hasUncommittedChanges: (wtPath) => ipcRenderer.invoke('repos:hasUncommittedChanges', wtPath),
+  hasPushedCommits: (wtPath, branch, sourceBranch) => ipcRenderer.invoke('repos:hasPushedCommits', { wtPath, branch, sourceBranch }),
 });
 
 contextBridge.exposeInMainWorld('worktreeAPI', {

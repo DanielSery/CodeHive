@@ -4,7 +4,7 @@ import { getSourceBranch, getTaskId } from '../storage.js';
 import { rebuildCollapsedDots, collapsedDotsEl } from './collapsed-dots.js';
 import { showContextMenu } from './context-menu.js';
 import { _showWorktreeSwitchDialog, _showWorktreeRemoveDialog, _showCommitPushDialog, _showCreatePrDialog, _onStateChange } from './registers.js';
-import { parseAzureRemoteUrl, fetchPolicyEvaluations, fetchPrUnresolvedThreadCount, completePullRequest } from '../azure-api.js';
+import { parseAzureRemoteUrl, fetchPolicyEvaluations, fetchPrUnresolvedThreadCount, completePullRequest, fetchWorkItemById } from '../azure-api.js';
 import { showResolveTaskDialog } from '../dialogs/dialog-resolve.js';
 
 const BIN_ICON_SVG = '<svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2 4h12M5.3 4V2.7a1 1 0 011-1h3.4a1 1 0 011 1V4M6.5 7.3v4.4M9.5 7.3v4.4"/><path d="M3.5 4l.7 9.3a1 1 0 001 .9h5.6a1 1 0 001-.9L12.5 4"/></svg>';
@@ -13,6 +13,7 @@ const COMMIT_PUSH_ICON_SVG = '<svg width="12" height="12" viewBox="0 0 16 16" fi
 const PR_ICON_SVG = '<svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="4" cy="4" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="4" cy="12" r="2"/><path d="M4 6v4"/><path d="M12 10V6c0-1.1-.9-2-2-2H8"/><path d="M10 2L8 4l2 2"/></svg>';
 const COMPLETE_PR_ICON_SVG = '<svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="4" cy="4" r="2"/><circle cx="4" cy="12" r="2"/><path d="M4 6v4"/><path d="M9 8l2 2 3.5-3.5"/></svg>';
 const RESOLVE_TASK_ICON_SVG = '<svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="6"/><path d="M5.5 8l2 2 3-3"/></svg>';
+const OPEN_TASK_ICON_SVG = '<svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="2" width="10" height="12" rx="1.5"/><path d="M6 6h4M6 9h3"/></svg>';
 
 function formatBranchLabel(branch) {
   let name = branch.includes('/') ? branch.substring(branch.indexOf('/') + 1) : branch;
@@ -26,6 +27,23 @@ function extractTaskIdFromBranch(branch) {
   return m ? m[1] : null;
 }
 
+function showFallbackSwitch(tabEl) {
+  if (tabEl._workspaceId === null) return;
+  if (tabEl._hasUncommittedChanges) return;
+  const switchBtn = tabEl.querySelector('.workspace-tab-switch');
+  if (!switchBtn) return;
+  if (tabEl._wtTaskId && !tabEl._taskResolved) {
+    switchBtn.innerHTML = OPEN_TASK_ICON_SVG;
+    switchBtn.title = 'Open Task (Ctrl+Alt+A)';
+    tabEl._switchMode = 'open-task';
+  } else {
+    switchBtn.innerHTML = SWITCH_ICON_SVG;
+    switchBtn.title = 'Switch Worktree';
+    tabEl._switchMode = 'switch';
+  }
+  switchBtn.style.display = '';
+}
+
 export async function checkExistingPr(tabEl) {
   const groupEl = tabEl.closest('.repo-group');
   if (!groupEl) return;
@@ -33,19 +51,40 @@ export async function checkExistingPr(tabEl) {
   const branch = tabEl._wtBranch;
   if (!barePath || !branch) return;
 
+  // Check for uncommitted changes and pushed commits to determine button visibility
+  const commitPushBtn = tabEl.querySelector('.workspace-tab-commit-push');
+  const switchBtn = tabEl.querySelector('.workspace-tab-switch');
+  const isOpen = tabEl._workspaceId !== null;
+  if (isOpen) {
+    try {
+      tabEl._hasUncommittedChanges = await window.reposAPI.hasUncommittedChanges(tabEl._wtPath);
+    } catch { tabEl._hasUncommittedChanges = false; }
+    const sourceBranch = tabEl._wtSourceBranch || 'master';
+    try {
+      tabEl._hasPushedCommits = await window.reposAPI.hasPushedCommits(tabEl._wtPath, branch, sourceBranch);
+    } catch { tabEl._hasPushedCommits = false; }
+    if (commitPushBtn) commitPushBtn.style.display = tabEl._hasUncommittedChanges ? '' : 'none';
+    if (switchBtn) switchBtn.style.display = 'none';
+  }
+
   let remoteUrl;
-  try { remoteUrl = await window.reposAPI.remoteUrl(barePath); } catch { return; }
-  if (!remoteUrl) return;
+  try { remoteUrl = await window.reposAPI.remoteUrl(barePath); } catch { showFallbackSwitch(tabEl); return; }
+  if (!remoteUrl) { showFallbackSwitch(tabEl); return; }
 
   const parsed = parseAzureRemoteUrl(remoteUrl);
   const createPrBtnEarly = tabEl.querySelector('.workspace-tab-create-pr');
   if (!parsed) {
     if (createPrBtnEarly) createPrBtnEarly.style.display = 'none';
+    showFallbackSwitch(tabEl);
     return;
   }
 
+  if (tabEl._wtTaskId) {
+    tabEl._taskUrl = `https://dev.azure.com/${encodeURIComponent(parsed.org)}/${encodeURIComponent(parsed.project)}/_workitems/edit/${tabEl._wtTaskId}`;
+  }
+
   const pat = localStorage.getItem('codehive-azure-pat');
-  if (!pat) return;
+  if (!pat) { showFallbackSwitch(tabEl); return; }
 
   const auth = btoa(':' + pat);
   const { org, project } = parsed;
@@ -55,9 +94,9 @@ export async function checkExistingPr(tabEl) {
   let data;
   try {
     const resp = await fetch(apiUrl, { headers: { Authorization: `Basic ${auth}` } });
-    if (!resp.ok) return;
+    if (!resp.ok) { showFallbackSwitch(tabEl); return; }
     data = await resp.json();
-  } catch { return; }
+  } catch { showFallbackSwitch(tabEl); return; }
 
   if (!data.value || data.value.length === 0) {
     if (createPrBtnEarly) {
@@ -77,13 +116,27 @@ export async function checkExistingPr(tabEl) {
           if (cData.value && cData.value.length > 0) {
             const completePrBtn = tabEl.querySelector('.workspace-tab-complete-pr');
             if (completePrBtn) {
-              if (createPrBtnEarly) createPrBtnEarly.style.display = 'none';
               const cPr = cData.value[0];
+              // Check if the task is already resolved/closed before showing the button
+              const taskCtx = { org, project, auth, apiBase: `https://dev.azure.com/${encodeURIComponent(org)}/${encodeURIComponent(project)}/_apis` };
+              const wi = await fetchWorkItemById(taskCtx, tabEl._wtTaskId);
+              if (wi && ['Resolved', 'Closed', 'Done', 'Removed'].includes(wi.state)) {
+                console.log('[checkExistingPr] task', tabEl._wtTaskId, 'already', wi.state, '— hiding resolve button');
+                tabEl._taskResolved = true;
+                showFallbackSwitch(tabEl);
+                return;
+              }
+              if (createPrBtnEarly) createPrBtnEarly.style.display = 'none';
               tabEl._prData = { id: cPr.pullRequestId, repoId: cPr.repository.id, lastCommitId: cPr.lastMergeSourceCommit?.commitId, org, project, auth, targetRefName: cPr.targetRefName };
               completePrBtn.innerHTML = RESOLVE_TASK_ICON_SVG;
               completePrBtn.title = 'Resolve Azure Task';
-              completePrBtn.style.display = 'inline-flex';
               tabEl._completePrState = 'can-resolve';
+              if (tabEl._hasUncommittedChanges) {
+                completePrBtn.style.display = 'none';
+              } else {
+                completePrBtn.style.display = 'inline-flex';
+                if (switchBtn) switchBtn.style.display = 'none';
+              }
               console.log('[checkExistingPr] showing resolve task button for', branch);
             }
             return;
@@ -91,7 +144,13 @@ export async function checkExistingPr(tabEl) {
         }
       } catch (err) { console.warn('[checkExistingPr] completed PR check error:', err); }
     }
-    if (createPrBtnEarly && tabEl._completePrState !== 'can-resolve') createPrBtnEarly.style.display = '';
+    // No active PR, no completed PR — show Create PR only if pushed commits exist and no uncommitted changes
+    const canShowCreatePr = !tabEl._hasUncommittedChanges && tabEl._hasPushedCommits;
+    if (createPrBtnEarly && tabEl._completePrState !== 'can-resolve') {
+      createPrBtnEarly.style.display = canShowCreatePr ? '' : 'none';
+      if (canShowCreatePr && switchBtn) switchBtn.style.display = 'none';
+    }
+    if (!canShowCreatePr && tabEl._completePrState !== 'can-resolve') showFallbackSwitch(tabEl);
     return;
   }
 
@@ -130,33 +189,47 @@ export async function checkExistingPr(tabEl) {
 
   createPrBtn.classList.remove('has-pr', 'has-pr-succeeded', 'has-pr-approved', 'has-pr-failed', 'has-pr-comments');
   createPrBtn.classList.add(statusClass);
-  createPrBtn.style.display = statusClass === 'has-pr-approved' ? 'none' : '';
   createPrBtn.title = `View Pull Request #${pr.pullRequestId} (Ctrl+Alt+M)`;
 
+  let actionShown = false;
   const completePrBtn = tabEl.querySelector('.workspace-tab-complete-pr');
   if (completePrBtn && tabEl._completePrState !== 'can-resolve') {
     if (statusClass === 'has-pr-approved') {
       completePrBtn.innerHTML = COMPLETE_PR_ICON_SVG;
       completePrBtn.title = 'Complete Pull Request (merge + delete branch)';
-      completePrBtn.style.display = 'inline-flex';
       tabEl._completePrState = 'can-complete';
+      if (!tabEl._hasUncommittedChanges) {
+        createPrBtn.style.display = 'none';
+        completePrBtn.style.display = 'inline-flex';
+        actionShown = true;
+      } else {
+        createPrBtn.style.display = 'none';
+        completePrBtn.style.display = 'none';
+      }
     } else {
       completePrBtn.style.display = 'none';
       tabEl._completePrState = null;
+      if (!tabEl._hasUncommittedChanges) {
+        createPrBtn.style.display = '';
+        actionShown = true;
+      } else {
+        createPrBtn.style.display = 'none';
+      }
     }
+  }
+  if (actionShown) {
+    if (switchBtn) switchBtn.style.display = 'none';
+  } else {
+    showFallbackSwitch(tabEl);
   }
 }
 
 export function showTabCloseButton(tabEl) {
   const switchBtn = tabEl.querySelector('.workspace-tab-switch');
   const removeBtn = tabEl.querySelector('.workspace-tab-remove');
-  const commitPushBtn = tabEl.querySelector('.workspace-tab-commit-push');
-  const createPrBtn = tabEl.querySelector('.workspace-tab-create-pr');
   const closeBtn = tabEl.querySelector('.workspace-tab-close');
   if (switchBtn) switchBtn.style.display = 'none';
   if (removeBtn) removeBtn.style.display = 'none';
-  if (commitPushBtn) commitPushBtn.style.display = '';
-  if (createPrBtn) createPrBtn.style.display = tabEl._completePrState === 'can-resolve' ? 'none' : '';
   if (closeBtn) closeBtn.style.display = '';
   checkExistingPr(tabEl);
 }
@@ -166,12 +239,20 @@ export function showTabRemoveButton(tabEl) {
   const removeBtn = tabEl.querySelector('.workspace-tab-remove');
   const commitPushBtn = tabEl.querySelector('.workspace-tab-commit-push');
   const createPrBtn = tabEl.querySelector('.workspace-tab-create-pr');
+  const completePrBtn = tabEl.querySelector('.workspace-tab-complete-pr');
   const closeBtn = tabEl.querySelector('.workspace-tab-close');
-  if (switchBtn) switchBtn.style.display = '';
+  if (switchBtn) {
+    switchBtn.innerHTML = SWITCH_ICON_SVG;
+    switchBtn.title = 'Switch Worktree';
+    tabEl._switchMode = 'switch';
+    switchBtn.style.display = '';
+  }
   if (removeBtn) removeBtn.style.display = '';
   if (commitPushBtn) commitPushBtn.style.display = 'none';
-  if (createPrBtn) createPrBtn.style.display = (tabEl._completePrState === 'can-resolve' || !tabEl._existingPrUrl) ? 'none' : '';
+  if (createPrBtn) createPrBtn.style.display = 'none';
+  if (completePrBtn) completePrBtn.style.display = 'none';
   if (closeBtn) closeBtn.style.display = 'none';
+  tabEl._hasUncommittedChanges = false;
   checkExistingPr(tabEl);
 }
 
@@ -233,7 +314,9 @@ export function createWorktreeTab(wt) {
 
   tabEl.querySelector('.workspace-tab-switch').addEventListener('click', (e) => {
     e.stopPropagation();
-    if (_showWorktreeSwitchDialog) {
+    if (tabEl._switchMode === 'open-task' && tabEl._taskUrl) {
+      window.shellAPI.openExternal(tabEl._taskUrl);
+    } else if (_showWorktreeSwitchDialog) {
       const groupEl = tabEl.closest('.repo-group');
       _showWorktreeSwitchDialog(tabEl, groupEl);
     }
@@ -289,10 +372,21 @@ export function createWorktreeTab(wt) {
       if (!d || !tabEl._wtTaskId) return;
       const ctx = { org: d.org, project: d.project, auth: d.auth, apiBase: `https://dev.azure.com/${encodeURIComponent(d.org)}/${encodeURIComponent(d.project)}/_apis` };
       const targetBranch = d.targetRefName || `refs/heads/${tabEl._wtSourceBranch || 'master'}`;
-      const ok = await showResolveTaskDialog(ctx, tabEl._wtTaskId, { org: d.org, project: d.project, auth: d.auth, targetBranch });
-      if (ok) {
-        btn.style.display = 'none';
+      const result = await showResolveTaskDialog(ctx, tabEl._wtTaskId, { org: d.org, project: d.project, auth: d.auth, targetBranch });
+      if (result === 'resolved') {
+        tabEl._taskResolved = true;
         tabEl._completePrState = null;
+      }
+      if (result === 'resolved' || result === 'commented') {
+        // Switch slot 1 to Switch Worktree (resolve still available in context menu)
+        const switchBtn = tabEl.querySelector('.workspace-tab-switch');
+        if (switchBtn) {
+          switchBtn.innerHTML = SWITCH_ICON_SVG;
+          switchBtn.title = 'Switch Worktree';
+          tabEl._switchMode = 'switch';
+          switchBtn.style.display = '';
+        }
+        btn.style.display = 'none';
       }
     }
   });
@@ -364,8 +458,10 @@ export function createWorktreeTab(wt) {
 
 setInterval(() => {
   for (const tab of document.querySelectorAll('.workspace-tab')) {
+    const isOpen = tab._workspaceId !== null;
     const btn = tab.querySelector('.workspace-tab-create-pr');
-    if (btn && (btn.classList.contains('has-pr') || btn.classList.contains('has-pr-succeeded') || btn.classList.contains('has-pr-approved') || btn.classList.contains('has-pr-failed') || btn.classList.contains('has-pr-comments'))) {
+    const hasPrStatus = btn && (btn.classList.contains('has-pr') || btn.classList.contains('has-pr-succeeded') || btn.classList.contains('has-pr-approved') || btn.classList.contains('has-pr-failed') || btn.classList.contains('has-pr-comments'));
+    if (isOpen || hasPrStatus) {
       checkExistingPr(tab);
     }
   }

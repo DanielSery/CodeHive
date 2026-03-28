@@ -16,7 +16,7 @@ export function showResolveTaskDialog(ctx, taskId, { org, project, auth, targetB
   releaseInput.value = 'internal';
   commentInput.value = '';
   overlay.classList.add('visible');
-  releaseInput.focus();
+  commentInput.focus();
 
   // Fetch the latest successful build from the target branch (where the PR was merged)
   fetchLatestBuildNumber(org, project, auth, targetBranch).then(buildNumber => {
@@ -41,16 +41,33 @@ async function confirm() {
   const releaseNote = releaseInput.value.trim();
   const comment = commentInput.value.trim();
   const confirmBtn = document.getElementById('resolve-task-confirm-btn');
+  const commentBtn = document.getElementById('resolve-task-comment-btn');
   confirmBtn.disabled = true;
+  commentBtn.disabled = true;
   const ok = await resolveWorkItem(_ctx, _taskId, { integrationBuild, releaseNote });
   if (ok && comment) {
     await addWorkItemComment(_ctx, _taskId, comment);
   }
   confirmBtn.disabled = false;
-  hide(ok);
+  commentBtn.disabled = false;
+  hide(ok ? 'resolved' : false);
+}
+
+async function commentOnly() {
+  const comment = commentInput.value.trim();
+  if (!comment) return;
+  const confirmBtn = document.getElementById('resolve-task-confirm-btn');
+  const commentBtn = document.getElementById('resolve-task-comment-btn');
+  confirmBtn.disabled = true;
+  commentBtn.disabled = true;
+  await addWorkItemComment(_ctx, _taskId, comment);
+  confirmBtn.disabled = false;
+  commentBtn.disabled = false;
+  hide('commented');
 }
 
 document.getElementById('resolve-task-confirm-btn').addEventListener('click', confirm);
+document.getElementById('resolve-task-comment-btn').addEventListener('click', commentOnly);
 document.getElementById('resolve-task-cancel-btn').addEventListener('click', () => hide(false));
 overlay.addEventListener('keydown', (e) => {
   if (e.key === 'Escape') hide(false);

@@ -1,7 +1,7 @@
 const { ipcMain, dialog, shell } = require('electron');
 const { exec, spawn } = require('child_process');
 const vscode = require('./vscode-server');
-const { scanDirectory, checkClaudeActive, getCachedBranches, fetchAndListBranches, getGitUser, getRemoteUrl, getLaunchConfigs, gitDiffStat, getFirstBranchCommit } = require('./repo-scanner');
+const { scanDirectory, checkClaudeActive, getCachedBranches, fetchAndListBranches, getGitUser, getRemoteUrl, getLaunchConfigs, gitDiffStat, getFirstBranchCommit, hasUncommittedChanges, hasPushedCommits } = require('./repo-scanner');
 const { createWorktreePty, createClonePty, createDeletePty, createWorktreeRemovePty, createWorktreeSwitchPty, createCommitPushPty, createPrCreatePty, createAzInstallPty } = require('./pty-manager');
 
 let worktreePty = null;
@@ -60,6 +60,14 @@ function register(mainWindow, getServerPort) {
 
   ipcMain.handle('repos:firstBranchCommit', (event, { wtPath, sourceBranch }) => {
     return getFirstBranchCommit(wtPath, sourceBranch);
+  });
+
+  ipcMain.handle('repos:hasUncommittedChanges', (event, wtPath) => {
+    return hasUncommittedChanges(wtPath);
+  });
+
+  ipcMain.handle('repos:hasPushedCommits', (event, { wtPath, branch, sourceBranch }) => {
+    return hasPushedCommits(wtPath, branch, sourceBranch);
   });
 
 

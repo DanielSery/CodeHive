@@ -13,11 +13,19 @@ export function showContextMenu(x, y, tabEl) {
   const isOpen = tabEl._workspaceId !== null;
   const hasTask = !!tabEl._wtTaskId;
   const hasPr = !!tabEl._existingPrUrl;
+  const canComplete = tabEl._completePrState === 'can-complete';
+  const canResolve = tabEl._completePrState === 'can-resolve';
+  const hasChanges = !!tabEl._hasUncommittedChanges;
+  const hasPushed = !!tabEl._hasPushedCommits;
+  // Create PR only when no uncommitted changes, pushed commits exist, no active PR or completion state
+  const showCreatePr = !hasChanges && hasPushed && !hasPr && !canComplete && !canResolve;
 
   contextMenu.querySelector('[data-action="open-workspace"]').style.display = isOpen ? 'none' : '';
   contextMenu.querySelector('[data-action="switch"]').style.display = '';
-  contextMenu.querySelector('[data-action="commit-push"]').style.display = '';
-  contextMenu.querySelector('[data-action="create-pr"]').style.display = hasPr ? 'none' : '';
+  contextMenu.querySelector('[data-action="commit-push"]').style.display = isOpen && hasChanges ? '' : 'none';
+  contextMenu.querySelector('[data-action="create-pr"]').style.display = showCreatePr ? '' : 'none';
+  contextMenu.querySelector('[data-action="complete-pr"]').style.display = !hasChanges && canComplete ? '' : 'none';
+  contextMenu.querySelector('[data-action="resolve-task"]').style.display = !hasChanges && canResolve ? '' : 'none';
   contextMenu.querySelector('[data-action="open-task"]').style.display = hasTask ? '' : 'none';
   contextMenu.querySelector('[data-action="open-pr"]').style.display = hasPr ? '' : 'none';
   contextMenu.querySelector('[data-action="close-editor"]').style.display = isOpen ? '' : 'none';
@@ -109,6 +117,9 @@ contextMenu.addEventListener('click', (e) => {
       const groupEl = tabEl.closest('.repo-group');
       _showCreatePrDialog(tabEl, groupEl);
     }
+  } else if (action === 'complete-pr' || action === 'resolve-task') {
+    const btn = tabEl.querySelector('.workspace-tab-complete-pr');
+    if (btn) btn.click();
   }
 });
 

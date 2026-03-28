@@ -268,4 +268,26 @@ function getFirstBranchCommit(wtPath, sourceBranch) {
   }
 }
 
-module.exports = { scanDirectory, checkClaudeActive, getCachedBranches, fetchAndListBranches, getGitUser, getRemoteUrl, getLaunchConfigs, gitDiffStat, getFirstBranchCommit };
+function hasUncommittedChanges(wtPath) {
+  try {
+    const out = execSync('git status --porcelain', { cwd: wtPath, encoding: 'utf8', timeout: 5000 });
+    return out.trim().length > 0;
+  } catch {
+    return false;
+  }
+}
+
+function hasPushedCommits(wtPath, branch, sourceBranch) {
+  try {
+    const out = execSync(`git rev-list --count origin/${sourceBranch}..origin/${branch}`, {
+      cwd: wtPath,
+      encoding: 'utf8',
+      timeout: 5000
+    });
+    return parseInt(out.trim(), 10) > 0;
+  } catch {
+    return false;
+  }
+}
+
+module.exports = { scanDirectory, checkClaudeActive, getCachedBranches, fetchAndListBranches, getGitUser, getRemoteUrl, getLaunchConfigs, gitDiffStat, getFirstBranchCommit, hasUncommittedChanges, hasPushedCommits };

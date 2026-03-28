@@ -115,17 +115,17 @@ export async function updateWorkItemState(ctx, id, state) {
 }
 
 /**
- * Fetch a single work item by ID. Returns { id, title, type } or null.
+ * Fetch a single work item by ID. Returns { id, title, type, state } or null.
  */
 export async function fetchWorkItemById(ctx, id) {
   try {
     const resp = await fetch(
-      `${ctx.apiBase}/wit/workitems/${id}?fields=System.Id,System.Title,System.WorkItemType,System.Description&api-version=7.0`,
+      `${ctx.apiBase}/wit/workitems/${id}?fields=System.Id,System.Title,System.WorkItemType,System.Description,System.State&api-version=7.0`,
       { headers: { Authorization: `Basic ${ctx.auth}` } }
     );
     if (!resp.ok) return null;
     const data = await resp.json();
-    return { id: data.id, title: data.fields['System.Title'] || '', type: data.fields['System.WorkItemType'] || '', description: data.fields['System.Description'] || '' };
+    return { id: data.id, title: data.fields['System.Title'] || '', type: data.fields['System.WorkItemType'] || '', state: data.fields['System.State'] || '', description: data.fields['System.Description'] || '' };
   } catch {
     return null;
   }
