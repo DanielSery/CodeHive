@@ -72,9 +72,24 @@ export function fuzzyScore(text, query) {
   return score;
 }
 
-export const AZURE_PAT_KEY = 'codehive-azure-pat';
-export function loadStoredPat() { return localStorage.getItem(AZURE_PAT_KEY) || ''; }
-export function saveStoredPat(pat) { if (pat) localStorage.setItem(AZURE_PAT_KEY, pat); }
+export const AZURE_PAT_KEY = 'azure-pat';
+/** Load PAT from OS keychain via main process. Returns a Promise<string>. */
+export async function loadStoredPat() { return (await window.credentialsAPI.get(AZURE_PAT_KEY)) || ''; }
+/** Save PAT to OS keychain via main process. Returns a Promise<boolean>. */
+export async function saveStoredPat(pat) { if (pat) return window.credentialsAPI.set(AZURE_PAT_KEY, pat); }
+
+export function stripHtml(html) {
+  return html
+    .replace(/<[^>]*>/g, ' ')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&quot;/g, '"')
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&#\d+;/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
 
 const _taskCache = {};
 export function getCachedTasks(barePath) { return _taskCache[barePath] || null; }

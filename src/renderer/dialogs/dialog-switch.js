@@ -1,9 +1,10 @@
 import { openWorktree } from '../workspace-manager.js';
-import { stripHtml } from './dialog-worktree.js';
 import { createTerminal, showTerminal, showCloseButton, setTitle, closeTerminal } from '../terminal-panel.js';
 import { getCachedBranchesFromState, saveBranchCache, saveSourceBranch, saveTaskId } from '../storage.js';
 import { fetchAzureTasks, createAzureWorkItem, buildAzureTaskUrl, fetchWorkItemById, updateWorkItemState } from '../azure-api.js';
-import { inferWorkItemType, sanitizePathPart, userToPrefix, nameToBranch, loadStoredPat, fuzzyMatch, fuzzyScore, getCachedTasks, saveTaskCache } from './utils.js';
+import { inferWorkItemType, sanitizePathPart, userToPrefix, nameToBranch, loadStoredPat, getCachedTasks, saveTaskCache, stripHtml } from './utils.js';
+import { toast } from '../toast.js';
+import { createCombobox } from './combobox.js';
 
 const wtSwitchDialogOverlay = document.getElementById('wt-switch-dialog-overlay');
 const wtSwitchTaskSearch = document.getElementById('wt-switch-task-search');
@@ -19,21 +20,17 @@ const wtSwitchTargetSearch = document.getElementById('wt-switch-target-search');
 const wtSwitchTargetList = document.getElementById('wt-switch-target-list');
 const wtSwitchPreview = document.getElementById('wt-switch-preview');
 const wtSwitchSkipTaskBtn = document.getElementById('wt-switch-skip-task-btn');
+const wtSwitchConfirmBtn = document.getElementById('wt-switch-confirm-btn');
 
-let wtSwitchAllBranches = [];
-let wtSwitchSelectedBranch = null;
-let wtSwitchHighlightIndex = -1;
 let wtSwitchTabEl = null;
 let wtSwitchGroupEl = null;
 let wtSwitchGitUser = '';
-let wtSwitchAllTasks = [];
 let wtSwitchSelectedTask = null;
-let wtSwitchTaskHighlightIndex = -1;
 let wtSwitchAzureContext = null;
-let wtSwitchTargetHighlightIndex = -1;
-let wtSwitchSelectedTarget = null;
 let wtSwitchFetchByIdTimer = null;
 let wtSwitchChangeNameEdited = false;
+let wtSwitchSelectedBranch = null;
+let wtSwitchSelectedTarget = null;
 
 // Injected by index.js
 let _createWorktreeTab = null;
@@ -90,42 +87,69 @@ function updateWtSwitchPreview() {
   if (!target || !wtSwitchSelectedBranch) { wtSwitchPreview.textContent = ''; return; }
   const dir = getDirName();
   wtSwitchPreview.textContent = `Dir: ${dir}`;
+  updateConfirmState();
+}
+
+function updateConfirmState() {
+  const target = wtSwitchSelectedTarget || wtSwitchTargetSearch.value.trim();
+  wtSwitchConfirmBtn.disabled = !wtSwitchSelectedBranch || !target;
 }
 
 // --- Task combobox ---
 
-function getFilteredSwitchTasks() {
-  const q = (wtSwitchTaskSearch.value || '').toLowerCase();
-  return wtSwitchAllTasks.filter(t => fuzzyMatch(`#${t.id} ${t.title}`, q)).sort((a, b) => fuzzyScore(`#${b.id} ${b.title}`, q) - fuzzyScore(`#${a.id} ${a.title}`, q));
+function renderTaskItem(el, t) {
+  const titleLine = document.createElement('div');
+  titleLine.textContent = `#${t.id} ${t.title}`;
+  el.appendChild(titleLine);
+  if (t.description) {
+    const desc = stripHtml(t.description).substring(0, 300);
+    if (desc) {
+      const descLine = document.createElement('div');
+      descLine.className = 'combobox-item-desc';
+      descLine.textContent = desc;
+      el.appendChild(descLine);
+    }
+  }
 }
 
-function renderSwitchTaskList(filter) {
-  wtSwitchTaskList.innerHTML = '';
-  const q = (filter || '').toLowerCase();
-  const filtered = wtSwitchAllTasks.filter(t => fuzzyMatch(`#${t.id} ${t.title}`, q)).sort((a, b) => fuzzyScore(`#${b.id} ${b.title}`, q) - fuzzyScore(`#${a.id} ${a.title}`, q));
-  if (filtered.length === 0) { wtSwitchTaskList.classList.remove('open'); wtSwitchTaskHighlightIndex = -1; return; }
-  filtered.forEach((t, i) => {
-    const item = document.createElement('div');
-    item.className = 'combobox-item';
-    if (wtSwitchSelectedTask && t.id === wtSwitchSelectedTask.id) item.classList.add('selected');
-    if (i === wtSwitchTaskHighlightIndex) item.classList.add('highlighted');
-    const titleLine = document.createElement('div');
-    titleLine.textContent = `#${t.id} ${t.title}`;
-    item.appendChild(titleLine);
-    if (t.description) {
-      const desc = stripHtml(t.description).substring(0, 300);
-      if (desc) {
-        const descLine = document.createElement('div');
-        descLine.className = 'combobox-item-desc';
-        descLine.textContent = desc;
-        item.appendChild(descLine);
-      }
+const taskCombobox = createCombobox({
+  inputEl: wtSwitchTaskSearch,
+  listEl: wtSwitchTaskList,
+  arrowSelector: '#wt-switch-task-combobox .combobox-arrow',
+  onHide: () => hideWorktreeSwitchDialog(),
+  getLabel: (t) => `#${t.id} ${t.title}`,
+  isSelected: (t) => wtSwitchSelectedTask && t.id === wtSwitchSelectedTask.id,
+  renderItemContent: renderTaskItem,
+  onSelect: (task) => selectWtSwitchTask(task),
+  onEnterMatch: (task) => { selectWtSwitchTask(task); wtSwitchChangeName.focus(); },
+  onInput: () => {
+    wtSwitchSelectedTask = null;
+    updateSwitchNewTaskFields();
+    const typed = wtSwitchTaskSearch.value.trim();
+    syncSwitchChangeNameFromTask();
+    if (typed) updateTargetFromTask();
+
+    clearTimeout(wtSwitchFetchByIdTimer);
+    const idMatch = typed.match(/^#?(\d+)$/);
+    if (idMatch && wtSwitchAzureContext && taskCombobox.getFiltered().length === 0) {
+      const numId = parseInt(idMatch[1], 10);
+      wtSwitchFetchByIdTimer = setTimeout(async () => {
+        if (wtSwitchTaskSearch.value.trim() !== typed) return;
+        const found = await fetchWorkItemById(wtSwitchAzureContext, numId);
+        if (!found) return;
+        if (wtSwitchTaskSearch.value.trim() !== typed) return;
+        const allTasks = taskCombobox.getItems();
+        if (!allTasks.some(t => t.id === found.id)) taskCombobox.setItems([found, ...allTasks]);
+        taskCombobox.render(wtSwitchTaskSearch.value);
+      }, 400);
     }
-    item.addEventListener('mousedown', (e) => { e.preventDefault(); selectWtSwitchTask(t); });
-    wtSwitchTaskList.appendChild(item);
-  });
-  wtSwitchTaskList.classList.add('open');
-}
+  },
+  onBlur: () => {
+    if (wtSwitchSelectedTask) { wtSwitchTaskSearch.value = `#${wtSwitchSelectedTask.id} ${wtSwitchSelectedTask.title}`; }
+    updateSwitchNewTaskFields();
+  },
+  openOnFocus: true,
+});
 
 function updateSwitchNewTaskFields() {
   const isNewTask = !wtSwitchSelectedTask && wtSwitchTaskSearch.value.trim().length > 0;
@@ -138,8 +162,7 @@ function updateSwitchNewTaskFields() {
 function selectWtSwitchTask(task) {
   wtSwitchSelectedTask = task;
   wtSwitchTaskSearch.value = task ? `#${task.id} ${task.title}` : '';
-  wtSwitchTaskList.classList.remove('open');
-  wtSwitchTaskHighlightIndex = -1;
+  taskCombobox.close();
   if (task) {
     wtSwitchChangeNameEdited = false;
     wtSwitchChangeName.value = task.title;
@@ -150,7 +173,7 @@ function selectWtSwitchTask(task) {
 
 function applyWtSwitchTasks(tasks, azureContext, focusTaskSearch) {
   wtSwitchAzureContext = azureContext;
-  wtSwitchAllTasks = tasks;
+  taskCombobox.setItems(tasks);
   wtSwitchTaskSearch.placeholder = tasks.length === 0 ? 'No active tasks found' : 'Search or type new task...';
   wtSwitchTaskSearch.disabled = false;
   focusTaskSearch();
@@ -158,13 +181,11 @@ function applyWtSwitchTasks(tasks, azureContext, focusTaskSearch) {
 
 async function fetchSwitchTasksForDialog(barePath) {
   const focusTaskSearch = () => { if (wtSwitchDialogOverlay.classList.contains('visible')) wtSwitchTaskSearch.focus(); };
-  const pat = loadStoredPat();
+  const pat = await loadStoredPat();
 
-  // Apply caches immediately
   const cached = getCachedTasks(barePath);
   if (cached) applyWtSwitchTasks(cached.tasks, cached.azureContext, focusTaskSearch);
 
-  // Always refresh in background
   const result = await fetchAzureTasks(barePath, pat);
   if (result.error === 'no-pat') { if (!cached) { wtSwitchTaskSearch.placeholder = 'Configure PAT to load tasks'; wtSwitchTaskSearch.disabled = false; focusTaskSearch(); } return; }
   if (result.error === 'not-azure') { if (!cached) { wtSwitchTaskSearch.placeholder = 'Not an Azure DevOps repository'; wtSwitchTaskSearch.disabled = false; focusTaskSearch(); } return; }
@@ -175,54 +196,62 @@ async function fetchSwitchTasksForDialog(barePath) {
 
 // --- Source branch combobox ---
 
-function getSwitchFilteredBranches() {
-  const q = (wtSwitchBranchSearch.value || '').toLowerCase();
-  return wtSwitchAllBranches.filter(b => fuzzyMatch(b, q)).sort((a, b) => fuzzyScore(b, q) - fuzzyScore(a, q));
-}
+const sourceBranchCombobox = createCombobox({
+  inputEl: wtSwitchBranchSearch,
+  listEl: wtSwitchBranchList,
+  arrowSelector: '#wt-switch-combobox .combobox-arrow',
+  onHide: () => hideWorktreeSwitchDialog(),
+  getLabel: (b) => b,
+  isSelected: (b) => b === wtSwitchSelectedBranch,
+  dashForSpace: true,
+  onSelect: (b) => {
+    wtSwitchSelectedBranch = b;
+    wtSwitchBranchSearch.value = b;
+    updateWtSwitchPreview();
+  },
+  onEnterMatch: (b) => {
+    wtSwitchSelectedBranch = b;
+    wtSwitchBranchSearch.value = b;
+    sourceBranchCombobox.close();
+    updateWtSwitchPreview();
+    wtSwitchTargetSearch.focus();
+  },
+  onInput: () => { wtSwitchSelectedBranch = null; updateConfirmState(); },
+  onBlur: () => { if (wtSwitchSelectedBranch) wtSwitchBranchSearch.value = wtSwitchSelectedBranch; },
+});
 
-function renderSwitchBranchList(filter) {
-  wtSwitchBranchList.innerHTML = '';
-  const q = (filter || '').toLowerCase();
-  const filtered = wtSwitchAllBranches.filter(b => fuzzyMatch(b, q)).sort((a, b) => fuzzyScore(b, q) - fuzzyScore(a, q));
-  if (filtered.length === 0) { wtSwitchBranchList.classList.remove('open'); wtSwitchHighlightIndex = -1; return; }
-  filtered.forEach((b, i) => {
-    const item = document.createElement('div');
-    item.className = 'combobox-item';
-    if (b === wtSwitchSelectedBranch) item.classList.add('selected');
-    if (i === wtSwitchHighlightIndex) item.classList.add('highlighted');
-    item.textContent = b;
-    item.addEventListener('mousedown', (e) => { e.preventDefault(); selectWtSwitchBranch(b); });
-    wtSwitchBranchList.appendChild(item);
-  });
-  wtSwitchBranchList.classList.add('open');
-}
+// --- Target branch combobox ---
 
-function selectWtSwitchBranch(b) {
-  wtSwitchSelectedBranch = b;
-  wtSwitchBranchSearch.value = b;
-  wtSwitchBranchList.classList.remove('open');
-  wtSwitchHighlightIndex = -1;
-  updateWtSwitchPreview();
-}
-
-function scrollHighlightedIntoView(listEl) {
-  const el = listEl.querySelector('.highlighted');
-  if (el) el.scrollIntoView({ block: 'nearest' });
-}
-
-function insertDashForSpace(e) {
-  if (e.key !== ' ') return false;
-  e.preventDefault();
-  const input = e.target;
-  const s = input.selectionStart, end = input.selectionEnd;
-  input.value = input.value.substring(0, s) + '-' + input.value.substring(end);
-  input.selectionStart = input.selectionEnd = s + 1;
-  input.dispatchEvent(new Event('input'));
-  return true;
-}
+const targetBranchCombobox = createCombobox({
+  inputEl: wtSwitchTargetSearch,
+  listEl: wtSwitchTargetList,
+  arrowSelector: '#wt-switch-target-combobox .combobox-arrow',
+  onHide: () => hideWorktreeSwitchDialog(),
+  getLabel: (b) => b,
+  isSelected: (b) => b === wtSwitchSelectedTarget,
+  dashForSpace: true,
+  onSelect: (b) => {
+    wtSwitchSelectedTarget = b;
+    wtSwitchTargetSearch.value = b;
+    updateWtSwitchPreview();
+  },
+  onEnterMatch: (b) => {
+    wtSwitchSelectedTarget = b;
+    wtSwitchTargetSearch.value = b;
+    targetBranchCombobox.close();
+    updateWtSwitchPreview();
+  },
+  onEnterNoMatch: () => confirmSwitchWorktree(),
+  onInput: () => { wtSwitchSelectedTarget = null; updateWtSwitchPreview(); },
+  onBlur: () => {
+    if (wtSwitchSelectedTarget) wtSwitchTargetSearch.value = wtSwitchSelectedTarget;
+    updateWtSwitchPreview();
+  },
+});
 
 function applySwitchBranches(branches, preselect) {
-  wtSwitchAllBranches = branches;
+  sourceBranchCombobox.setItems(branches);
+  targetBranchCombobox.setItems(branches);
   if (preselect && branches.includes(preselect) && !wtSwitchSelectedBranch) {
     wtSwitchSelectedBranch = preselect;
     wtSwitchBranchSearch.value = preselect;
@@ -232,69 +261,43 @@ function applySwitchBranches(branches, preselect) {
   }
   wtSwitchBranchSearch.placeholder = 'Search branches...';
   wtSwitchBranchSearch.disabled = false;
-}
-
-// --- Target branch combobox ---
-
-function getSwitchFilteredTargets() {
-  const q = (wtSwitchTargetSearch.value || '').toLowerCase();
-  return wtSwitchAllBranches.filter(b => fuzzyMatch(b, q)).sort((a, b) => fuzzyScore(b, q) - fuzzyScore(a, q));
-}
-
-function renderSwitchTargetList(filter) {
-  wtSwitchTargetList.innerHTML = '';
-  const q = (filter || '').toLowerCase();
-  const filtered = wtSwitchAllBranches.filter(b => fuzzyMatch(b, q)).sort((a, b) => fuzzyScore(b, q) - fuzzyScore(a, q));
-  if (filtered.length === 0) { wtSwitchTargetList.classList.remove('open'); wtSwitchTargetHighlightIndex = -1; return; }
-  filtered.forEach((b, i) => {
-    const item = document.createElement('div');
-    item.className = 'combobox-item';
-    if (b === wtSwitchSelectedTarget) item.classList.add('selected');
-    if (i === wtSwitchTargetHighlightIndex) item.classList.add('highlighted');
-    item.textContent = b;
-    item.addEventListener('mousedown', (e) => { e.preventDefault(); selectWtSwitchTarget(b); });
-    wtSwitchTargetList.appendChild(item);
-  });
-  wtSwitchTargetList.classList.add('open');
-}
-
-function selectWtSwitchTarget(b) {
-  wtSwitchSelectedTarget = b;
-  wtSwitchTargetSearch.value = b;
-  wtSwitchTargetList.classList.remove('open');
-  wtSwitchTargetHighlightIndex = -1;
-  updateWtSwitchPreview();
+  updateConfirmState();
 }
 
 // --- Dialog show/hide/confirm ---
 
 export async function showWorktreeSwitchDialog(tabEl, groupEl) {
+  // Reset all state
   wtSwitchTabEl = tabEl;
   wtSwitchGroupEl = groupEl;
   wtSwitchSelectedBranch = null;
-  wtSwitchAllBranches = [];
+  wtSwitchSelectedTarget = null;
+  wtSwitchSelectedTask = null;
+  wtSwitchAzureContext = null;
+  wtSwitchChangeNameEdited = false;
+  clearTimeout(wtSwitchFetchByIdTimer);
+
   wtSwitchBranchSearch.value = '';
   wtSwitchBranchSearch.placeholder = 'Fetching branches...';
   wtSwitchBranchSearch.disabled = true;
   wtSwitchTargetSearch.value = '';
-  wtSwitchTargetList.innerHTML = '';
-  wtSwitchTargetList.classList.remove('open');
-  wtSwitchSelectedTarget = null;
   wtSwitchPreview.textContent = '';
-  wtSwitchSelectedTask = null;
-  wtSwitchAllTasks = [];
-  wtSwitchAzureContext = null;
   wtSwitchTaskSearch.value = '';
   wtSwitchTaskSearch.placeholder = 'Loading tasks...';
   wtSwitchTaskSearch.disabled = true;
-  wtSwitchTaskList.innerHTML = '';
-  wtSwitchTaskList.classList.remove('open');
   wtSwitchTaskDescRow.style.display = 'none';
   wtSwitchTaskDesc.value = '';
   wtSwitchTaskTypeRow.style.display = 'none';
-
   wtSwitchChangeName.value = '';
-  wtSwitchChangeNameEdited = false;
+  wtSwitchConfirmBtn.disabled = true;
+
+  sourceBranchCombobox.setItems([]);
+  sourceBranchCombobox.close();
+  targetBranchCombobox.setItems([]);
+  targetBranchCombobox.close();
+  taskCombobox.setItems([]);
+  taskCombobox.close();
+
   wtSwitchDialogOverlay.classList.add('visible');
 
   const repoName = groupEl.dataset.repoName;
@@ -315,8 +318,8 @@ export async function showWorktreeSwitchDialog(tabEl, groupEl) {
     if (wtSwitchGroupEl !== groupEl) return;
     applySwitchBranches(fetched, preselect);
     saveBranchCache(repoName, fetched);
-    if (wtSwitchBranchList.classList.contains('open')) renderSwitchBranchList(wtSwitchBranchSearch.value);
-    if (wtSwitchTargetList.classList.contains('open')) renderSwitchTargetList(wtSwitchTargetSearch.value);
+    if (wtSwitchBranchList.classList.contains('open')) sourceBranchCombobox.render(wtSwitchBranchSearch.value);
+    if (wtSwitchTargetList.classList.contains('open')) targetBranchCombobox.render(wtSwitchTargetSearch.value);
   });
 
   fetchSwitchTasksForDialog(groupEl._barePath);
@@ -324,12 +327,13 @@ export async function showWorktreeSwitchDialog(tabEl, groupEl) {
 
 export function hideWorktreeSwitchDialog() {
   wtSwitchDialogOverlay.classList.remove('visible');
-  wtSwitchBranchList.classList.remove('open');
-  wtSwitchTaskList.classList.remove('open');
-  wtSwitchTargetList.classList.remove('open');
+  sourceBranchCombobox.close();
+  targetBranchCombobox.close();
+  taskCombobox.close();
   wtSwitchTaskDescRow.style.display = 'none';
   wtSwitchTaskTypeRow.style.display = 'none';
   wtSwitchTaskDesc.value = '';
+  clearTimeout(wtSwitchFetchByIdTimer);
 }
 
 export async function confirmSwitchWorktree() {
@@ -346,7 +350,7 @@ export async function confirmSwitchWorktree() {
     try {
       wtSwitchSelectedTask = await createAzureWorkItem(wtSwitchAzureContext, workItemType, taskTitle, taskDescription, null);
       window.shellAPI.openExternal(buildAzureTaskUrl(wtSwitchAzureContext, wtSwitchSelectedTask.id));
-    } catch (err) { alert(`Failed to create task: ${err.message}`); return; }
+    } catch (err) { toast.error(`Failed to create task: ${err.message}`); return; }
   }
 
   if (wtSwitchSelectedTask && wtSwitchAzureContext) {
@@ -372,6 +376,7 @@ export async function confirmSwitchWorktree() {
     if (exitCode === 0) {
       xterm.writeln('');
       xterm.writeln('\x1b[32mWorktree switched successfully!\x1b[0m');
+      setTitle('Worktree switched');
       if (tabEl._dotEl) tabEl._dotEl.remove();
       tabEl.remove();
       const wt = { path: wtPath, branch, name: dir, sourceBranch: switchSource, taskId };
@@ -387,7 +392,8 @@ export async function confirmSwitchWorktree() {
     } else {
       xterm.writeln('');
       xterm.writeln(`\x1b[31mWorktree switch failed with exit code ${exitCode}\x1b[0m`);
-      setTitle(`Worktree switch failed`);
+      setTitle('Worktree switch failed');
+      toast.error('Worktree switch failed — see terminal');
       showCloseButton();
     }
   });
@@ -397,54 +403,11 @@ export async function confirmSwitchWorktree() {
     window.worktreeSwitchAPI.ready();
   } catch (err) {
     xterm.writeln(`\x1b[31m${err.message || err}\x1b[0m`);
-    setTitle(`Worktree switch failed`);
+    setTitle('Worktree switch failed');
+    toast.error('Worktree switch failed — see terminal');
     showCloseButton();
   }
 }
-
-// --- Event listeners: Task ---
-
-wtSwitchTaskSearch.addEventListener('input', () => {
-  wtSwitchSelectedTask = null; wtSwitchTaskHighlightIndex = wtSwitchTaskSearch.value.trim() ? 0 : -1; renderSwitchTaskList(wtSwitchTaskSearch.value); updateSwitchNewTaskFields();
-  const typed = wtSwitchTaskSearch.value.trim();
-  syncSwitchChangeNameFromTask();
-  if (typed) updateTargetFromTask();
-  clearTimeout(wtSwitchFetchByIdTimer);
-  const idMatch = typed.match(/^#?(\d+)$/);
-  if (idMatch && wtSwitchAzureContext && getFilteredSwitchTasks().length === 0) {
-    const numId = parseInt(idMatch[1], 10);
-    wtSwitchFetchByIdTimer = setTimeout(async () => {
-      if (wtSwitchTaskSearch.value.trim() !== typed) return;
-      const found = await fetchWorkItemById(wtSwitchAzureContext, numId);
-      if (!found) return;
-      if (wtSwitchTaskSearch.value.trim() !== typed) return;
-      if (!wtSwitchAllTasks.some(t => t.id === found.id)) wtSwitchAllTasks = [found, ...wtSwitchAllTasks];
-      renderSwitchTaskList(wtSwitchTaskSearch.value);
-    }, 400);
-  }
-});
-wtSwitchTaskSearch.addEventListener('focus', () => { if (wtSwitchAllTasks.length > 0) { wtSwitchTaskHighlightIndex = -1; renderSwitchTaskList(wtSwitchTaskSearch.value); } });
-wtSwitchTaskSearch.addEventListener('blur', () => {
-  setTimeout(() => {
-    wtSwitchTaskList.classList.remove('open');
-    if (wtSwitchSelectedTask) { wtSwitchTaskSearch.value = `#${wtSwitchSelectedTask.id} ${wtSwitchSelectedTask.title}`; }
-    updateSwitchNewTaskFields();
-  }, 200);
-});
-
-document.querySelector('#wt-switch-task-combobox .combobox-arrow').addEventListener('mousedown', (e) => e.preventDefault());
-document.querySelector('#wt-switch-task-combobox .combobox-arrow').addEventListener('click', () => {
-  if (wtSwitchTaskList.classList.contains('open')) { wtSwitchTaskList.classList.remove('open'); }
-  else if (wtSwitchAllTasks.length > 0) { wtSwitchTaskSearch.value = ''; wtSwitchTaskHighlightIndex = -1; renderSwitchTaskList(''); wtSwitchTaskSearch.focus(); }
-});
-
-wtSwitchTaskSearch.addEventListener('keydown', (e) => {
-  if (e.key === 'Escape') { hideWorktreeSwitchDialog(); return; }
-  const filtered = getFilteredSwitchTasks();
-  if (e.key === 'ArrowDown') { e.preventDefault(); wtSwitchTaskHighlightIndex = Math.min(wtSwitchTaskHighlightIndex + 1, filtered.length - 1); renderSwitchTaskList(wtSwitchTaskSearch.value); scrollHighlightedIntoView(wtSwitchTaskList); }
-  else if (e.key === 'ArrowUp') { e.preventDefault(); wtSwitchTaskHighlightIndex = Math.max(wtSwitchTaskHighlightIndex - 1, 0); renderSwitchTaskList(wtSwitchTaskSearch.value); scrollHighlightedIntoView(wtSwitchTaskList); }
-  else if (e.key === 'Enter' && wtSwitchTaskHighlightIndex >= 0 && wtSwitchTaskHighlightIndex < filtered.length) { e.preventDefault(); selectWtSwitchTask(filtered[wtSwitchTaskHighlightIndex]); wtSwitchChangeName.focus(); }
-});
 
 // --- Event listeners: Change name ---
 
@@ -459,59 +422,8 @@ wtSwitchChangeName.addEventListener('keydown', (e) => { if (e.key === 'Escape') 
 
 wtSwitchTaskDesc.addEventListener('keydown', (e) => { if (e.key === 'Escape') hideWorktreeSwitchDialog(); });
 
-// --- Event listeners: Source branch ---
-
-wtSwitchBranchSearch.addEventListener('input', () => { wtSwitchSelectedBranch = null; wtSwitchHighlightIndex = wtSwitchBranchSearch.value.trim() ? 0 : -1; renderSwitchBranchList(wtSwitchBranchSearch.value); });
-wtSwitchBranchSearch.addEventListener('focus', () => { wtSwitchBranchSearch.select(); wtSwitchHighlightIndex = -1; renderSwitchBranchList(''); });
-wtSwitchBranchSearch.addEventListener('blur', () => { setTimeout(() => { wtSwitchBranchList.classList.remove('open'); if (wtSwitchSelectedBranch) wtSwitchBranchSearch.value = wtSwitchSelectedBranch; }, 200); });
-
-document.querySelector('#wt-switch-combobox .combobox-arrow').addEventListener('mousedown', (e) => e.preventDefault());
-document.querySelector('#wt-switch-combobox .combobox-arrow').addEventListener('click', () => {
-  if (wtSwitchBranchList.classList.contains('open')) { wtSwitchBranchList.classList.remove('open'); }
-  else { wtSwitchBranchSearch.value = ''; wtSwitchHighlightIndex = -1; renderSwitchBranchList(''); wtSwitchBranchSearch.focus(); }
-});
-
-wtSwitchBranchSearch.addEventListener('keydown', (e) => {
-  if (e.key === 'Escape') { hideWorktreeSwitchDialog(); return; }
-  if (insertDashForSpace(e)) return;
-  const filtered = getSwitchFilteredBranches();
-  if (e.key === 'ArrowDown') { e.preventDefault(); wtSwitchHighlightIndex = Math.min(wtSwitchHighlightIndex + 1, filtered.length - 1); renderSwitchBranchList(wtSwitchBranchSearch.value); scrollHighlightedIntoView(wtSwitchBranchList); }
-  else if (e.key === 'ArrowUp') { e.preventDefault(); wtSwitchHighlightIndex = Math.max(wtSwitchHighlightIndex - 1, 0); renderSwitchBranchList(wtSwitchBranchSearch.value); scrollHighlightedIntoView(wtSwitchBranchList); }
-  else if (e.key === 'Enter' && wtSwitchHighlightIndex >= 0 && wtSwitchHighlightIndex < filtered.length) { e.preventDefault(); selectWtSwitchBranch(filtered[wtSwitchHighlightIndex]); wtSwitchTargetSearch.focus(); }
-});
-
-// --- Event listeners: Target branch ---
-
-wtSwitchTargetSearch.addEventListener('input', () => { wtSwitchSelectedTarget = null; wtSwitchTargetHighlightIndex = wtSwitchTargetSearch.value.trim() ? 0 : -1; renderSwitchTargetList(wtSwitchTargetSearch.value); updateWtSwitchPreview(); });
-wtSwitchTargetSearch.addEventListener('focus', () => { wtSwitchTargetSearch.select(); wtSwitchTargetHighlightIndex = -1; renderSwitchTargetList(wtSwitchTargetSearch.value); });
-wtSwitchTargetSearch.addEventListener('blur', () => {
-  setTimeout(() => {
-    wtSwitchTargetList.classList.remove('open');
-    if (wtSwitchSelectedTarget) wtSwitchTargetSearch.value = wtSwitchSelectedTarget;
-    updateWtSwitchPreview();
-  }, 200);
-});
-
-document.querySelector('#wt-switch-target-combobox .combobox-arrow').addEventListener('mousedown', (e) => e.preventDefault());
-document.querySelector('#wt-switch-target-combobox .combobox-arrow').addEventListener('click', () => {
-  if (wtSwitchTargetList.classList.contains('open')) { wtSwitchTargetList.classList.remove('open'); }
-  else { wtSwitchTargetSearch.value = ''; wtSwitchTargetHighlightIndex = -1; renderSwitchTargetList(''); wtSwitchTargetSearch.focus(); }
-});
-
-wtSwitchTargetSearch.addEventListener('keydown', (e) => {
-  if (e.key === 'Escape') { hideWorktreeSwitchDialog(); return; }
-  if (insertDashForSpace(e)) return;
-  const filtered = getSwitchFilteredTargets();
-  if (e.key === 'ArrowDown') { e.preventDefault(); wtSwitchTargetHighlightIndex = Math.min(wtSwitchTargetHighlightIndex + 1, filtered.length - 1); renderSwitchTargetList(wtSwitchTargetSearch.value); scrollHighlightedIntoView(wtSwitchTargetList); }
-  else if (e.key === 'ArrowUp') { e.preventDefault(); wtSwitchTargetHighlightIndex = Math.max(wtSwitchTargetHighlightIndex - 1, 0); renderSwitchTargetList(wtSwitchTargetSearch.value); scrollHighlightedIntoView(wtSwitchTargetList); }
-  else if (e.key === 'Enter') {
-    if (wtSwitchTargetHighlightIndex >= 0 && wtSwitchTargetHighlightIndex < filtered.length) { e.preventDefault(); selectWtSwitchTarget(filtered[wtSwitchTargetHighlightIndex]); }
-    else { e.preventDefault(); confirmSwitchWorktree(); }
-  }
-});
-
 // --- Dialog buttons ---
 
 document.getElementById('wt-switch-cancel-btn').addEventListener('click', hideWorktreeSwitchDialog);
 wtSwitchSkipTaskBtn.addEventListener('click', () => { wtSwitchSelectedTask = null; wtSwitchTaskSearch.value = ''; updateSwitchNewTaskFields(); confirmSwitchWorktree(); });
-document.getElementById('wt-switch-confirm-btn').addEventListener('click', confirmSwitchWorktree);
+wtSwitchConfirmBtn.addEventListener('click', confirmSwitchWorktree);

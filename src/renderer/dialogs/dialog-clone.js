@@ -1,4 +1,5 @@
 import { createTerminal, showTerminal, showCloseButton, setTitle, closeTerminal } from '../terminal-panel.js';
+import { toast } from '../toast.js';
 
 const cloneDialogOverlay = document.getElementById('clone-dialog-overlay');
 const cloneUrlInput = document.getElementById('clone-url-input');
@@ -42,7 +43,7 @@ async function startClone() {
 
   const reposDir = _cloneReposDir;
   if (!reposDir) {
-    alert('Please open a directory first.');
+    toast.error('Please open a directory first');
     return;
   }
   const repoName = parseRepoName(url);
@@ -61,7 +62,7 @@ async function startClone() {
       xterm.writeln('');
       xterm.writeln('\x1b[32mRepository cloned successfully!\x1b[0m');
       setTitle(`Clone complete: ${name}`);
-
+      toast.success(`Cloned ${name}`);
 
       const repos = await window.reposAPI.scanDirectory(rDir);
       const newRepo = repos.find(r => r.name === name);
@@ -73,7 +74,7 @@ async function startClone() {
       xterm.writeln('');
       xterm.writeln(`\x1b[31mClone failed with exit code ${exitCode}\x1b[0m`);
       setTitle(`Clone failed: ${name}`);
-
+      toast.error(`Clone failed for ${name}`);
     }
     showCloseButton();
   });

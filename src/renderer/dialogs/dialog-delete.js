@@ -1,4 +1,5 @@
 import { createTerminal, showTerminal, showCloseButton, setTitle, closeTerminal } from '../terminal-panel.js';
+import { toast } from '../toast.js';
 
 const deleteDialogOverlay = document.getElementById('delete-dialog-overlay');
 const deleteDialogPath = document.getElementById('delete-dialog-path');
@@ -40,13 +41,14 @@ async function confirmDeleteRepo() {
     if (exitCode === 0) {
       xterm.writeln('');
       xterm.writeln('\x1b[32mProject deleted successfully!\x1b[0m');
+      setTitle('Project deleted');
       if (_removeRepoGroup) _removeRepoGroup(groupEl);
       setTimeout(() => closeTerminal(), 1200);
     } else {
       xterm.writeln('');
       xterm.writeln(`\x1b[31mDelete failed with exit code ${exitCode}\x1b[0m`);
       setTitle(`Delete failed: ${repoName}`);
-
+      toast.error('Delete failed — see terminal');
       showCloseButton();
     }
   });
@@ -57,6 +59,7 @@ async function confirmDeleteRepo() {
   } catch (err) {
     xterm.writeln(`\x1b[31m${err.message || err}\x1b[0m`);
     setTitle(`Delete failed: ${repoName}`);
+    toast.error('Delete failed — see terminal');
     showCloseButton();
   }
 }

@@ -106,8 +106,8 @@ export function handleCtrlAltShortcut(key) {
     return;
   }
 
-  // Ctrl+Alt+; — smart action: trigger the visible action button on active tab
-  if (key === ';') {
+  // Ctrl+Alt+Enter — smart action: trigger the visible action button on active tab
+  if (key === 'Enter') {
     const tabEl = _activeTab();
     if (!tabEl) return;
     const commitPushBtn = tabEl.querySelector('.workspace-tab-commit-push');
@@ -168,8 +168,13 @@ export function handleCtrlAltShortcut(key) {
   }
 }
 
+function isDialogOpen() {
+  return !!document.querySelector('.dialog-overlay.visible');
+}
+
 document.addEventListener('keydown', (e) => {
   if (!e.ctrlKey || !e.altKey) return;
+  if (isDialogOpen()) return;
 
   if (!_shortcutBadgesVisible && !_shortcutHoldTimer && (e.key === 'Control' || e.key === 'Alt')) {
     _shortcutHoldTimer = setTimeout(showShortcutBadges, SHORTCUT_HOLD_DELAY);

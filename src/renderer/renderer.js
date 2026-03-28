@@ -189,7 +189,12 @@ document.getElementById('btn-close').addEventListener('click', () => window.wind
 
 // ===== Keyboard Shortcuts =====
 
+function isDialogOpen() {
+  return !!document.querySelector('.dialog-overlay.visible');
+}
+
 document.addEventListener('keydown', (e) => {
+  if (isDialogOpen()) return;
   if (e.ctrlKey && e.key === 'o') { e.preventDefault(); openDirectory(); }
   if (e.ctrlKey && e.key === 'Tab') {
     e.preventDefault();
@@ -233,7 +238,7 @@ async function checkAndInstallAz() {
 // ===== Azure PAT button =====
 
 const btnAzurePat = document.getElementById('btn-azure-pat');
-if (loadStoredPat()) btnAzurePat.style.display = 'none';
+loadStoredPat().then(pat => { if (pat) btnAzurePat.style.display = 'none'; });
 btnAzurePat.addEventListener('click', showPatDialog);
 
 // ===== Restore on startup =====

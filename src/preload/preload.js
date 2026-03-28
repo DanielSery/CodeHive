@@ -113,6 +113,12 @@ contextBridge.exposeInMainWorld('claudeAPI', {
   run: (prompt) => ipcRenderer.invoke('claude:run', prompt),
 });
 
+contextBridge.exposeInMainWorld('credentialsAPI', {
+  get: (key) => ipcRenderer.invoke('credentials:get', key),
+  set: (key, value) => ipcRenderer.invoke('credentials:set', key, value),
+  delete: (key) => ipcRenderer.invoke('credentials:delete', key),
+});
+
 contextBridge.exposeInMainWorld('shellAPI', {
   openInExplorer: (folderPath) => ipcRenderer.invoke('shell:openInExplorer', folderPath),
   openExternal: (url) => ipcRenderer.invoke('shell:openExternal', url),

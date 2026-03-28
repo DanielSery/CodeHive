@@ -1,4 +1,5 @@
 import { saveStoredPat } from './utils.js';
+import { toast } from '../toast.js';
 
 const azurePatDialogOverlay = document.getElementById('azure-pat-dialog-overlay');
 const azurePatInput = document.getElementById('azure-pat-input');
@@ -23,15 +24,21 @@ export function hidePatDialog(pat) {
   if (_patDialogResolve) { _patDialogResolve(pat || null); _patDialogResolve = null; }
 }
 
-document.getElementById('azure-pat-confirm-btn').addEventListener('click', () => {
+async function savePat() {
   const pat = azurePatInput.value.trim();
   if (!pat) return;
-  saveStoredPat(pat);
-  hidePATButton();
-  hidePatDialog(pat);
-});
+  try {
+    await saveStoredPat(pat);
+    hidePATButton();
+    hidePatDialog(pat);
+  } catch (err) {
+    toast.error('Failed to save PAT — please try again');
+  }
+}
+
+document.getElementById('azure-pat-confirm-btn').addEventListener('click', savePat);
 document.getElementById('azure-pat-cancel-btn').addEventListener('click', () => hidePatDialog(null));
 azurePatInput.addEventListener('keydown', (e) => {
-  if (e.key === 'Enter') { const pat = azurePatInput.value.trim(); if (pat) { saveStoredPat(pat); hidePATButton(); hidePatDialog(pat); } }
+  if (e.key === 'Enter') savePat();
   if (e.key === 'Escape') hidePatDialog(null);
 });

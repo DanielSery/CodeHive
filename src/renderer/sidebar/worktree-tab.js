@@ -18,7 +18,7 @@ const OPEN_TASK_ICON_SVG = '<svg width="12" height="12" viewBox="0 0 16 16" fill
 // Collapsed-dot action icons (14x14)
 const DOT_COMMIT_PUSH_SVG = '<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M8 12V3"/><path d="M4 7l4-4 4 4"/><circle cx="8" cy="14" r="1.5"/></svg>';
 const DOT_CREATE_PR_SVG = '<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="4" cy="4" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="4" cy="12" r="2"/><path d="M4 6v4"/><path d="M12 10V6c0-1.1-.9-2-2-2H8"/><path d="M10 2L8 4l2 2"/></svg>';
-const DOT_OPEN_PR_SVG = '<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="4" cy="4" r="2"/><circle cx="4" cy="12" r="2"/><path d="M4 6v4"/><path d="M9 3h4v4"/><path d="M13 3L8 8"/></svg>';
+const DOT_OPEN_PR_SVG = '<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="8" height="8" rx="1.5"/><path d="M8 2h6v6"/><path d="M14 2L7 9"/></svg>';
 const DOT_COMPLETE_PR_SVG = '<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="4" cy="4" r="2"/><circle cx="4" cy="12" r="2"/><path d="M4 6v4"/><path d="M9 8l2 2 3.5-3.5"/></svg>';
 const DOT_RESOLVE_TASK_SVG = '<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="6"/><path d="M5.5 8l2 2 3-3"/></svg>';
 const DOT_OPEN_TASK_SVG = '<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="2" width="10" height="12" rx="1.5"/><path d="M6 6h4M6 9h3"/></svg>';
@@ -37,52 +37,125 @@ function extractTaskIdFromBranch(branch) {
   return m ? m[1] : null;
 }
 
-function updateDotState(tabEl) {
-  const dotEl = tabEl._dotEl;
-  if (!dotEl) return;
+const PR_STATUS_CLASSES = ['has-pr', 'has-pr-succeeded', 'has-pr-approved', 'has-pr-failed', 'has-pr-comments'];
 
+function hasPrStatusClass(btn) {
+  return PR_STATUS_CLASSES.some(cls => btn.classList.contains(cls));
+}
+
+function isButtonVisible(btn) {
+  return btn && btn.style.display !== 'none';
+}
+
+/**
+ * Computes the collapsed-dot icon and color from the tab's current button state.
+ */
+function getTabDotState(tabEl) {
   const commitPushBtn = tabEl.querySelector('.workspace-tab-commit-push');
   const completePrBtn = tabEl.querySelector('.workspace-tab-complete-pr');
   const createPrBtn = tabEl.querySelector('.workspace-tab-create-pr');
   const switchBtn = tabEl.querySelector('.workspace-tab-switch');
 
-  let icon = DOT_SWITCH_SVG;
-  let color = 'var(--text-muted)';
-
-  if (commitPushBtn && commitPushBtn.style.display !== 'none') {
-    icon = DOT_COMMIT_PUSH_SVG;
-    color = 'var(--green)';
-  } else if (completePrBtn && completePrBtn.style.display !== 'none') {
-    if (tabEl._completePrState === 'can-resolve') {
-      icon = DOT_RESOLVE_TASK_SVG;
-      color = 'var(--green)';
-    } else {
-      icon = DOT_COMPLETE_PR_SVG;
-      color = 'var(--green)';
-    }
-  } else if (createPrBtn && createPrBtn.style.display !== 'none') {
-    const hasPr = createPrBtn.classList.contains('has-pr') || createPrBtn.classList.contains('has-pr-succeeded') || createPrBtn.classList.contains('has-pr-approved') || createPrBtn.classList.contains('has-pr-failed') || createPrBtn.classList.contains('has-pr-comments');
-    icon = hasPr ? DOT_OPEN_PR_SVG : DOT_CREATE_PR_SVG;
+  if (isButtonVisible(commitPushBtn)) {
+    return { icon: DOT_COMMIT_PUSH_SVG, color: 'var(--green)' };
+  }
+  if (isButtonVisible(completePrBtn)) {
+    return tabEl._completePrState === 'can-resolve'
+      ? { icon: DOT_RESOLVE_TASK_SVG, color: 'var(--green)' }
+      : { icon: DOT_COMPLETE_PR_SVG, color: 'var(--green)' };
+  }
+  if (isButtonVisible(createPrBtn)) {
+    const hasPr = hasPrStatusClass(createPrBtn);
+    const icon = hasPr ? DOT_OPEN_PR_SVG : DOT_CREATE_PR_SVG;
+    let color = 'var(--accent)';
     if (createPrBtn.classList.contains('has-pr-approved')) color = 'var(--green)';
     else if (createPrBtn.classList.contains('has-pr-failed')) color = 'var(--red)';
     else if (createPrBtn.classList.contains('has-pr-comments')) color = 'var(--peach)';
     else if (createPrBtn.classList.contains('has-pr-succeeded')) color = 'var(--yellow)';
-    else color = 'var(--accent)';
-  } else if (switchBtn && switchBtn.style.display !== 'none') {
-    if (tabEl._switchMode === 'open-task') {
-      icon = DOT_OPEN_TASK_SVG;
-      color = 'var(--accent)';
-    } else {
-      icon = DOT_SWITCH_SVG;
-      color = 'var(--text-muted)';
-    }
-  } else if (tabEl._taskResolved) {
-    icon = DOT_DONE_SVG;
-    color = 'var(--green)';
+    return { icon, color };
   }
+  if (isButtonVisible(switchBtn)) {
+    return tabEl._switchMode === 'open-task'
+      ? { icon: DOT_OPEN_TASK_SVG, color: 'var(--accent)' }
+      : { icon: DOT_SWITCH_SVG, color: 'var(--text-muted)' };
+  }
+  if (tabEl._taskResolved) {
+    return { icon: DOT_DONE_SVG, color: 'var(--green)' };
+  }
+  return { icon: DOT_SWITCH_SVG, color: 'var(--text-muted)' };
+}
 
+function updateDotState(tabEl) {
+  const dotEl = tabEl._dotEl;
+  if (!dotEl) return;
+  const { icon, color } = getTabDotState(tabEl);
   dotEl.innerHTML = icon;
   dotEl.style.color = color;
+}
+
+/**
+ * Determines the PR status CSS class based on policy evaluations and reviewer votes.
+ */
+function computePrStatusClass(reviewers, evaluations, unresolvedCount) {
+  const reviewerRejected = (reviewers || []).some(r => r.vote <= -10);
+
+  if (evaluations.length > 0 || reviewerRejected) {
+    const hasFailed = reviewerRejected || evaluations.some(e => e.status === 'rejected' || e.status === 'broken');
+    if (hasFailed) return 'has-pr-failed';
+
+    const buildEvals = evaluations.filter(e => e.context?.buildId);
+    const nonBuildEvals = evaluations.filter(e => !e.context?.buildId);
+    const allBuildsApproved = buildEvals.length > 0 && buildEvals.every(e => e.status === 'approved');
+    const allApproved = evaluations.every(e => e.status === 'approved');
+
+    if (allApproved && unresolvedCount === 0) return 'has-pr-approved';
+    if (unresolvedCount > 0) return 'has-pr-comments';
+    if (allBuildsApproved && nonBuildEvals.some(e => e.status === 'queued' || e.status === 'running')) return 'has-pr-succeeded';
+  } else if (unresolvedCount > 0) {
+    return 'has-pr-comments';
+  }
+  return 'has-pr';
+}
+
+/**
+ * Applies the primary action button visibility for a tab.
+ * Only one primary action is shown at a time (priority: commit > complete/resolve > PR > switch).
+ */
+function applyActionButtonVisibility(tabEl, { statusClass, switchBtn }) {
+  const createPrBtn = tabEl.querySelector('.workspace-tab-create-pr');
+  const completePrBtn = tabEl.querySelector('.workspace-tab-complete-pr');
+  let actionShown = false;
+
+  if (completePrBtn && tabEl._completePrState !== 'can-resolve') {
+    if (statusClass === 'has-pr-approved') {
+      completePrBtn.innerHTML = COMPLETE_PR_ICON_SVG;
+      completePrBtn.title = 'Complete Pull Request (merge + delete branch)';
+      tabEl._completePrState = 'can-complete';
+      if (!tabEl._hasUncommittedChanges) {
+        if (createPrBtn) createPrBtn.style.display = 'none';
+        completePrBtn.style.display = 'inline-flex';
+        actionShown = true;
+      } else {
+        if (createPrBtn) createPrBtn.style.display = 'none';
+        completePrBtn.style.display = 'none';
+      }
+    } else {
+      completePrBtn.style.display = 'none';
+      tabEl._completePrState = null;
+      if (!tabEl._hasUncommittedChanges) {
+        if (createPrBtn) createPrBtn.style.display = '';
+        actionShown = true;
+      } else {
+        if (createPrBtn) createPrBtn.style.display = 'none';
+      }
+    }
+  }
+
+  if (actionShown) {
+    if (switchBtn) switchBtn.style.display = 'none';
+  } else {
+    showFallbackSwitch(tabEl);
+  }
 }
 
 function showFallbackSwitch(tabEl) {
@@ -145,7 +218,7 @@ async function _checkExistingPrInner(tabEl) {
     tabEl._taskUrl = `https://dev.azure.com/${encodeURIComponent(parsed.org)}/${encodeURIComponent(parsed.project)}/_workitems/edit/${tabEl._wtTaskId}`;
   }
 
-  const pat = localStorage.getItem('codehive-azure-pat');
+  const pat = await window.credentialsAPI.get('azure-pat');
   if (!pat) { showFallbackSwitch(tabEl); return; }
 
   const auth = btoa(':' + pat);
@@ -165,16 +238,12 @@ async function _checkExistingPrInner(tabEl) {
       createPrBtnEarly.classList.remove('has-pr', 'has-pr-succeeded', 'has-pr-approved', 'has-pr-failed', 'has-pr-comments');
       createPrBtnEarly.title = 'Create Pull Request (Ctrl+Alt+M)';
     }
-    // Check for completed PR — if found and tab has a linked task, show "Resolve Task" button
-    console.log('[checkExistingPr] no active PR for', branch, 'taskId=', tabEl._wtTaskId, 'completePrState=', tabEl._completePrState);
     if (tabEl._wtTaskId && tabEl._completePrState !== 'can-resolve') {
       const completedUrl = `https://dev.azure.com/${encodeURIComponent(org)}/${encodeURIComponent(project)}/_apis/git/pullrequests?searchCriteria.sourceRefName=${encodeURIComponent(sourceRef)}&searchCriteria.status=completed&$top=1&api-version=7.0`;
       try {
         const cResp = await fetch(completedUrl, { headers: { Authorization: `Basic ${auth}` } });
-        console.log('[checkExistingPr] completed PR fetch status=', cResp.status);
         if (cResp.ok) {
           const cData = await cResp.json();
-          console.log('[checkExistingPr] completed PRs found=', cData.value?.length);
           if (cData.value && cData.value.length > 0) {
             const completePrBtn = tabEl.querySelector('.workspace-tab-complete-pr');
             if (completePrBtn) {
@@ -183,7 +252,6 @@ async function _checkExistingPrInner(tabEl) {
               const taskCtx = { org, project, auth, apiBase: `https://dev.azure.com/${encodeURIComponent(org)}/${encodeURIComponent(project)}/_apis` };
               const wi = await fetchWorkItemById(taskCtx, tabEl._wtTaskId);
               if (wi && ['Resolved', 'Closed', 'Done', 'Removed'].includes(wi.state)) {
-                console.log('[checkExistingPr] task', tabEl._wtTaskId, 'already', wi.state, '— hiding resolve button');
                 tabEl._taskResolved = true;
                 showFallbackSwitch(tabEl);
                 return;
@@ -199,7 +267,6 @@ async function _checkExistingPrInner(tabEl) {
                 completePrBtn.style.display = 'inline-flex';
                 if (switchBtn) switchBtn.style.display = 'none';
               }
-              console.log('[checkExistingPr] showing resolve task button for', branch);
             }
             return;
           }
@@ -224,66 +291,17 @@ async function _checkExistingPrInner(tabEl) {
   const createPrBtn = tabEl.querySelector('.workspace-tab-create-pr');
   if (!createPrBtn) return;
 
-  let statusClass = 'has-pr';
-
   const [evaluations, unresolvedCount] = await Promise.all([
     fetchPolicyEvaluations(org, project, auth, pr.repository.project.id, pr.pullRequestId),
     fetchPrUnresolvedThreadCount(org, project, auth, pr.repository.id, pr.pullRequestId),
   ]);
-  const reviewerRejected = (pr.reviewers || []).some(r => r.vote <= -10);
+  const statusClass = computePrStatusClass(pr.reviewers, evaluations, unresolvedCount);
 
-  if (evaluations.length > 0 || reviewerRejected) {
-    const hasFailed = reviewerRejected || evaluations.some(e => e.status === 'rejected' || e.status === 'broken');
-    if (hasFailed) {
-      statusClass = 'has-pr-failed';
-    } else {
-      const buildEvals = evaluations.filter(e => e.context?.buildId);
-      const nonBuildEvals = evaluations.filter(e => !e.context?.buildId);
-      const allBuildsApproved = buildEvals.length > 0 && buildEvals.every(e => e.status === 'approved');
-      const allApproved = evaluations.every(e => e.status === 'approved');
-      if (allApproved && unresolvedCount === 0) statusClass = 'has-pr-approved';
-      else if (unresolvedCount > 0) statusClass = 'has-pr-comments';
-      else if (allBuildsApproved && nonBuildEvals.some(e => e.status === 'queued' || e.status === 'running')) statusClass = 'has-pr-succeeded';
-    }
-  } else if (unresolvedCount > 0) {
-    statusClass = 'has-pr-comments';
-  }
-
-  createPrBtn.classList.remove('has-pr', 'has-pr-succeeded', 'has-pr-approved', 'has-pr-failed', 'has-pr-comments');
+  createPrBtn.classList.remove(...PR_STATUS_CLASSES);
   createPrBtn.classList.add(statusClass);
   createPrBtn.title = `View Pull Request #${pr.pullRequestId} (Ctrl+Alt+M)`;
 
-  let actionShown = false;
-  const completePrBtn = tabEl.querySelector('.workspace-tab-complete-pr');
-  if (completePrBtn && tabEl._completePrState !== 'can-resolve') {
-    if (statusClass === 'has-pr-approved') {
-      completePrBtn.innerHTML = COMPLETE_PR_ICON_SVG;
-      completePrBtn.title = 'Complete Pull Request (merge + delete branch)';
-      tabEl._completePrState = 'can-complete';
-      if (!tabEl._hasUncommittedChanges) {
-        createPrBtn.style.display = 'none';
-        completePrBtn.style.display = 'inline-flex';
-        actionShown = true;
-      } else {
-        createPrBtn.style.display = 'none';
-        completePrBtn.style.display = 'none';
-      }
-    } else {
-      completePrBtn.style.display = 'none';
-      tabEl._completePrState = null;
-      if (!tabEl._hasUncommittedChanges) {
-        createPrBtn.style.display = '';
-        actionShown = true;
-      } else {
-        createPrBtn.style.display = 'none';
-      }
-    }
-  }
-  if (actionShown) {
-    if (switchBtn) switchBtn.style.display = 'none';
-  } else {
-    showFallbackSwitch(tabEl);
-  }
+  applyActionButtonVisibility(tabEl, { statusClass, switchBtn });
 }
 
 export function showTabCloseButton(tabEl) {
@@ -528,7 +546,7 @@ setInterval(() => {
   for (const tab of document.querySelectorAll('.workspace-tab')) {
     const isOpen = tab._workspaceId !== null;
     const btn = tab.querySelector('.workspace-tab-create-pr');
-    const hasPrStatus = btn && (btn.classList.contains('has-pr') || btn.classList.contains('has-pr-succeeded') || btn.classList.contains('has-pr-approved') || btn.classList.contains('has-pr-failed') || btn.classList.contains('has-pr-comments'));
+    const hasPrStatus = btn && hasPrStatusClass(btn);
     if (isOpen || hasPrStatus) {
       checkExistingPr(tab);
     }

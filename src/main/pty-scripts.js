@@ -3,7 +3,46 @@ const fs = require('fs');
 const os = require('os');
 const { execSync } = require('child_process');
 
+/**
+ * Sanitize a value for safe interpolation into shell commands.
+ * Wraps in double quotes and escapes characters that are dangerous in both
+ * cmd.exe and sh/bash contexts.
+ */
+function shellQuote(value) {
+  if (typeof value !== 'string') value = String(value);
+  // Reject values containing null bytes (never valid in shell arguments)
+  if (value.includes('\0')) throw new Error('Shell argument must not contain null bytes');
+  if (process.platform === 'win32') {
+    // For cmd.exe: escape double quotes, percent signs, and special chars
+    const escaped = value.replace(/%/g, '%%').replace(/"/g, '""');
+    return `"${escaped}"`;
+  } else {
+    // For sh/bash: single-quote the value, escaping embedded single quotes
+    const escaped = value.replace(/'/g, "'\\''");
+    return `'${escaped}'`;
+  }
+}
+
+/**
+ * Validate that a string looks like a valid git ref name.
+ * Rejects characters that could break out of shell commands.
+ */
+function assertSafeRef(ref) {
+  // Git ref names must not contain: space, ~, ^, :, ?, *, [, \, control chars, ..
+  // They also must not start/end with . or contain //
+  if (/[\x00-\x1f\x7f ~^:?*[\]\\;&|`$(){}!#<>]/.test(ref)) {
+    throw new Error(`Unsafe characters in git ref: ${ref}`);
+  }
+  if (ref.includes('..')) {
+    throw new Error(`Git ref must not contain "..": ${ref}`);
+  }
+  return ref;
+}
+
 function buildWorktreeCmd(barePath, { repoDir, dirName, branchName, sourceBranch }) {
+  assertSafeRef(branchName);
+  assertSafeRef(sourceBranch);
+
   const wtPath = path.join(repoDir, dirName).replace(/\\/g, '/');
   const startPoint = `refs/remotes/origin/${sourceBranch}`;
 
@@ -14,8 +53,8 @@ function buildWorktreeCmd(barePath, { repoDir, dirName, branchName, sourceBranch
   } catch {}
 
   const cmd = branchExists
-    ? `git worktree add ${wtPath} ${branchName}`
-    : `git worktree add ${wtPath} -b ${branchName} ${startPoint}`;
+    ? `git worktree add ${shellQuote(wtPath)} ${shellQuote(branchName)}`
+    : `git worktree add ${shellQuote(wtPath)} -b ${shellQuote(branchName)} ${shellQuote(startPoint)}`;
 
   return { cmd, cwd: barePath, wtPath };
 }
@@ -28,7 +67,7 @@ function buildCloneCmd({ url, reposDir }) {
 
   fs.mkdirSync(bareDir, { recursive: true });
 
-  const gitCmds = `git init --bare . && git remote add origin ${url} && git config remote.origin.fetch +refs/heads/*:refs/remotes/origin/* && git fetch --progress origin && echo. && echo === CLONE COMPLETE ===`;
+  const gitCmds = `git init --bare . && git remote add origin ${shellQuote(url)} && git config remote.origin.fetch +refs/heads/*:refs/remotes/origin/* && git fetch --progress origin && echo. && echo === CLONE COMPLETE ===`;
   const cmd = process.platform === 'win32' ? gitCmds : gitCmds.replace(/echo\./g, 'echo');
 
   return { cmd, cwd: bareDir, repoName, repoDir, bareDir };
@@ -138,29 +177,36 @@ function buildWorktreeRemoveScript(barePath, wtPath) {
 }
 
 function buildCommitPushScript(wtPath, { title, description, branch, files }) {
+  assertSafeRef(branch);
+
   const isWin = process.platform === 'win32';
   const scriptExt = isWin ? '.cmd' : '.sh';
   const scriptPath = path.join(os.tmpdir(), `codehive-commit-push-${Date.now()}${scriptExt}`);
 
+  // Write commit message to a temp file to avoid all shell escaping issues
+  const msgPath = path.join(os.tmpdir(), `codehive-commit-msg-${Date.now()}.txt`);
   const commitMsg = description ? `${title}\n\n${description}` : title;
-  const escapedMsg = commitMsg.replace(/"/g, isWin ? '""' : '\\"');
+  fs.writeFileSync(msgPath, commitMsg, { encoding: 'utf8' });
 
   const lines = [];
   if (isWin) {
+    const msgPathWin = msgPath.replace(/\//g, '\\');
     lines.push('@echo off');
     lines.push('echo Staging selected files...');
-    for (const f of files) lines.push(`git add -- "${f.replace(/"/g, '""')}"`);
+    for (const f of files) lines.push(`git add -- ${shellQuote(f)}`);
     lines.push('echo.');
     lines.push('echo Creating commit...');
-    lines.push(`git commit -m "${escapedMsg}"`);
+    lines.push(`git commit -F "${msgPathWin}"`);
     lines.push('if %errorlevel% neq 0 (');
     lines.push('  echo.');
     lines.push('  echo No changes to commit or commit failed.');
+    lines.push(`  del "${msgPathWin}" 2>nul`);
     lines.push('  exit /b 1');
     lines.push(')');
+    lines.push(`del "${msgPathWin}" 2>nul`);
     lines.push('echo.');
     lines.push(`echo Pushing to origin/${branch}...`);
-    lines.push(`git push -u origin "${branch}"`);
+    lines.push(`git push -u origin ${shellQuote(branch)}`);
     lines.push('if %errorlevel% neq 0 (');
     lines.push('  echo.');
     lines.push('  echo Push failed.');
@@ -172,13 +218,14 @@ function buildCommitPushScript(wtPath, { title, description, branch, files }) {
     lines.push('#!/bin/sh');
     lines.push('set -e');
     lines.push('echo "Staging selected files..."');
-    for (const f of files) lines.push(`git add -- "${f.replace(/"/g, '\\"')}"`);
+    for (const f of files) lines.push(`git add -- ${shellQuote(f)}`);
     lines.push('echo ""');
     lines.push('echo "Creating commit..."');
-    lines.push(`git commit -m "${escapedMsg}"`);
+    lines.push(`git commit -F ${shellQuote(msgPath)}`);
+    lines.push(`rm -f ${shellQuote(msgPath)}`);
     lines.push('echo ""');
     lines.push(`echo "Pushing to origin/${branch}..."`);
-    lines.push(`git push -u origin "${branch}"`);
+    lines.push(`git push -u origin ${shellQuote(branch)}`);
     lines.push('echo ""');
     lines.push('echo "=== COMMIT AND PUSH COMPLETE ==="');
   }
@@ -190,18 +237,24 @@ function buildCommitPushScript(wtPath, { title, description, branch, files }) {
 }
 
 function buildPrCreateScript(wtPath, { sourceBranch, targetBranch, title, description, pat, workItemId }) {
+  assertSafeRef(sourceBranch);
+  assertSafeRef(targetBranch);
+  if (workItemId && !/^\d+$/.test(String(workItemId))) {
+    throw new Error(`Invalid work item ID: ${workItemId}`);
+  }
+
   const isWin = process.platform === 'win32';
   const scriptExt = isWin ? '.ps1' : '.sh';
   const scriptPath = path.join(os.tmpdir(), `codehive-pr-create-${Date.now()}${scriptExt}`);
 
   const lines = [];
   if (isWin) {
-    const escapedTitle = title.replace(/'/g, "''");
-    const escapedDesc = (description || '').replace(/'/g, "''");
-    let azPrCmd = `az repos pr create --open --source-branch '${sourceBranch}' --target-branch '${targetBranch}' --title '${escapedTitle}'`;
-    if (description) azPrCmd += ` --description '${escapedDesc}'`;
+    // PowerShell: use single-quote escaping ('' inside single-quoted strings)
+    const psQuote = (s) => `'${String(s).replace(/'/g, "''")}'`;
+    let azPrCmd = `az repos pr create --open --source-branch ${psQuote(sourceBranch)} --target-branch ${psQuote(targetBranch)} --title ${psQuote(title)}`;
+    if (description) azPrCmd += ` --description ${psQuote(description)}`;
     if (workItemId) azPrCmd += ` --work-items ${workItemId}`;
-    if (pat) lines.push(`$env:AZURE_DEVOPS_EXT_PAT = '${pat.replace(/'/g, "''")}'`);
+    if (pat) lines.push(`$env:AZURE_DEVOPS_EXT_PAT = ${psQuote(pat)}`);
     lines.push(`Write-Host "Creating pull request: ${sourceBranch} -> ${targetBranch}"`);
     lines.push('Write-Host ""');
     lines.push(azPrCmd);
@@ -209,14 +262,12 @@ function buildPrCreateScript(wtPath, { sourceBranch, targetBranch, title, descri
     lines.push('Write-Host ""');
     lines.push('Write-Host "=== PULL REQUEST CREATED ==="');
   } else {
-    const escapedTitle = title.replace(/"/g, '\\"');
-    const escapedDesc = (description || '').replace(/"/g, '\\"');
-    let azPrCmd = `az repos pr create --open --source-branch "${sourceBranch}" --target-branch "${targetBranch}" --title "${escapedTitle}"`;
-    if (description) azPrCmd += ` --description "${escapedDesc}"`;
+    let azPrCmd = `az repos pr create --open --source-branch ${shellQuote(sourceBranch)} --target-branch ${shellQuote(targetBranch)} --title ${shellQuote(title)}`;
+    if (description) azPrCmd += ` --description ${shellQuote(description)}`;
     if (workItemId) azPrCmd += ` --work-items ${workItemId}`;
     lines.push('#!/bin/sh');
     lines.push('set -e');
-    if (pat) lines.push(`export AZURE_DEVOPS_EXT_PAT='${pat.replace(/'/g, "'\\''")}'`);
+    if (pat) lines.push(`export AZURE_DEVOPS_EXT_PAT=${shellQuote(pat)}`);
     lines.push(`echo "Creating pull request: ${sourceBranch} -> ${targetBranch}"`);
     lines.push('echo ""');
     lines.push(azPrCmd);
@@ -230,4 +281,4 @@ function buildPrCreateScript(wtPath, { sourceBranch, targetBranch, title, descri
   return { cmd, cwd: wtPath, scriptPath };
 }
 
-module.exports = { buildWorktreeCmd, buildCloneCmd, buildDeleteScript, buildWorktreeRemoveScript, buildCommitPushScript, buildPrCreateScript };
+module.exports = { buildWorktreeCmd, buildCloneCmd, buildDeleteScript, buildWorktreeRemoveScript, buildCommitPushScript, buildPrCreateScript, shellQuote, assertSafeRef };

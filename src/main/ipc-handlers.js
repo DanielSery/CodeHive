@@ -1,5 +1,8 @@
-const { ipcMain, dialog, shell } = require('electron');
+const { ipcMain, dialog, shell, safeStorage } = require('electron');
 const { exec, spawn } = require('child_process');
+const fs = require('fs');
+const path = require('path');
+const { app } = require('electron');
 const vscode = require('./vscode-server');
 const { scanDirectory, checkClaudeActive, getCachedBranches, fetchAndListBranches, getGitUser, getRemoteUrl, getLaunchConfigs, gitDiffStat, getFirstBranchCommit, hasUncommittedChanges, hasPushedCommits } = require('./repo-scanner');
 const { createWorktreePty, createClonePty, createDeletePty, createWorktreeRemovePty, createWorktreeSwitchPty, createCommitPushPty, createPrCreatePty, createAzInstallPty } = require('./pty-manager');
@@ -176,6 +179,53 @@ function register(mainWindow, getServerPort) {
       child.stdin.write(prompt);
       child.stdin.end();
     });
+  });
+
+  // Credential storage (OS keychain via safeStorage)
+  const credentialPath = path.join(app.getPath('userData'), 'credentials.enc');
+
+  ipcMain.handle('credentials:get', (event, key) => {
+    try {
+      if (!fs.existsSync(credentialPath)) return null;
+      const raw = fs.readFileSync(credentialPath);
+      const decrypted = safeStorage.decryptString(raw);
+      const store = JSON.parse(decrypted);
+      return store[key] || null;
+    } catch {
+      return null;
+    }
+  });
+
+  ipcMain.handle('credentials:set', (event, key, value) => {
+    try {
+      let store = {};
+      if (fs.existsSync(credentialPath)) {
+        try {
+          const raw = fs.readFileSync(credentialPath);
+          store = JSON.parse(safeStorage.decryptString(raw));
+        } catch {}
+      }
+      store[key] = value;
+      const encrypted = safeStorage.encryptString(JSON.stringify(store));
+      fs.writeFileSync(credentialPath, encrypted);
+      return true;
+    } catch {
+      return false;
+    }
+  });
+
+  ipcMain.handle('credentials:delete', (event, key) => {
+    try {
+      if (!fs.existsSync(credentialPath)) return true;
+      const raw = fs.readFileSync(credentialPath);
+      const store = JSON.parse(safeStorage.decryptString(raw));
+      delete store[key];
+      const encrypted = safeStorage.encryptString(JSON.stringify(store));
+      fs.writeFileSync(credentialPath, encrypted);
+      return true;
+    } catch {
+      return false;
+    }
   });
 
   // Window controls

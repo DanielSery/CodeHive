@@ -1,4 +1,5 @@
 import { createTerminal, showTerminal, showCloseButton, setTitle, closeTerminal } from '../terminal-panel.js';
+import { toast } from '../toast.js';
 
 const commitPushDialogOverlay = document.getElementById('commit-push-dialog-overlay');
 const commitPushTitleInput = document.getElementById('commit-push-title-input');
@@ -182,11 +183,13 @@ async function confirmCommitPush() {
       xterm.writeln('');
       xterm.writeln('\x1b[32mCommit & push completed successfully!\x1b[0m');
       setTitle('Commit & push complete');
+      toast.success(`Pushed ${branch} successfully`);
       setTimeout(() => closeTerminal(), 1200);
     } else {
       xterm.writeln('');
       xterm.writeln(`\x1b[31mCommit & push failed with exit code ${exitCode}\x1b[0m`);
       setTitle('Commit & push failed');
+      toast.error('Commit & push failed — see terminal for details');
       showCloseButton();
     }
   });

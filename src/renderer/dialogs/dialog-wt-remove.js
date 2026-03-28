@@ -1,4 +1,5 @@
 import { createTerminal, showTerminal, showCloseButton, setTitle, closeTerminal } from '../terminal-panel.js';
+import { toast } from '../toast.js';
 
 const wtRemoveDialogOverlay = document.getElementById('wt-remove-dialog-overlay');
 const wtRemoveDialogPath = document.getElementById('wt-remove-dialog-path');
@@ -40,7 +41,7 @@ async function confirmRemoveWorktree() {
     if (exitCode === 0) {
       xterm.writeln('');
       xterm.writeln('\x1b[32mWorktree removed successfully!\x1b[0m');
-      // Remove the tab from sidebar
+      setTitle('Worktree removed');
       if (tabEl._dotEl) tabEl._dotEl.remove();
       tabEl.remove();
       setTimeout(() => closeTerminal(), 1200);
@@ -48,7 +49,7 @@ async function confirmRemoveWorktree() {
       xterm.writeln('');
       xterm.writeln(`\x1b[31mWorktree removal failed with exit code ${exitCode}\x1b[0m`);
       setTitle(`Worktree removal failed`);
-
+      toast.error('Worktree removal failed — see terminal');
       showCloseButton();
     }
   });
@@ -62,6 +63,7 @@ async function confirmRemoveWorktree() {
   } catch (err) {
     xterm.writeln(`\x1b[31m${err.message || err}\x1b[0m`);
     setTitle(`Worktree removal failed`);
+    toast.error('Worktree removal failed — see terminal');
     showCloseButton();
   }
 }
