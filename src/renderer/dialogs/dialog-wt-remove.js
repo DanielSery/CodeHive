@@ -70,7 +70,8 @@ async function confirmRemoveWorktree() {
 
 document.getElementById('wt-remove-cancel-btn').addEventListener('click', hideWorktreeRemoveDialog);
 document.getElementById('wt-remove-confirm-btn').addEventListener('click', confirmRemoveWorktree);
-wtRemoveDialogOverlay.addEventListener('keydown', (e) => {
+document.addEventListener('keydown', (e) => {
+  if (!wtRemoveDialogOverlay.classList.contains('visible')) return;
   if (e.key === 'Enter') confirmRemoveWorktree();
   else if (e.key === 'Escape') hideWorktreeRemoveDialog();
 });
