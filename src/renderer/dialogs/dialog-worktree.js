@@ -410,11 +410,17 @@ wtChangeName.addEventListener('input', () => {
   wtChangeNameEdited = true;
   updateTargetFromTask();
 });
-wtChangeName.addEventListener('keydown', (e) => { if (e.key === 'Escape') hideWorktreeDialog(); });
+wtChangeName.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') hideWorktreeDialog();
+  else if (e.key === 'Enter') confirmCreateWorktree();
+});
 
 // --- Event listeners: Task description ---
 
-wtTaskDesc.addEventListener('keydown', (e) => { if (e.key === 'Escape') hideWorktreeDialog(); });
+wtTaskDesc.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') hideWorktreeDialog();
+  else if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) confirmCreateWorktree();
+});
 
 // --- Dialog buttons ---
 

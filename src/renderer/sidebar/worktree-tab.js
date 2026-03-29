@@ -8,13 +8,6 @@ import { parseAzureRemoteUrl, fetchPolicyEvaluations, fetchPrUnresolvedThreadCou
 import { showResolveTaskDialog } from '../dialogs/dialog-resolve.js';
 
 const BIN_ICON_SVG = '<svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2 4h12M5.3 4V2.7a1 1 0 011-1h3.4a1 1 0 011 1V4M6.5 7.3v4.4M9.5 7.3v4.4"/><path d="M3.5 4l.7 9.3a1 1 0 001 .9h5.6a1 1 0 001-.9L12.5 4"/></svg>';
-const SWITCH_ICON_SVG = '<svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M11 1l3 3-3 3"/><path d="M14 4H5"/><path d="M5 15l-3-3 3-3"/><path d="M2 12h9"/></svg>';
-const COMMIT_PUSH_ICON_SVG = '<svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M8 12V3"/><path d="M4 7l4-4 4 4"/><circle cx="8" cy="14" r="1.5"/></svg>';
-const PR_ICON_SVG = '<svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="4" cy="4" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="4" cy="12" r="2"/><path d="M4 6v4"/><path d="M12 10V6c0-1.1-.9-2-2-2H8"/><path d="M10 2L8 4l2 2"/></svg>';
-const OPEN_PR_ICON_SVG = '<svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="4" cy="4" r="2"/><circle cx="4" cy="12" r="2"/><path d="M4 6v4"/><path d="M9 3h4v4"/><path d="M13 3L8 8"/></svg>';
-const COMPLETE_PR_ICON_SVG = '<svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="4" cy="4" r="2"/><circle cx="4" cy="12" r="2"/><path d="M4 6v4"/><path d="M9 8l2 2 3.5-3.5"/></svg>';
-const RESOLVE_TASK_ICON_SVG = '<svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="6"/><path d="M5.5 8l2 2 3-3"/></svg>';
-const OPEN_TASK_ICON_SVG = '<svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="2" width="10" height="12" rx="1.5"/><path d="M6 6h4M6 9h3"/></svg>';
 
 // Collapsed-dot action icons (14x14)
 const DOT_COMMIT_PUSH_SVG = '<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M8 12V3"/><path d="M4 7l4-4 4 4"/><circle cx="8" cy="14" r="1.5"/></svg>';
@@ -90,12 +83,39 @@ function getTabDotState(tabEl) {
   return { icon: DOT_SWITCH_SVG, color: 'var(--text-muted)' };
 }
 
+function getTabActionTitle(tabEl) {
+  const commitPushBtn = tabEl.querySelector('.workspace-tab-commit-push');
+  const completePrBtn = tabEl.querySelector('.workspace-tab-complete-pr');
+  const resolveTaskBtn = tabEl.querySelector('.workspace-tab-resolve-task');
+  const openPrBtn = tabEl.querySelector('.workspace-tab-open-pr');
+  const createPrBtn = tabEl.querySelector('.workspace-tab-create-pr');
+  const switchBtn = tabEl.querySelector('.workspace-tab-switch');
+
+  if (isButtonVisible(commitPushBtn)) return 'Commit & Push (Ctrl+Alt+P)';
+  if (isButtonVisible(completePrBtn)) return 'Complete Pull Request';
+  if (isButtonVisible(resolveTaskBtn)) return 'Resolve Azure Task';
+  if (isButtonVisible(openPrBtn)) return 'View Pull Request (Ctrl+Alt+M)';
+  if (isButtonVisible(createPrBtn)) return 'Create Pull Request (Ctrl+Alt+M)';
+  if (isButtonVisible(switchBtn)) {
+    return tabEl._switchMode === 'open-task' ? 'Open Task (Ctrl+Alt+A)' : 'Switch Worktree';
+  }
+  if (tabEl._taskResolved) return 'Done';
+  return 'Switch Worktree';
+}
+
 function updateDotState(tabEl) {
-  const dotEl = tabEl._dotEl;
-  if (!dotEl) return;
   const { icon, color } = getTabDotState(tabEl);
-  dotEl.innerHTML = icon;
-  dotEl.style.color = color;
+  const dotEl = tabEl._dotEl;
+  if (dotEl) {
+    dotEl.innerHTML = icon;
+    dotEl.style.color = color;
+  }
+  const actionBtn = tabEl.querySelector('.workspace-tab-action');
+  if (actionBtn) {
+    actionBtn.innerHTML = icon;
+    actionBtn.style.color = color;
+    actionBtn.title = getTabActionTitle(tabEl);
+  }
 }
 
 /**
@@ -160,17 +180,12 @@ function applyActionButtonVisibility(tabEl, { statusClass, switchBtn }) {
 }
 
 function showFallbackSwitch(tabEl) {
-  if (tabEl._workspaceId === null) return;
   if (tabEl._hasUncommittedChanges) return;
   const switchBtn = tabEl.querySelector('.workspace-tab-switch');
   if (!switchBtn) return;
   if (tabEl._wtTaskId && !tabEl._taskResolved) {
-    switchBtn.innerHTML = OPEN_TASK_ICON_SVG;
-    switchBtn.title = 'Open Task (Ctrl+Alt+A)';
     tabEl._switchMode = 'open-task';
   } else {
-    switchBtn.innerHTML = SWITCH_ICON_SVG;
-    switchBtn.title = 'Switch Worktree';
     tabEl._switchMode = 'switch';
   }
   switchBtn.style.display = '';
@@ -391,13 +406,14 @@ export function createWorktreeTab(wt) {
   setTabStatus(tabEl, 'idle');
   tabEl.innerHTML = `
     <span class="workspace-tab-status"></span>
+    <button class="workspace-tab-action" title="Switch Worktree">${DOT_SWITCH_SVG}</button>
+    <button class="workspace-tab-commit-push" style="display:none"></button>
+    <button class="workspace-tab-complete-pr" style="display:none"></button>
+    <button class="workspace-tab-resolve-task" style="display:none"></button>
+    <button class="workspace-tab-open-pr" style="display:none"></button>
+    <button class="workspace-tab-create-pr" style="display:none"></button>
+    <button class="workspace-tab-switch"></button>
     <span class="workspace-tab-label">${formatBranchLabel(wt.branch)}</span>
-    <button class="workspace-tab-switch" title="Switch Worktree">${SWITCH_ICON_SVG}</button>
-    <button class="workspace-tab-commit-push" title="Commit &amp; Push (Ctrl+Alt+P)" style="display:none">${COMMIT_PUSH_ICON_SVG}</button>
-    <button class="workspace-tab-create-pr" title="Create Pull Request (Ctrl+Alt+M)" style="display:none">${PR_ICON_SVG}</button>
-    <button class="workspace-tab-open-pr" title="View Pull Request" style="display:none">${OPEN_PR_ICON_SVG}</button>
-    <button class="workspace-tab-complete-pr" title="Complete Pull Request" style="display:none">${COMPLETE_PR_ICON_SVG}</button>
-    <button class="workspace-tab-resolve-task" title="Resolve Azure Task" style="display:none">${RESOLVE_TASK_ICON_SVG}</button>
     <button class="workspace-tab-close" title="Close (Ctrl+Alt+W)" style="display:none">&times;</button>
     <button class="workspace-tab-remove" title="Remove Worktree">${BIN_ICON_SVG}</button>
   `;
@@ -420,6 +436,24 @@ export function createWorktreeTab(wt) {
   dotEl.innerHTML = DOT_SWITCH_SVG;
   dotEl.style.color = 'var(--text-muted)';
   dotEl.addEventListener('click', () => openWorktree(tabEl, wt));
+  dotEl.addEventListener('dblclick', (e) => {
+    e.stopPropagation();
+    const actionSels = [
+      '.workspace-tab-commit-push',
+      '.workspace-tab-complete-pr',
+      '.workspace-tab-resolve-task',
+      '.workspace-tab-create-pr',
+      '.workspace-tab-open-pr',
+      '.workspace-tab-switch'
+    ];
+    for (const sel of actionSels) {
+      const btn = tabEl.querySelector(sel);
+      if (btn && btn.style.display !== 'none') {
+        btn.click();
+        return;
+      }
+    }
+  });
   dotEl.addEventListener('contextmenu', (e) => {
     e.preventDefault();
     e.stopPropagation();
@@ -427,6 +461,25 @@ export function createWorktreeTab(wt) {
   });
   collapsedDotsEl.appendChild(dotEl);
   tabEl._dotEl = dotEl;
+
+  tabEl.querySelector('.workspace-tab-action').addEventListener('click', (e) => {
+    e.stopPropagation();
+    const actionSels = [
+      '.workspace-tab-commit-push',
+      '.workspace-tab-complete-pr',
+      '.workspace-tab-resolve-task',
+      '.workspace-tab-open-pr',
+      '.workspace-tab-create-pr',
+      '.workspace-tab-switch'
+    ];
+    for (const sel of actionSels) {
+      const btn = tabEl.querySelector(sel);
+      if (btn && btn.style.display !== 'none') {
+        btn.click();
+        return;
+      }
+    }
+  });
 
   tabEl.querySelector('.workspace-tab-switch').addEventListener('click', (e) => {
     e.stopPropagation();
@@ -513,7 +566,7 @@ export function createWorktreeTab(wt) {
   });
 
   tabEl.addEventListener('click', (e) => {
-    if (e.target.closest('.workspace-tab-close') || e.target.closest('.workspace-tab-switch') || e.target.closest('.workspace-tab-remove') || e.target.closest('.workspace-tab-commit-push') || e.target.closest('.workspace-tab-create-pr') || e.target.closest('.workspace-tab-open-pr') || e.target.closest('.workspace-tab-complete-pr') || e.target.closest('.workspace-tab-resolve-task')) return;
+    if (e.target.closest('.workspace-tab-close') || e.target.closest('.workspace-tab-switch') || e.target.closest('.workspace-tab-remove') || e.target.closest('.workspace-tab-commit-push') || e.target.closest('.workspace-tab-create-pr') || e.target.closest('.workspace-tab-open-pr') || e.target.closest('.workspace-tab-complete-pr') || e.target.closest('.workspace-tab-resolve-task') || e.target.closest('.workspace-tab-action')) return;
     openWorktree(tabEl, wt);
   });
 

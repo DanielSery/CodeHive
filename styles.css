@@ -80,6 +80,15 @@ html, body {
   user-select: none;
 }
 
+.titlebar-left {
+  display: flex;
+  align-items: center;
+  height: 100%;
+  gap: 2px;
+  padding: 0 4px;
+  -webkit-app-region: no-drag;
+}
+
 .titlebar-drag {
   flex: 1;
   -webkit-app-region: drag;
@@ -270,40 +279,7 @@ html, body {
   background: var(--accent);
 }
 
-#sidebar-top {
-  display: flex;
-  align-items: center;
-  padding: 8px 8px 6px 12px;
-  gap: 8px;
-  flex-shrink: 0;
-}
 
-#sidebar.collapsed #sidebar-top {
-  display: none;
-}
-
-#sidebar-section-label {
-  flex: 1;
-  font-size: 11px;
-  font-weight: 600;
-  color: var(--text-muted);
-  letter-spacing: 1px;
-}
-
-#btn-clone-repo {
-  display: none;
-}
-
-#btn-clone-repo.visible {
-  display: flex;
-}
-
-#sidebar.collapsed #sidebar-section-label,
-#sidebar.collapsed #btn-open-directory,
-#sidebar.collapsed #btn-clone-repo,
-#sidebar.collapsed #btn-azure-pat {
-  display: none !important;
-}
 
 #sidebar-content {
   display: flex;
@@ -418,32 +394,7 @@ html, body {
   animation: tab-pulse-error 1.5s ease-in-out infinite;
 }
 
-#btn-open-directory,
-#btn-clone-repo,
-#btn-azure-pat {
-  padding: 3px;
-  border: 1px solid var(--border);
-  border-radius: 4px;
-  background: transparent;
-  color: var(--text-muted);
-  cursor: pointer;
-  transition: all 0.15s;
-  line-height: 1;
-  flex-shrink: 0;
-  align-items: center;
-  justify-content: center;
-}
 
-#btn-open-directory {
-  display: flex;
-}
-
-#btn-open-directory:hover,
-#btn-clone-repo:hover,
-#btn-azure-pat:hover {
-  background: var(--tab-bg);
-  color: var(--text);
-}
 
 .sidebar-spacer {
   flex: 1;
@@ -486,6 +437,11 @@ html, body {
   margin-bottom: 2px;
   padding-top: 8px;
   border-top: 1px solid var(--border);
+}
+
+.repo-group:first-child {
+  border-top: none;
+  padding-top: 4px;
 }
 
 .repo-group[draggable="true"] .repo-group-header {
@@ -551,7 +507,7 @@ html, body {
 }
 
 .repo-group-add {
-  width: 18px;
+  width: 0;
   height: 18px;
   border: none;
   border-radius: 4px;
@@ -563,13 +519,16 @@ html, body {
   display: flex;
   align-items: center;
   justify-content: center;
-  margin-left: 4px;
+  margin-left: 0;
   opacity: 0;
+  overflow: hidden;
   transition: all 0.15s;
   line-height: 1;
 }
 
 .repo-group-header:hover .repo-group-add {
+  width: 18px;
+  margin-left: 4px;
   opacity: 0.6;
 }
 
@@ -580,7 +539,7 @@ html, body {
 }
 
 .repo-group-delete {
-  width: 18px;
+  width: 0;
   height: 18px;
   border: none;
   border-radius: 4px;
@@ -591,13 +550,16 @@ html, body {
   display: flex;
   align-items: center;
   justify-content: center;
-  margin-left: 2px;
+  margin-left: 0;
   opacity: 0;
+  overflow: hidden;
   transition: all 0.15s;
   line-height: 1;
 }
 
 .repo-group-header:hover .repo-group-delete {
+  width: 18px;
+  margin-left: 2px;
   opacity: 0.6;
 }
 
@@ -609,7 +571,7 @@ html, body {
 
 .repo-group-tabs {
   display: none;
-  padding-left: 14px;
+  padding-left: 8px;
   margin-top: 2px;
 }
 
@@ -617,12 +579,71 @@ html, body {
   display: block;
 }
 
+.repo-group-tabs-add {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  padding: 4px 8px 4px 4px;
+  margin-bottom: 1px;
+  border: 1px dashed transparent;
+  border-radius: 4px;
+  background: transparent;
+  cursor: pointer;
+  transition: background 0.3s, border-color 0.15s;
+}
+
+.repo-group-tabs-add-icon {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-right: 4px;
+  color: color-mix(in srgb, var(--text-muted) 35%, transparent);
+  border-radius: 3px;
+  line-height: 0;
+}
+
+.repo-group-tabs-add-label {
+  font-size: 12px;
+  color: color-mix(in srgb, var(--text-muted) 35%, transparent);
+  white-space: nowrap;
+}
+
+.repo-group-tabs-add:hover {
+  border-color: var(--border);
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+}
+
+.repo-group-tabs-add:hover .repo-group-tabs-add-icon,
+.repo-group-tabs-add:hover .repo-group-tabs-add-label {
+  color: var(--accent);
+}
+
+
+/* Collapsed sidebar add-worktree button */
+
+.collapsed-add-worktree {
+  color: color-mix(in srgb, var(--text-muted) 50%, transparent) !important;
+  border: 1px dashed transparent !important;
+  background: transparent !important;
+}
+
+.collapsed-add-worktree:hover {
+  border-color: var(--border) !important;
+  color: var(--accent) !important;
+  background: color-mix(in srgb, var(--accent) 12%, transparent) !important;
+}
+
+
 /* Workspace tabs */
 
 .workspace-tab {
   display: flex;
   align-items: center;
-  padding: 4px 8px;
+  padding: 4px 8px 4px 4px;
   margin-bottom: 1px;
   border-radius: 4px;
   cursor: pointer;
@@ -712,35 +733,24 @@ html, body {
   50% { background: color-mix(in srgb, var(--red) 45%, var(--tab-active-bg)); }
 }
 
+.workspace-tab-commit-push,
+.workspace-tab-complete-pr,
+.workspace-tab-resolve-task,
+.workspace-tab-open-pr,
+.workspace-tab-create-pr,
 .workspace-tab-switch {
-  width: 18px;
-  height: 18px;
-  border: none;
-  background: transparent;
-  color: var(--text-muted);
-  cursor: pointer;
-  border-radius: 3px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  position: absolute;
+  width: 0;
+  height: 0;
+  overflow: hidden;
+  pointer-events: none;
   opacity: 0;
-  transition: all 0.15s;
-  margin-left: 4px;
+  border: none;
   padding: 0;
 }
 
-.workspace-tab:hover .workspace-tab-switch {
-  opacity: 0.6;
-}
-
-.workspace-tab:hover .workspace-tab-switch:hover {
-  opacity: 1;
-  background: var(--accent);
-  color: #1e1e2e;
-}
-
 .workspace-tab-remove {
-  width: 18px;
+  width: 0;
   height: 18px;
   border: none;
   background: transparent;
@@ -751,13 +761,17 @@ html, body {
   align-items: center;
   justify-content: center;
   opacity: 0;
+  overflow: hidden;
   transition: all 0.15s;
-  margin-left: 4px;
+  margin-left: 0;
   padding: 0;
 }
 
 .workspace-tab:hover .workspace-tab-remove {
+  width: 18px;
+  margin-left: 4px;
   opacity: 0.6;
+  overflow: visible;
 }
 
 .workspace-tab:hover .workspace-tab-remove:hover {
@@ -786,121 +800,30 @@ html, body {
   color: var(--text);
 }
 
-.workspace-tab-commit-push,
-.workspace-tab-create-pr {
+.workspace-tab-action {
   width: 18px;
   height: 18px;
-  border: none;
-  background: transparent;
-  color: var(--text-muted);
-  cursor: pointer;
-  border-radius: 3px;
+  flex-shrink: 0;
   display: flex;
   align-items: center;
   justify-content: center;
-  opacity: 0;
-  transition: all 0.15s;
-  margin-left: 4px;
+  background: none;
+  border: none;
+  cursor: pointer;
   padding: 0;
-}
-
-.workspace-tab:hover .workspace-tab-commit-push,
-.workspace-tab:hover .workspace-tab-create-pr {
-  opacity: 0.6;
-}
-
-.workspace-tab:hover .workspace-tab-commit-push:hover {
-  opacity: 1;
-  background: var(--green);
-  color: #1e1e2e;
-}
-
-.workspace-tab:hover .workspace-tab-create-pr:hover {
-  opacity: 1;
-  background: var(--accent);
-  color: #1e1e2e;
-}
-
-.workspace-tab-open-pr {
-  display: none;
-  background: none;
-  border: none;
-  cursor: pointer;
-  padding: 2px 3px;
   border-radius: 3px;
-  color: var(--accent);
-  opacity: 1;
+  color: var(--text-muted);
+  margin-right: 4px;
   line-height: 0;
 }
 
-.workspace-tab-open-pr:hover {
-  background: var(--accent);
-  color: #1e1e2e;
-}
-
-.workspace-tab .workspace-tab-open-pr.has-pr-comments {
-  color: var(--peach);
-}
-
-.workspace-tab .workspace-tab-open-pr.has-pr-comments:hover {
-  background: var(--peach);
-  color: #1e1e2e;
-}
-
-.workspace-tab .workspace-tab-open-pr.has-pr-succeeded {
-  color: var(--yellow);
-}
-
-.workspace-tab .workspace-tab-open-pr.has-pr-succeeded:hover {
-  background: var(--yellow);
-  color: #1e1e2e;
-}
-
-.workspace-tab .workspace-tab-open-pr.has-pr-approved {
-  color: var(--green);
-}
-
-.workspace-tab .workspace-tab-open-pr.has-pr-approved:hover {
-  background: var(--green);
-  color: #1e1e2e;
-}
-
-.workspace-tab .workspace-tab-open-pr.has-pr-failed {
-  color: var(--red);
-}
-
-.workspace-tab .workspace-tab-open-pr.has-pr-failed:hover {
-  background: var(--red);
-  color: #1e1e2e;
-}
-
-.workspace-tab-complete-pr,
-.workspace-tab-resolve-task {
-  display: none;
-  background: none;
-  border: none;
-  cursor: pointer;
-  padding: 2px 3px;
-  border-radius: 3px;
-  color: var(--green);
-  opacity: 0.85;
-  line-height: 0;
-}
-
-.workspace-tab-complete-pr:hover,
-.workspace-tab-resolve-task:hover {
-  background: var(--green);
-  color: #1e1e2e;
+.workspace-tab-action:hover {
   opacity: 1;
-}
-
-.workspace-tab-complete-pr:disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
+  background: color-mix(in srgb, currentColor 20%, transparent);
 }
 
 .workspace-tab-close {
-  width: 18px;
+  width: 0;
   height: 18px;
   border: none;
   background: transparent;
@@ -912,12 +835,24 @@ html, body {
   align-items: center;
   justify-content: center;
   opacity: 0;
+  overflow: hidden;
   transition: all 0.15s;
-  margin-left: 4px;
+  margin-left: 0;
 }
 
 .workspace-tab:hover .workspace-tab-close {
+  width: 18px;
+  margin-left: 4px;
   opacity: 0.6;
+  overflow: visible;
+}
+
+.workspace-tab.active .workspace-tab-close {
+  width: 18px;
+  margin-left: 4px;
+  opacity: 1;
+  overflow: visible;
+  color: var(--text);
 }
 
 .workspace-tab:hover .workspace-tab-close:hover {

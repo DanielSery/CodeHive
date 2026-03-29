@@ -16,6 +16,11 @@
 <body>
   <!-- Custom title bar -->
   <div id="titlebar">
+    <div class="titlebar-left">
+      <button class="titlebar-action-btn visible" id="btn-open-directory" title="Open Directory (Ctrl+O)"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M1.5 3.5v9a1 1 0 001 1h11a1 1 0 001-1v-6a1 1 0 00-1-1H8l-1.5-2H2.5a1 1 0 00-1 1z"/></svg></button>
+      <button class="titlebar-action-btn visible" id="btn-clone-repo" title="Clone Repository"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="6" width="8" height="8" rx="1"/><path d="M10 6V3a1 1 0 00-1-1H3a1 1 0 00-1 1v6a1 1 0 001 1h3"/></svg></button>
+      <button class="titlebar-action-btn visible" id="btn-azure-pat" title="Set Azure PAT"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="4.5" cy="9" r="3"/><path d="M7.5 9H14M12 9v2M10 9v1.5"/></svg></button>
+    </div>
     <div class="titlebar-drag">
       <span class="titlebar-title">CodeHive</span>
     </div>
@@ -69,12 +74,6 @@
   <div id="app">
     <!-- Sidebar: repo groups with worktree tabs -->
     <div id="sidebar">
-      <div id="sidebar-top">
-        <span id="sidebar-section-label">WORKSPACE</span>
-        <button id="btn-azure-pat" title="Set Azure PAT"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="4.5" cy="9" r="3"/><path d="M7.5 9H14M12 9v2M10 9v1.5"/></svg></button>
-        <button id="btn-clone-repo" title="Clone Repository"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="6" width="8" height="8" rx="1"/><path d="M10 6V3a1 1 0 00-1-1H3a1 1 0 00-1 1v6a1 1 0 001 1h3"/></svg></button>
-        <button id="btn-open-directory" title="Open Directory"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M1.5 3.5v9a1 1 0 001 1h11a1 1 0 001-1v-6a1 1 0 00-1-1H8l-1.5-2H2.5a1 1 0 00-1 1z"/></svg></button>
-      </div>
       <div id="sidebar-content">
         <div id="repo-groups"></div>
         <div class="sidebar-spacer"></div>

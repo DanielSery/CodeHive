@@ -418,11 +418,17 @@ wtSwitchChangeName.addEventListener('input', () => {
   wtSwitchChangeNameEdited = true;
   updateTargetFromTask();
 });
-wtSwitchChangeName.addEventListener('keydown', (e) => { if (e.key === 'Escape') hideWorktreeSwitchDialog(); });
+wtSwitchChangeName.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') hideWorktreeSwitchDialog();
+  else if (e.key === 'Enter') confirmSwitchWorktree();
+});
 
 // --- Event listeners: Task description ---
 
-wtSwitchTaskDesc.addEventListener('keydown', (e) => { if (e.key === 'Escape') hideWorktreeSwitchDialog(); });
+wtSwitchTaskDesc.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') hideWorktreeSwitchDialog();
+  else if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) confirmSwitchWorktree();
+});
 
 // --- Dialog buttons ---
 

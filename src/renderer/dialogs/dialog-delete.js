@@ -66,3 +66,7 @@ async function confirmDeleteRepo() {
 
 document.getElementById('delete-cancel-btn').addEventListener('click', hideDeleteDialog);
 document.getElementById('delete-confirm-btn').addEventListener('click', confirmDeleteRepo);
+deleteDialogOverlay.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') confirmDeleteRepo();
+  else if (e.key === 'Escape') hideDeleteDialog();
+});

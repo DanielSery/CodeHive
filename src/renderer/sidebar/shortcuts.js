@@ -8,9 +8,8 @@ const SHORTCUT_HOLD_DELAY = 300;
 let _shortcutHoldTimer = null;
 let _shortcutBadgesVisible = false;
 
-function getOpenTabs() {
-  return Array.from(document.querySelectorAll('.workspace-tab'))
-    .filter(tab => tab._workspaceId !== null);
+function getAllTabs() {
+  return Array.from(document.querySelectorAll('.workspace-tab'));
 }
 
 export function showShortcutBadges() {
@@ -18,7 +17,7 @@ export function showShortcutBadges() {
   for (const old of document.querySelectorAll('.workspace-tab-shortcut-badge')) {
     old.remove();
   }
-  const tabs = getOpenTabs();
+  const tabs = getAllTabs();
   const digits = ['1','2','3','4','5','6','7','8','9','0'];
   const isCollapsed = document.getElementById('sidebar').classList.contains('collapsed');
   tabs.forEach((tab, i) => {
@@ -71,7 +70,7 @@ export function handleCtrlAltShortcut(key) {
   const digits = ['1','2','3','4','5','6','7','8','9','0'];
   const digitIdx = digits.indexOf(key);
   if (digitIdx !== -1) {
-    const tabs = getOpenTabs();
+    const tabs = getAllTabs();
     const tab = tabs[digitIdx];
     if (tab) openWorktree(tab, { path: tab._wtPath, branch: tab._wtBranch });
     return;

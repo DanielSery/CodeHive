@@ -63,8 +63,6 @@ async function restoreState() {
     }
   }
 
-  document.getElementById('btn-clone-repo').classList.add('visible');
-
   if (allRepos.length === 0) return;
 
   // Sort repos by saved order
@@ -90,8 +88,6 @@ async function restoreState() {
     addRepoGroup(repo);
   }
 
-  document.getElementById('btn-clone-repo').classList.add('visible');
-
 }
 
 // ===== Open Directory =====
@@ -110,7 +106,6 @@ async function openDirectory() {
     addRepoGroup(repo);
   }
 
-  document.getElementById('btn-clone-repo').classList.add('visible');
   saveState();
 }
 
@@ -118,6 +113,7 @@ async function openDirectory() {
 
 document.getElementById('btn-open-directory').addEventListener('click', openDirectory);
 document.getElementById('btn-clone-repo').addEventListener('click', showCloneDialog);
+
 
 document.getElementById('btn-titlebar-commit').addEventListener('click', () => {
   const ws = getActive();
