@@ -251,7 +251,7 @@ function buildPrCreateScript(wtPath, { sourceBranch, targetBranch, title, descri
   if (isWin) {
     // PowerShell: use single-quote escaping ('' inside single-quoted strings)
     const psQuote = (s) => `'${String(s).replace(/'/g, "''")}'`;
-    let azPrCmd = `az repos pr create --open --source-branch ${psQuote(sourceBranch)} --target-branch ${psQuote(targetBranch)} --title ${psQuote(title)}`;
+    let azPrCmd = `az repos pr create --source-branch ${psQuote(sourceBranch)} --target-branch ${psQuote(targetBranch)} --title ${psQuote(title)}`;
     if (description) azPrCmd += ` --description ${psQuote(description)}`;
     if (workItemId) azPrCmd += ` --work-items ${workItemId}`;
     lines.push(`Write-Host "Creating pull request: ${sourceBranch} -> ${targetBranch}"`);
@@ -261,7 +261,7 @@ function buildPrCreateScript(wtPath, { sourceBranch, targetBranch, title, descri
     lines.push('Write-Host ""');
     lines.push('Write-Host "=== PULL REQUEST CREATED ==="');
   } else {
-    let azPrCmd = `az repos pr create --open --source-branch ${shellQuote(sourceBranch)} --target-branch ${shellQuote(targetBranch)} --title ${shellQuote(title)}`;
+    let azPrCmd = `az repos pr create --source-branch ${shellQuote(sourceBranch)} --target-branch ${shellQuote(targetBranch)} --title ${shellQuote(title)}`;
     if (description) azPrCmd += ` --description ${shellQuote(description)}`;
     if (workItemId) azPrCmd += ` --work-items ${workItemId}`;
     lines.push('#!/bin/sh');
