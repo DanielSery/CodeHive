@@ -157,7 +157,7 @@ function updateNewTaskFields() {
   wtTaskDescRow.style.display = isNewTask ? '' : 'none';
   wtTaskTypeRow.style.display = isNewTask ? '' : 'none';
   if (isNewTask) wtTaskType.value = inferWorkItemType(wtTaskSearch.value.trim());
-  wtSkipTaskBtn.style.display = (isNewTask && wtAzureContext) ? '' : 'none';
+  wtSkipTaskBtn.style.display = 'none';
 }
 
 function selectWtTask(task) {

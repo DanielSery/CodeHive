@@ -316,6 +316,43 @@ export async function resolveWorkItem(ctx, id, { integrationBuild, releaseNote }
 }
 
 /**
+ * Fetch the latest build for a branch with full status details.
+ * Returns { id, buildNumber, status, result, webUrl } or null.
+ * status: 'inProgress' | 'completed' | 'notStarted' | 'cancelling'
+ * result (when completed): 'succeeded' | 'failed' | 'partiallySucceeded' | 'canceled' | 'none'
+ */
+export async function fetchLatestBuild(org, project, auth, branchName) {
+  const url = `https://dev.azure.com/${encodeURIComponent(org)}/${encodeURIComponent(project)}/_apis/build/builds?branchName=${encodeURIComponent(branchName)}&$top=1&queryOrder=queueTimeDescending&api-version=7.0`;
+  try {
+    const resp = await fetch(url, { headers: { Authorization: `Basic ${auth}` } });
+    if (!resp.ok) return null;
+    const data = await resp.json();
+    const builds = data.value || [];
+    if (builds.length === 0) return null;
+    const b = builds[0];
+    return { id: b.id, buildNumber: b.buildNumber, status: b.status, result: b.result, webUrl: b._links?.web?.href || null };
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Fetch build artifacts for a given build.
+ * Returns array of { name, downloadUrl } or [].
+ */
+export async function fetchBuildArtifacts(org, project, auth, buildId) {
+  const url = `https://dev.azure.com/${encodeURIComponent(org)}/${encodeURIComponent(project)}/_apis/build/builds/${buildId}/artifacts?api-version=7.0`;
+  try {
+    const resp = await fetch(url, { headers: { Authorization: `Basic ${auth}` } });
+    if (!resp.ok) return [];
+    const data = await resp.json();
+    return (data.value || []).map(a => ({ name: a.name, downloadUrl: a.resource?.downloadUrl || null }));
+  } catch {
+    return [];
+  }
+}
+
+/**
  * Add a comment to a work item. Silently ignores errors.
  */
 export async function addWorkItemComment(ctx, id, text) {

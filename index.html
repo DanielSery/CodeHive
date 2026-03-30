@@ -40,6 +40,12 @@
       <button class="titlebar-action-btn" id="btn-titlebar-resolve-task" title="Resolve Azure Task">
         <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="6"/><path d="M5.5 8l2 2 3-3"/></svg>
       </button>
+      <button class="titlebar-action-btn" id="btn-titlebar-open-pipeline" title="Open Pipeline">
+        <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="5" width="4" height="6" rx="1"/><rect x="6" y="5" width="4" height="6" rx="1"/><rect x="11" y="5" width="4" height="6" rx="1"/><path d="M5 8h1M10 8h1"/></svg>
+      </button>
+      <button class="titlebar-action-btn" id="btn-titlebar-verify" title="Verify Build">
+        <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2v8M5 7l3 3 3-3"/><path d="M3 13h10"/></svg>
+      </button>
       <button class="titlebar-action-btn" id="btn-titlebar-open-task" title="Open Task (Ctrl+Alt+A)">
         <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="2" width="10" height="12" rx="1.5"/><path d="M6 6h4M6 9h3"/></svg>
       </button>
@@ -295,6 +301,20 @@
     </div>
   </div>
 
+  <!-- Verify Build dialog -->
+  <div id="verify-dialog-overlay" class="dialog-overlay">
+    <div class="dialog-box">
+      <h3 class="dialog-title">Verify Build</h3>
+      <p class="dialog-desc" id="verify-build-desc">Build completed successfully</p>
+      <p class="dialog-desc" style="margin-top:0;color:var(--text-muted);font-size:11px">Download and verify the setup before resolving the task</p>
+      <div id="verify-artifacts-list" class="verify-artifacts-list"></div>
+      <div class="dialog-buttons">
+        <button id="verify-cancel-btn" class="dialog-btn dialog-btn-cancel" tabindex="-1">Cancel</button>
+        <button id="verify-confirm-btn" class="dialog-btn dialog-btn-confirm">Mark as Verified</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Delete confirmation dialog -->
   <div id="delete-dialog-overlay" class="dialog-overlay">
     <div class="dialog-box">
@@ -318,6 +338,8 @@
     <button class="context-menu-item" data-action="commit-push">Commit &amp; Push<span class="context-menu-shortcut">Ctrl+Alt+P</span></button>
     <button class="context-menu-item" data-action="create-pr">Create Pull Request<span class="context-menu-shortcut">Ctrl+Alt+M</span></button>
     <button class="context-menu-item" data-action="complete-pr">Complete Pull Request</button>
+    <button class="context-menu-item" data-action="open-pipeline">Open Pipeline</button>
+    <button class="context-menu-item" data-action="verify">Verify Build</button>
     <button class="context-menu-item" data-action="resolve-task">Resolve Task</button>
     <button class="context-menu-item" data-action="open-task">Open Task<span class="context-menu-shortcut">Ctrl+Alt+A</span></button>
     <button class="context-menu-item" data-action="open-pr">Open Pull Request<span class="context-menu-shortcut">Ctrl+Alt+M</span></button>

@@ -17,6 +17,8 @@ const titlebarCreatePrBtn = document.getElementById('btn-titlebar-create-pr');
 const titlebarOpenPrBtn = document.getElementById('btn-titlebar-open-pr');
 const titlebarCompletePrBtn = document.getElementById('btn-titlebar-complete-pr');
 const titlebarResolveTaskBtn = document.getElementById('btn-titlebar-resolve-task');
+const titlebarOpenPipelineBtn = document.getElementById('btn-titlebar-open-pipeline');
+const titlebarVerifyBtn = document.getElementById('btn-titlebar-verify');
 const titlebarOpenTaskBtn = document.getElementById('btn-titlebar-open-task');
 const titlebarSwitchBtn = document.getElementById('btn-titlebar-switch');
 
@@ -37,7 +39,7 @@ const serverReady = new Promise((resolve) => {
   });
 });
 
-const allTitlebarActionBtns = [titlebarCommitBtn, titlebarCreatePrBtn, titlebarOpenPrBtn, titlebarCompletePrBtn, titlebarResolveTaskBtn, titlebarOpenTaskBtn, titlebarSwitchBtn];
+const allTitlebarActionBtns = [titlebarCommitBtn, titlebarCreatePrBtn, titlebarOpenPrBtn, titlebarCompletePrBtn, titlebarResolveTaskBtn, titlebarOpenPipelineBtn, titlebarVerifyBtn, titlebarOpenTaskBtn, titlebarSwitchBtn];
 
 function updateTitlebarActions(hasActive) {
   if (!hasActive) {
@@ -64,10 +66,23 @@ function syncTitlebarToTab() {
   const hasPushed = !!tabEl._hasPushedCommits;
   const showCreatePr = !hasChanges && hasPushed && !hasPr && !canComplete && !canResolve;
 
+  const canOpenPipeline = !!tabEl._canOpenPipeline && !tabEl._pipelineVerified && tabEl._pipelineStatus !== 'succeeded';
+  const canVerify = !!tabEl._canVerify && !tabEl._pipelineVerified;
+
   titlebarCommitBtn.classList.toggle('visible', isOpen && hasChanges);
   titlebarCreatePrBtn.classList.toggle('visible', showCreatePr);
   titlebarCompletePrBtn.classList.toggle('visible', !hasChanges && canComplete);
   titlebarResolveTaskBtn.classList.toggle('visible', !hasChanges && canResolve);
+  titlebarOpenPipelineBtn.classList.toggle('visible', !hasChanges && canOpenPipeline);
+  if (canOpenPipeline) {
+    let color = 'var(--accent)';
+    if (tabEl._pipelineStatus === 'running') color = 'var(--yellow)';
+    else if (tabEl._pipelineStatus === 'failed') color = 'var(--red)';
+    titlebarOpenPipelineBtn.style.color = color;
+  } else {
+    titlebarOpenPipelineBtn.style.color = '';
+  }
+  titlebarVerifyBtn.classList.toggle('visible', !hasChanges && canVerify);
   titlebarOpenTaskBtn.classList.toggle('visible', hasTask);
   titlebarSwitchBtn.classList.toggle('visible', true);
 
@@ -175,6 +190,9 @@ async function openWorktree(tabEl, wt) {
     // Block all other popups (external CDN requests that cause 404 errors)
   };
 
+  // F11 is "step into" in VS Code — prevent Chromium from using it for fullscreen
+  const onEnterFullScreen = () => webview.getWebContents().exitFullScreen();
+
   const onFinishLoad = () => {
     webview.insertCSS(`
       .activitybar .actions-container .action-item {
@@ -200,6 +218,7 @@ async function openWorktree(tabEl, wt) {
   webview.addEventListener('did-fail-load', onFailLoad);
   webview.addEventListener('new-window', onNewWindow);
   webview.addEventListener('did-finish-load', onFinishLoad);
+  webview.addEventListener('enter-html-full-screen', onEnterFullScreen);
 
   // Store cleanup function for use when closing the workspace
   webview._cleanup = () => {
@@ -207,6 +226,7 @@ async function openWorktree(tabEl, wt) {
     webview.removeEventListener('did-fail-load', onFailLoad);
     webview.removeEventListener('new-window', onNewWindow);
     webview.removeEventListener('did-finish-load', onFinishLoad);
+    webview.removeEventListener('enter-html-full-screen', onEnterFullScreen);
   };
 
   tabEl._workspaceId = id;

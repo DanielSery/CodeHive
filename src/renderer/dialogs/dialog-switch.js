@@ -156,7 +156,7 @@ function updateSwitchNewTaskFields() {
   wtSwitchTaskDescRow.style.display = isNewTask ? '' : 'none';
   wtSwitchTaskTypeRow.style.display = isNewTask ? '' : 'none';
   if (isNewTask) wtSwitchTaskType.value = inferWorkItemType(wtSwitchTaskSearch.value.trim());
-  wtSwitchSkipTaskBtn.style.display = (isNewTask && wtSwitchAzureContext) ? '' : 'none';
+  wtSwitchSkipTaskBtn.style.display = 'none';
 }
 
 function selectWtSwitchTask(task) {

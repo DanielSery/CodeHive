@@ -6,6 +6,7 @@ export { showWorktreeRemoveDialog } from './dialog-wt-remove.js';
 export { showCommitPushDialog } from './dialog-commit-push.js';
 export { showCreatePrDialog } from './dialog-create-pr.js';
 export { showResolveTaskDialog } from './dialog-resolve.js';
+export { showVerifyDialog } from './dialog-verify.js';
 
 import { registerWorktreeSidebarFns } from './dialog-worktree.js';
 import { registerSwitchSidebarFns } from './dialog-switch.js';

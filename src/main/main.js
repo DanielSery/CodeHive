@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, dialog, shell } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, shell, Menu } = require('electron');
 const path = require('path');
 const vscode = require('./vscode-server');
 const ipcHandlers = require('./ipc-handlers');
@@ -14,6 +14,8 @@ let serverProcess = null;
 let serverPort = DEFAULT_PORT;
 let startupStatus = 'Starting...';
 let sessionPartition = 'persist:codehive';
+
+Menu.setApplicationMenu(null);
 
 function createWindow() {
   mainWindow = new BrowserWindow({
