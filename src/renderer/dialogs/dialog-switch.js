@@ -385,7 +385,8 @@ export async function confirmSwitchWorktree() {
       saveSourceBranch(wtPath, switchSource);
       if (taskId) saveTaskId(wtPath, taskId);
       const newTabEl = _createWorktreeTab(wt);
-      tabsEl.appendChild(newTabEl);
+      const addBtn = tabsEl.querySelector('.repo-group-tabs-add');
+      tabsEl.insertBefore(newTabEl, addBtn);
       if (_rebuildCollapsedDots) _rebuildCollapsedDots();
       setTimeout(async () => {
         closeTerminal();
