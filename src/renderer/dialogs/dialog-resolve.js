@@ -8,7 +8,7 @@ let _resolve = null;
 let _ctx = null;
 let _taskId = null;
 
-export function showResolveTaskDialog(ctx, taskId, { org, project, auth, targetBranch }) {
+export function showResolveTaskDialog(ctx, taskId, { org, project, auth, targetBranch, mergeTime }) {
   _ctx = ctx;
   _taskId = taskId;
   buildInput.value = '';
@@ -18,8 +18,8 @@ export function showResolveTaskDialog(ctx, taskId, { org, project, auth, targetB
   overlay.classList.add('visible');
   commentInput.focus();
 
-  // Fetch the latest successful build from the target branch (where the PR was merged)
-  fetchLatestBuildNumber(org, project, auth, targetBranch).then(buildNumber => {
+  // Fetch the first build after the PR was merged on the target branch
+  fetchLatestBuildNumber(org, project, auth, targetBranch, mergeTime).then(buildNumber => {
     if (buildNumber && !buildInput.value) {
       buildInput.value = buildNumber;
     }

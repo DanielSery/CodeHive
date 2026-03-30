@@ -278,8 +278,13 @@ export async function fetchActiveBuilds(org, project, auth, sourceRefName, prId)
  * Fetch the latest completed build number for a branch (e.g. target/source branch).
  * Returns the buildNumber string or null.
  */
-export async function fetchLatestBuildNumber(org, project, auth, branchName) {
-  const url = `https://dev.azure.com/${encodeURIComponent(org)}/${encodeURIComponent(project)}/_apis/build/builds?branchName=${encodeURIComponent(branchName)}&$top=5&queryOrder=queueTimeDescending&api-version=7.0`;
+export async function fetchLatestBuildNumber(org, project, auth, branchName, minTime) {
+  let url = `https://dev.azure.com/${encodeURIComponent(org)}/${encodeURIComponent(project)}/_apis/build/builds?branchName=${encodeURIComponent(branchName)}&$top=5&api-version=7.0`;
+  if (minTime) {
+    url += `&minTime=${encodeURIComponent(minTime)}&queryOrder=queueTimeAscending`;
+  } else {
+    url += `&queryOrder=queueTimeDescending`;
+  }
   console.log('[fetchLatestBuildNumber] branch=%s url=%s', branchName, url);
   try {
     const resp = await fetch(url, { headers: { Authorization: `Basic ${auth}` } });
@@ -321,8 +326,13 @@ export async function resolveWorkItem(ctx, id, { integrationBuild, releaseNote }
  * status: 'inProgress' | 'completed' | 'notStarted' | 'cancelling'
  * result (when completed): 'succeeded' | 'failed' | 'partiallySucceeded' | 'canceled' | 'none'
  */
-export async function fetchLatestBuild(org, project, auth, branchName) {
-  const url = `https://dev.azure.com/${encodeURIComponent(org)}/${encodeURIComponent(project)}/_apis/build/builds?branchName=${encodeURIComponent(branchName)}&$top=1&queryOrder=queueTimeDescending&api-version=7.0`;
+export async function fetchLatestBuild(org, project, auth, branchName, minTime) {
+  let url = `https://dev.azure.com/${encodeURIComponent(org)}/${encodeURIComponent(project)}/_apis/build/builds?branchName=${encodeURIComponent(branchName)}&$top=1&api-version=7.0`;
+  if (minTime) {
+    url += `&minTime=${encodeURIComponent(minTime)}&queryOrder=queueTimeAscending`;
+  } else {
+    url += `&queryOrder=queueTimeDescending`;
+  }
   try {
     const resp = await fetch(url, { headers: { Authorization: `Basic ${auth}` } });
     if (!resp.ok) return null;

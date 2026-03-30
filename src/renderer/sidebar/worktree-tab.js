@@ -20,7 +20,7 @@ const DOT_RESOLVE_TASK_SVG = '<svg width="14" height="14" viewBox="0 0 16 16" fi
 const DOT_OPEN_TASK_SVG = '<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="2" width="10" height="12" rx="1.5"/><path d="M6 6h4M6 9h3"/></svg>';
 const DOT_SWITCH_SVG = '<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M11 1l3 3-3 3"/><path d="M14 4H5"/><path d="M5 15l-3-3 3-3"/><path d="M2 12h9"/></svg>';
 const DOT_DONE_SVG = '<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8.5l3.5 3.5 6.5-8"/></svg>';
-const DOT_PIPELINE_SVG = '<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="5" width="3" height="6" rx="1"/><path d="M4 8H6M5 7L6 8L5 9"/><rect x="6" y="5" width="3" height="6" rx="1"/><path d="M9 8H11M10 7L11 8L10 9"/><rect x="11" y="5" width="4" height="6" rx="1"/></svg>';
+const DOT_PIPELINE_SVG = '<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="2.5" cy="8" r="1.5"/><line x1="4" y1="8" x2="6" y2="8"/><circle cx="7.5" cy="8" r="1.5"/><line x1="9" y1="8" x2="11" y2="8"/><path d="M11 6l3 2-3 2"/></svg>';
 const DOT_VERIFY_SVG = '<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2v8M5 7l3 3 3-3"/><path d="M3 13h10"/></svg>';
 
 const PIPELINE_STATUS_CLASSES = ['pipeline-running', 'pipeline-failed', 'pipeline-succeeded'];
@@ -222,7 +222,7 @@ async function updatePipelineForTab(tabEl, { org, project, auth }) {
   const targetBranch = tabEl._pipelineTargetBranch;
   if (!targetBranch) return;
 
-  const build = await fetchLatestBuild(org, project, auth, targetBranch);
+  const build = await fetchLatestBuild(org, project, auth, targetBranch, tabEl._pipelineMergeTime);
   const pipelineBtn = tabEl.querySelector('.workspace-tab-open-pipeline');
   const verifyBtn = tabEl.querySelector('.workspace-tab-verify');
   const resolveTaskBtn = tabEl.querySelector('.workspace-tab-resolve-task');
@@ -402,7 +402,10 @@ async function _refreshTabStatusInner(tabEl) {
               if (resolveTaskBtn) resolveTaskBtn.style.display = 'none';
             } else {
               tabEl._canOpenPipeline = true;
-              if (!tabEl._pipelineTargetBranch) tabEl._pipelineTargetBranch = cPr.targetRefName;
+              if (!tabEl._pipelineTargetBranch) {
+                tabEl._pipelineTargetBranch = cPr.targetRefName;
+                tabEl._pipelineMergeTime = cPr.closedDate || null;
+              }
               await updatePipelineForTab(tabEl, { org, project, auth });
             }
             return;
@@ -541,6 +544,7 @@ export function createWorktreeTab(wt) {
   tabEl._canResolveTask = false;
   tabEl._canOpenPipeline = false;
   tabEl._pipelineTargetBranch = null;
+  tabEl._pipelineMergeTime = null;
   tabEl._pipelineBuildId = null;
   tabEl._pipelineBuildNumber = null;
   tabEl._pipelineStatus = null;
@@ -661,6 +665,7 @@ export function createWorktreeTab(wt) {
       if (tabEl._wtTaskId) {
         tabEl._canOpenPipeline = true;
         tabEl._pipelineTargetBranch = d.targetRefName;
+        tabEl._pipelineMergeTime = new Date().toISOString();
         const switchBtn = tabEl.querySelector('.workspace-tab-switch');
         if (switchBtn) switchBtn.style.display = 'none';
       }
@@ -674,7 +679,7 @@ export function createWorktreeTab(wt) {
     if (!d || !tabEl._wtTaskId) return;
     const ctx = { org: d.org, project: d.project, auth: d.auth, apiBase: `https://dev.azure.com/${encodeURIComponent(d.org)}/${encodeURIComponent(d.project)}/_apis` };
     const targetBranch = d.targetRefName || `refs/heads/${tabEl._wtSourceBranch || 'master'}`;
-    const result = await showResolveTaskDialog(ctx, tabEl._wtTaskId, { org: d.org, project: d.project, auth: d.auth, targetBranch });
+    const result = await showResolveTaskDialog(ctx, tabEl._wtTaskId, { org: d.org, project: d.project, auth: d.auth, targetBranch, mergeTime: tabEl._pipelineMergeTime });
     if (result === 'resolved') {
       tabEl._taskResolved = true;
       tabEl._canResolveTask = false;
