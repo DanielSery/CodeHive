@@ -254,7 +254,6 @@ function buildPrCreateScript(wtPath, { sourceBranch, targetBranch, title, descri
     let azPrCmd = `az repos pr create --open --source-branch ${psQuote(sourceBranch)} --target-branch ${psQuote(targetBranch)} --title ${psQuote(title)}`;
     if (description) azPrCmd += ` --description ${psQuote(description)}`;
     if (workItemId) azPrCmd += ` --work-items ${workItemId}`;
-    if (pat) lines.push(`$env:AZURE_DEVOPS_EXT_PAT = ${psQuote(pat)}`);
     lines.push(`Write-Host "Creating pull request: ${sourceBranch} -> ${targetBranch}"`);
     lines.push('Write-Host ""');
     lines.push(azPrCmd);
@@ -267,7 +266,6 @@ function buildPrCreateScript(wtPath, { sourceBranch, targetBranch, title, descri
     if (workItemId) azPrCmd += ` --work-items ${workItemId}`;
     lines.push('#!/bin/sh');
     lines.push('set -e');
-    if (pat) lines.push(`export AZURE_DEVOPS_EXT_PAT=${shellQuote(pat)}`);
     lines.push(`echo "Creating pull request: ${sourceBranch} -> ${targetBranch}"`);
     lines.push('echo ""');
     lines.push(azPrCmd);
@@ -277,8 +275,10 @@ function buildPrCreateScript(wtPath, { sourceBranch, targetBranch, title, descri
 
   fs.writeFileSync(scriptPath, lines.join('\r\n'), { encoding: 'utf8' });
 
+  // PAT passed via environment variable (not written to script file on disk)
+  const env = pat ? { AZURE_DEVOPS_EXT_PAT: pat } : undefined;
   const cmd = isWin ? `powershell -ExecutionPolicy Bypass -File "${scriptPath}"` : `sh "${scriptPath}"`;
-  return { cmd, cwd: wtPath, scriptPath };
+  return { cmd, cwd: wtPath, scriptPath, env };
 }
 
 module.exports = { buildWorktreeCmd, buildCloneCmd, buildDeleteScript, buildWorktreeRemoveScript, buildCommitPushScript, buildPrCreateScript, shellQuote, assertSafeRef };

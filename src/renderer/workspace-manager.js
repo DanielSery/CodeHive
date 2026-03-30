@@ -213,16 +213,20 @@ async function openWorktree(tabEl, wt) {
   webview.setAttribute('disableblinkfeatures', 'Auxclick');
   editorArea.appendChild(webview);
 
+  let retryTimer = null;
+
   // Retry loading if the webview fails to connect
-  webview.addEventListener('did-fail-load', (e) => {
+  const onFailLoad = (e) => {
     if (e.errorCode === -102 /* ERR_CONNECTION_REFUSED */ || e.errorCode === -7 /* ERR_TIMED_OUT */) {
       console.warn(`[openWorktree] webview load failed (code ${e.errorCode}), retrying in 2s...`);
-      setTimeout(() => webview.reload(), 2000);
+      retryTimer = setTimeout(() => {
+        if (webview.isConnected) webview.reload();
+      }, 2000);
     }
-  });
+  };
 
   // Suppress popups that navigate to external URLs (e.g. Azure CDN 404s when opening diffs)
-  webview.addEventListener('new-window', (e) => {
+  const onNewWindow = (e) => {
     const popupUrl = e.url || '';
     e.preventDefault();
 
@@ -256,9 +260,9 @@ async function openWorktree(tabEl, wt) {
     }
 
     // Block all other popups (external CDN requests that cause 404 errors)
-  });
+  };
 
-  webview.addEventListener('did-finish-load', () => {
+  const onFinishLoad = () => {
     webview.insertCSS(`
       .activitybar .actions-container .action-item {
         display: none !important;
@@ -275,7 +279,19 @@ async function openWorktree(tabEl, wt) {
         display: none !important;
       }
     `).catch(() => {});
-  });
+  };
+
+  webview.addEventListener('did-fail-load', onFailLoad);
+  webview.addEventListener('new-window', onNewWindow);
+  webview.addEventListener('did-finish-load', onFinishLoad);
+
+  // Store cleanup function for use when closing the workspace
+  webview._cleanup = () => {
+    if (retryTimer) clearTimeout(retryTimer);
+    webview.removeEventListener('did-fail-load', onFailLoad);
+    webview.removeEventListener('new-window', onNewWindow);
+    webview.removeEventListener('did-finish-load', onFinishLoad);
+  };
 
   tabEl._workspaceId = id;
   setTabStatus(tabEl, 'open');
@@ -344,6 +360,7 @@ function closeWorkspace(id) {
   if (!ws) return;
 
   stopClaudePoll(id);
+  if (ws.webview._cleanup) ws.webview._cleanup();
   ws.webview.remove();
   ws.tabEl.classList.remove('active');
   if (ws.tabEl._dotEl) ws.tabEl._dotEl.classList.remove('active');

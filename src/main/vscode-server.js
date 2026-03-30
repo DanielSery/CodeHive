@@ -23,8 +23,8 @@ function getOrCreateConnectionToken() {
   }
   const { randomUUID } = require('crypto');
   const token = randomUUID();
-  fs.mkdirSync(getServerDataDir(), { recursive: true });
-  fs.writeFileSync(tokenFile, token, 'utf8');
+  fs.mkdirSync(getServerDataDir(), { recursive: true, mode: 0o700 });
+  fs.writeFileSync(tokenFile, token, { encoding: 'utf8', mode: 0o600 });
   return token;
 }
 

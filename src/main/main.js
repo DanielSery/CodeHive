@@ -33,9 +33,11 @@ function createWindow() {
 
   mainWindow.loadFile(path.join(__dirname, '..', '..', 'index.html'));
 
-  mainWindow.webContents.on('before-input-event', (event, input) => {
-    if (input.key === 'F12') { mainWindow.webContents.toggleDevTools(); event.preventDefault(); }
-  });
+  if (!app.isPackaged) {
+    mainWindow.webContents.on('before-input-event', (event, input) => {
+      if (input.key === 'F12') { mainWindow.webContents.toggleDevTools(); event.preventDefault(); }
+    });
+  }
 
   // Forward Ctrl+Alt shortcuts from webviews (which capture keyboard focus away from the main document)
   mainWindow.webContents.on('did-attach-webview', (event, webContents) => {
@@ -137,6 +139,7 @@ app.whenReady().then(async () => {
 });
 
 app.on('window-all-closed', () => {
+  ipcHandlers.killAllPtys();
   vscode.killServer(serverProcess); // kills full process tree, not just the shell
   app.quit();
 });

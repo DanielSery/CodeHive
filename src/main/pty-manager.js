@@ -125,8 +125,8 @@ function createCommitPushPty(mainWindow, { wtPath, title, description, branch, f
 }
 
 function createPrCreatePty(mainWindow, { wtPath, sourceBranch, targetBranch, title, description, pat, workItemId }) {
-  const { cmd, cwd, scriptPath } = buildPrCreateScript(wtPath, { sourceBranch, targetBranch, title, description, pat, workItemId });
-  const proc = spawnProc(cmd, cwd);
+  const { cmd, cwd, scriptPath, env } = buildPrCreateScript(wtPath, { sourceBranch, targetBranch, title, description, pat, workItemId });
+  const proc = spawnProc(cmd, cwd, env);
 
   proc.onData((data) => {
     if (mainWindow && !mainWindow.isDestroyed()) {
@@ -148,7 +148,7 @@ function createAzInstallPty(mainWindow) {
   const isWin = process.platform === 'win32';
   const cmd = isWin
     ? 'winget install -e --id Microsoft.AzureCLI'
-    : 'curl -sL https://aka.ms/InstallAzureCLIDeb | sudo bash';
+    : 'curl -sL https://aka.ms/InstallAzureCLIDeb -o /tmp/install-azure-cli.sh && sudo bash /tmp/install-azure-cli.sh && rm -f /tmp/install-azure-cli.sh';
   const proc = spawnProc(cmd, process.env.HOME || process.cwd());
 
   proc.onData((data) => {

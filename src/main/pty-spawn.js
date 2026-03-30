@@ -1,14 +1,15 @@
 const { spawn } = require('child_process');
 
-function spawnProc(cmd, cwd) {
+function spawnProc(cmd, cwd, extraEnv) {
   const buffer = [`\x1b[90m$ ${cmd}\x1b[0m\r\n`];
   let exitInfo = null;
   let ready = false;
   const listeners = { data: [], exit: [] };
 
+  const env = extraEnv ? { ...process.env, ...extraEnv } : process.env;
   const proc = spawn(cmd, [], {
     cwd,
-    env: process.env,
+    env,
     shell: true,
     stdio: ['pipe', 'pipe', 'pipe']
   });

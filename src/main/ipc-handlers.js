@@ -255,4 +255,10 @@ function register(mainWindow, getServerPort) {
   ipcMain.on('window:close', () => mainWindow.close());
 }
 
-module.exports = { register };
+function killAllPtys() {
+  for (const pty of [worktreePty, clonePty, deletePty, worktreeRemovePty, worktreeSwitchPty, commitPushPty, prCreatePty, azInstallPty]) {
+    if (pty) pty.kill();
+  }
+}
+
+module.exports = { register, killAllPtys };
