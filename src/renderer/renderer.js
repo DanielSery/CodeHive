@@ -1,4 +1,4 @@
-import { addRepoGroup, clearAllGroups, createWorktreeTab, rebuildCollapsedDots, registerWorktreeDialog, registerDeleteDialog, registerWorktreeRemoveDialog, registerWorktreeSwitchDialog, registerCommitPushDialog, registerCreatePrDialog, registerToggleTerminal, registerOnStateChange, registerCheckExistingPr, removeRepoGroup, showTabCloseButton, showTabRemoveButton, getRepoOrder, getWorktreeOrders, checkExistingPr } from './sidebar/index.js';
+import { addRepoGroup, clearAllGroups, createWorktreeTab, rebuildCollapsedDots, registerWorktreeDialog, registerDeleteDialog, registerWorktreeRemoveDialog, registerWorktreeSwitchDialog, registerCommitPushDialog, registerCreatePrDialog, registerToggleTerminal, registerOnStateChange, registerRefreshTabStatus, removeRepoGroup, showTabCloseButton, showTabRemoveButton, getRepoOrder, getWorktreeOrders, refreshTabStatus } from './sidebar/index.js';
 import { showWorktreeDialog, showCloneDialog, showDeleteDialog, showWorktreeRemoveDialog, showWorktreeSwitchDialog, showCommitPushDialog, showCreatePrDialog, setCloneReposDir, registerSidebarFns, registerRemoveRepoGroup, registerOnCloneComplete } from './dialogs/index.js';
 import { cycleWorkspace, registerTabButtonFns } from './workspace-manager.js';
 import { getActive } from './state.js';
@@ -15,7 +15,7 @@ registerWorktreeSwitchDialog(showWorktreeSwitchDialog);
 registerCommitPushDialog(showCommitPushDialog);
 registerCreatePrDialog(showCreatePrDialog);
 registerToggleTerminal(toggleTerminal);
-registerCheckExistingPr(checkExistingPr);
+registerRefreshTabStatus(refreshTabStatus);
 registerTabButtonFns(showTabCloseButton, showTabRemoveButton);
 registerSidebarFns(addRepoGroup, createWorktreeTab, rebuildCollapsedDots);
 registerRemoveRepoGroup(removeRepoGroup);

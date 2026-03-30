@@ -1,7 +1,7 @@
 import { closeWorkspace } from '../workspace-manager.js';
 import { rebuildCollapsedDots, collapsedDotsEl, createCollapsedAddBtn } from './collapsed-dots.js';
 import { showProjectContextMenu } from './context-menu.js';
-import { createWorktreeTab, checkExistingPr } from './worktree-tab.js';
+import { createWorktreeTab, refreshTabStatus } from './worktree-tab.js';
 import { _showWorktreeDialog, _showDeleteDialog, _onStateChange } from './registers.js';
 
 const repoGroupsEl = document.getElementById('repo-groups');
@@ -60,6 +60,15 @@ export function addRepoGroup(repo) {
     e.stopPropagation();
     if (_showWorktreeDialog) _showWorktreeDialog(groupEl, tabsEl);
   });
+  // Prevent the add button from being dragged and ensure tabs dropped near it stay above it
+  addBtn.setAttribute('draggable', 'false');
+  addBtn.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    e.dataTransfer.dropEffect = 'move';
+    const dragging = tabsEl.querySelector('.workspace-tab.dragging');
+    if (dragging) tabsEl.insertBefore(dragging, addBtn);
+  });
   tabsEl.appendChild(addBtn);
 
   // Collapsed-view add-worktree button (after all dots for this group)
@@ -111,7 +120,7 @@ export function addRepoGroup(repo) {
   repoGroupsEl.appendChild(groupEl);
 
   for (const tab of tabsEl.querySelectorAll('.workspace-tab')) {
-    checkExistingPr(tab);
+    refreshTabStatus(tab);
   }
 }
 

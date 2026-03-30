@@ -1082,6 +1082,23 @@ html, body {
 .commit-file-removed { color: var(--red); }
 .commit-file-new { color: var(--text-muted); font-style: italic; }
 
+.commit-file-revert {
+  flex-shrink: 0;
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 2px 4px;
+  border-radius: 3px;
+  opacity: 0;
+  transition: opacity 0.15s, color 0.15s;
+  display: flex;
+  align-items: center;
+}
+.commit-file-row:hover .commit-file-revert,
+.commit-tree-folder:hover > .commit-file-revert { opacity: 1; }
+.commit-file-revert:hover { color: var(--red); background: color-mix(in srgb, var(--red) 12%, transparent); }
+
 .commit-tree-folder {
   display: flex;
   align-items: center;

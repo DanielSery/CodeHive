@@ -1,6 +1,6 @@
 import { createTerminal, showTerminal, showCloseButton, setTitle, closeTerminal } from '../terminal-panel.js';
 import { toast } from '../toast.js';
-import { _checkExistingPr } from '../sidebar/registers.js';
+import { _refreshTabStatus } from '../sidebar/registers.js';
 
 const commitPushDialogOverlay = document.getElementById('commit-push-dialog-overlay');
 const commitPushTitleInput = document.getElementById('commit-push-title-input');
@@ -56,16 +56,49 @@ function renderTreeNode(container, node, depth) {
     nameSpan.className = 'commit-tree-folder-name';
     nameSpan.textContent = name + '/';
 
+    const folderRevertBtn = document.createElement('button');
+    folderRevertBtn.className = 'commit-file-revert';
+    folderRevertBtn.title = 'Revert all changes in folder';
+    folderRevertBtn.innerHTML = '<svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 10l4-4M2 10l4 4"/><path d="M2 10h7a4 4 0 0 0 0-8H8"/></svg>';
+    folderRevertBtn.addEventListener('click', async (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const live = indices.filter(i => _commitFiles[i]);
+      if (live.length === 0) return;
+      for (const i of live) {
+        const f = _commitFiles[i];
+        const result = await window.reposAPI.gitRevertFile(_commitPushTabEl._wtPath, f.path, f.isNew);
+        if (result.ok) {
+          _commitFiles[i] = null;
+          const fileRow = commitPushFileList.querySelector(`[data-file-idx="${i}"]`);
+          if (fileRow) fileRow.closest('.commit-file-row').remove();
+        }
+      }
+      _folderUpdaters.forEach(fn => fn());
+      // Remove folder row + container if all files reverted
+      if (indices.every(i => !_commitFiles[i])) {
+        folderRow.remove();
+        childContainer.remove();
+      }
+      // If no files left at all, show empty state
+      if (_commitFiles.every(f => !f)) {
+        commitPushFileList.innerHTML = '<span class="commit-file-list-empty">No changes detected</span>';
+      }
+    });
+
     folderRow.appendChild(arrow);
     folderRow.appendChild(cb);
     folderRow.appendChild(nameSpan);
+    folderRow.appendChild(folderRevertBtn);
 
     const childContainer = document.createElement('div');
 
     const updateCb = () => {
-      const n = indices.filter(i => _commitFiles[i].checked).length;
+      const live = indices.filter(i => _commitFiles[i]);
+      if (live.length === 0) { cb.checked = false; cb.indeterminate = false; return; }
+      const n = live.filter(i => _commitFiles[i].checked).length;
       if (n === 0) { cb.checked = false; cb.indeterminate = false; }
-      else if (n === indices.length) { cb.checked = true; cb.indeterminate = false; }
+      else if (n === live.length) { cb.checked = true; cb.indeterminate = false; }
       else { cb.indeterminate = true; }
     };
     _folderUpdaters.push(updateCb);
@@ -73,6 +106,7 @@ function renderTreeNode(container, node, depth) {
     cb.addEventListener('change', () => {
       cb.indeterminate = false;
       for (const i of indices) {
+        if (!_commitFiles[i]) continue;
         _commitFiles[i].checked = cb.checked;
         const fileCb = commitPushFileList.querySelector(`[data-file-idx="${i}"]`);
         if (fileCb) fileCb.checked = cb.checked;
@@ -121,9 +155,30 @@ function renderTreeNode(container, node, depth) {
       statSpan.innerHTML = `<span class="commit-file-stat commit-file-added">+${f.added}</span><span class="commit-file-stat commit-file-removed"> -${f.removed}</span>`;
     }
 
+    const revertBtn = document.createElement('button');
+    revertBtn.className = 'commit-file-revert';
+    revertBtn.title = f.isNew ? 'Remove file' : 'Revert changes';
+    revertBtn.innerHTML = '<svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 10l4-4M2 10l4 4"/><path d="M2 10h7a4 4 0 0 0 0-8H8"/></svg>';
+    revertBtn.addEventListener('click', async (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const result = await window.reposAPI.gitRevertFile(_commitPushTabEl._wtPath, f.path, f.isNew);
+      if (result.ok) {
+        _commitFiles[idx] = null;
+        row.remove();
+        _folderUpdaters.forEach(fn => fn());
+        // If no files left, show empty state
+        const remaining = _commitFiles.filter(Boolean);
+        if (remaining.length === 0) {
+          commitPushFileList.innerHTML = '<span class="commit-file-list-empty">No changes detected</span>';
+        }
+      }
+    });
+
     row.appendChild(cb);
     row.appendChild(nameSpan);
     row.appendChild(statSpan);
+    row.appendChild(revertBtn);
     container.appendChild(row);
   }
 }
@@ -161,7 +216,7 @@ async function confirmCommitPush() {
   const title = commitPushTitleInput.value.trim();
   if (!title || !_commitPushTabEl) return;
 
-  const selectedFiles = _commitFiles.filter(f => f.checked).map(f => f.path);
+  const selectedFiles = _commitFiles.filter(f => f && f.checked).map(f => f.path);
   if (selectedFiles.length === 0) return;
 
   const desc = commitPushDescInput.value.trim();
@@ -185,7 +240,7 @@ async function confirmCommitPush() {
       xterm.writeln('\x1b[32mCommit & push completed successfully!\x1b[0m');
       setTitle('Commit & push complete');
       toast.success(`Pushed ${branch} successfully`);
-      if (_checkExistingPr) _checkExistingPr(tabEl);
+      if (_refreshTabStatus) _refreshTabStatus(tabEl);
       setTimeout(() => closeTerminal(), 1200);
     } else {
       xterm.writeln('');

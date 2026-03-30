@@ -21,6 +21,7 @@ contextBridge.exposeInMainWorld('reposAPI', {
   firstBranchCommit: (wtPath, sourceBranch) => ipcRenderer.invoke('repos:firstBranchCommit', { wtPath, sourceBranch }),
   hasUncommittedChanges: (wtPath) => ipcRenderer.invoke('repos:hasUncommittedChanges', wtPath),
   hasPushedCommits: (wtPath, branch, sourceBranch) => ipcRenderer.invoke('repos:hasPushedCommits', { wtPath, branch, sourceBranch }),
+  gitRevertFile: (wtPath, filePath, isNew) => ipcRenderer.invoke('repos:gitRevertFile', { wtPath, filePath, isNew }),
 });
 
 contextBridge.exposeInMainWorld('worktreeAPI', {

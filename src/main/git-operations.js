@@ -146,4 +146,30 @@ function hasPushedCommits(wtPath, branch, sourceBranch) {
   }
 }
 
-module.exports = { getCachedBranches, fetchAndListBranches, getGitUser, getRemoteUrl, getLaunchConfigs, gitDiffStat, getFirstBranchCommit, hasUncommittedChanges, hasPushedCommits };
+function gitRevertFile(wtPath, filePath, isNew) {
+  if (isNew) {
+    const abs = path.join(wtPath, filePath);
+    try {
+      const stat = fs.statSync(abs);
+      if (stat.isDirectory()) fs.rmSync(abs, { recursive: true, force: true });
+      else fs.unlinkSync(abs);
+      return { ok: true };
+    } catch (err) {
+      return { ok: false, message: err.message };
+    }
+  } else {
+    try {
+      const escaped = filePath.replace(/"/g, '\\"');
+      execSync(`git checkout HEAD -- "${escaped}"`, { cwd: wtPath, encoding: 'utf8', timeout: 5000 });
+      // If the path is a submodule, also update it to match the checked-out pointer
+      try {
+        execSync(`git submodule update --init -- "${escaped}"`, { cwd: wtPath, encoding: 'utf8', timeout: 15000 });
+      } catch {}
+      return { ok: true };
+    } catch (err) {
+      return { ok: false, message: err.message };
+    }
+  }
+}
+
+module.exports = { getCachedBranches, fetchAndListBranches, getGitUser, getRemoteUrl, getLaunchConfigs, gitDiffStat, getFirstBranchCommit, hasUncommittedChanges, hasPushedCommits, gitRevertFile };

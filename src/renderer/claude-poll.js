@@ -1,5 +1,5 @@
 import { getWorkspace, getActiveId } from './state.js';
-import { _checkExistingPr } from './sidebar/registers.js';
+import { _refreshTabStatus } from './sidebar/registers.js';
 
 // Map folderPath → workspace id for routing pushed status events
 const pathToId = new Map();
@@ -43,7 +43,7 @@ window.reposAPI.onClaudeStatus((wtPath, status) => {
     ws.tabEl._wasWorking = false;
     setTabStatus(ws.tabEl, id === getActiveId() ? 'open' : 'done');
     // Refresh git state and button visibility after Claude finishes
-    if (_checkExistingPr) _checkExistingPr(ws.tabEl);
+    if (_refreshTabStatus) _refreshTabStatus(ws.tabEl);
   }
 });
 

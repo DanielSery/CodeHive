@@ -191,11 +191,11 @@ function showFallbackSwitch(tabEl) {
   switchBtn.style.display = '';
 }
 
-export async function checkExistingPr(tabEl) {
-  try { await _checkExistingPrInner(tabEl); } finally { updateDotState(tabEl); syncTitlebarToTab(); }
+export async function refreshTabStatus(tabEl) {
+  try { await _refreshTabStatusInner(tabEl); } finally { updateDotState(tabEl); syncTitlebarToTab(); }
 }
 
-async function _checkExistingPrInner(tabEl) {
+async function _refreshTabStatusInner(tabEl) {
   const groupEl = tabEl.closest('.repo-group');
   if (!groupEl) return;
   const barePath = groupEl._barePath;
@@ -209,13 +209,13 @@ async function _checkExistingPrInner(tabEl) {
   try {
     const ucResult = await window.reposAPI.hasUncommittedChanges(tabEl._wtPath);
     tabEl._hasUncommittedChanges = ucResult.value;
-    if (ucResult.error) console.warn('[checkExistingPr] hasUncommittedChanges error:', ucResult.message);
+    if (ucResult.error) console.warn('[refreshTabStatus] hasUncommittedChanges error:', ucResult.message);
   } catch { tabEl._hasUncommittedChanges = false; }
   const sourceBranch = tabEl._wtSourceBranch || 'master';
   try {
     const pcResult = await window.reposAPI.hasPushedCommits(tabEl._wtPath, branch, sourceBranch);
     tabEl._hasPushedCommits = pcResult.value;
-    if (pcResult.error) console.warn('[checkExistingPr] hasPushedCommits error:', pcResult.message);
+    if (pcResult.error) console.warn('[refreshTabStatus] hasPushedCommits error:', pcResult.message);
   } catch { tabEl._hasPushedCommits = false; }
   if (commitPushBtn) commitPushBtn.style.display = tabEl._hasUncommittedChanges ? '' : 'none';
   if (isOpen || tabEl._hasUncommittedChanges) {
@@ -303,7 +303,7 @@ async function _checkExistingPrInner(tabEl) {
             return;
           }
         }
-      } catch (err) { console.warn('[checkExistingPr] completed PR check error:', err); }
+      } catch (err) { console.warn('[refreshTabStatus] completed PR check error:', err); }
     }
     // No active PR, no completed PR — show Create PR only if pushed commits exist and no uncommitted changes
     const canShowCreatePr = !tabEl._hasUncommittedChanges && tabEl._hasPushedCommits;
@@ -354,7 +354,7 @@ export function showTabCloseButton(tabEl) {
   if (switchBtn) switchBtn.style.display = 'none';
   if (removeBtn) removeBtn.style.display = 'none';
   if (closeBtn) closeBtn.style.display = '';
-  checkExistingPr(tabEl);
+  refreshTabStatus(tabEl);
 }
 
 export function showTabRemoveButton(tabEl) {
@@ -375,7 +375,7 @@ export function showTabRemoveButton(tabEl) {
   if (resolveTaskBtn) resolveTaskBtn.style.display = 'none';
   if (closeBtn) closeBtn.style.display = 'none';
   tabEl._hasUncommittedChanges = false;
-  checkExistingPr(tabEl);
+  refreshTabStatus(tabEl);
 }
 
 export function getWorktreeOrders() {
@@ -540,8 +540,7 @@ export function createWorktreeTab(wt) {
         const switchBtn = tabEl.querySelector('.workspace-tab-switch');
         if (switchBtn) switchBtn.style.display = 'none';
       }
-      updateDotState(tabEl);
-      syncTitlebarToTab();
+      refreshTabStatus(tabEl);
     }
   });
 
@@ -561,8 +560,7 @@ export function createWorktreeTab(wt) {
       if (resolveBtn) resolveBtn.style.display = 'none';
       showFallbackSwitch(tabEl);
     }
-    updateDotState(tabEl);
-    syncTitlebarToTab();
+    refreshTabStatus(tabEl);
   });
 
   tabEl.addEventListener('click', (e) => {
@@ -596,7 +594,12 @@ export function createWorktreeTab(wt) {
     e.stopPropagation();
     tabEl.classList.remove('dragging', 'drag-ghost');
     const tabsEl = tabEl.closest('.repo-group-tabs');
-    if (tabsEl) tabsEl.querySelectorAll('.workspace-tab.drag-over').forEach(el => el.classList.remove('drag-over'));
+    if (tabsEl) {
+      tabsEl.querySelectorAll('.workspace-tab.drag-over').forEach(el => el.classList.remove('drag-over'));
+      // Ensure "Add worktree" button always stays last
+      const addBtn = tabsEl.querySelector('.repo-group-tabs-add');
+      if (addBtn) tabsEl.appendChild(addBtn);
+    }
     rebuildCollapsedDots();
     if (_onStateChange) _onStateChange();
   });
@@ -620,6 +623,9 @@ export function createWorktreeTab(wt) {
     } else {
       tabsEl.insertBefore(dragging, tabEl.nextSibling);
     }
+    // Ensure "Add worktree" button always stays last
+    const addBtn = tabsEl.querySelector('.repo-group-tabs-add');
+    if (addBtn) tabsEl.appendChild(addBtn);
   });
 
   tabEl.addEventListener('dragleave', (e) => {
@@ -636,7 +642,7 @@ setInterval(() => {
     const openPrBtn = tab.querySelector('.workspace-tab-open-pr');
     const hasPrStatus = openPrBtn && hasPrStatusClass(openPrBtn);
     if (isOpen || hasPrStatus) {
-      checkExistingPr(tab);
+      refreshTabStatus(tab);
     }
   }
 }, 30 * 1000);
