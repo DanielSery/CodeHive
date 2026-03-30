@@ -278,6 +278,9 @@ async function openWorktree(tabEl, wt) {
       [id="workbench.panel.chatEditing"] {
         display: none !important;
       }
+      .quick-input-widget {
+        margin-top: 35px !important;
+      }
     `).catch(() => {});
   };
 
