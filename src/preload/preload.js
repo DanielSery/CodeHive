@@ -126,6 +126,7 @@ contextBridge.exposeInMainWorld('credentialsAPI', {
 contextBridge.exposeInMainWorld('shellAPI', {
   openInExplorer: (folderPath) => ipcRenderer.invoke('shell:openInExplorer', folderPath),
   openExternal: (url) => ipcRenderer.invoke('shell:openExternal', url),
+  openInGitApp: (repoPath) => ipcRenderer.invoke('shell:openInGitApp', repoPath),
 });
 
 contextBridge.exposeInMainWorld('setupInstallAPI', {

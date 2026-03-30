@@ -1,5 +1,6 @@
 import { openWorktree, closeWorkspace } from '../workspace-manager.js';
 import { _showWorktreeSwitchDialog, _showWorktreeRemoveDialog, _showCommitPushDialog, _showCreatePrDialog, _showWorktreeDialog, _showDeleteDialog } from './registers.js';
+import { toast } from '../toast.js';
 
 const contextMenu = document.getElementById('wt-context-menu');
 const projectContextMenu = document.getElementById('project-context-menu');
@@ -72,6 +73,10 @@ contextMenu.addEventListener('click', (e) => {
     openWorktree(tabEl, { path: tabEl._wtPath, branch: tabEl._wtBranch });
   } else if (action === 'open-explorer') {
     window.shellAPI.openInExplorer(tabEl._wtPath);
+  } else if (action === 'open-git-app') {
+    window.shellAPI.openInGitApp(tabEl._wtPath).then(result => {
+      if (!result || !result.app) toast.error('No Git app found (Fork, SourceTree, GitKraken)');
+    });
   } else if (action === 'open-task') {
     const taskId = tabEl._wtTaskId;
     if (taskId) {

@@ -20,6 +20,7 @@ const titlebarResolveTaskBtn = document.getElementById('btn-titlebar-resolve-tas
 const titlebarOpenPipelineBtn = document.getElementById('btn-titlebar-open-pipeline');
 const titlebarVerifyBtn = document.getElementById('btn-titlebar-verify');
 const titlebarOpenTaskBtn = document.getElementById('btn-titlebar-open-task');
+const titlebarGitAppBtn = document.getElementById('btn-titlebar-git-app');
 const titlebarSwitchBtn = document.getElementById('btn-titlebar-switch');
 
 const sessionPartition = window.appSession.getPartition();
@@ -39,7 +40,7 @@ const serverReady = new Promise((resolve) => {
   });
 });
 
-const allTitlebarActionBtns = [titlebarCommitBtn, titlebarCreatePrBtn, titlebarOpenPrBtn, titlebarCompletePrBtn, titlebarResolveTaskBtn, titlebarOpenPipelineBtn, titlebarVerifyBtn, titlebarOpenTaskBtn, titlebarSwitchBtn];
+const allTitlebarActionBtns = [titlebarCommitBtn, titlebarCreatePrBtn, titlebarOpenPrBtn, titlebarCompletePrBtn, titlebarResolveTaskBtn, titlebarOpenPipelineBtn, titlebarVerifyBtn, titlebarOpenTaskBtn, titlebarGitAppBtn, titlebarSwitchBtn];
 
 function updateTitlebarActions(hasActive) {
   if (!hasActive) {
@@ -84,6 +85,7 @@ function syncTitlebarToTab() {
   }
   titlebarVerifyBtn.classList.toggle('visible', !hasChanges && canVerify);
   titlebarOpenTaskBtn.classList.toggle('visible', hasTask);
+  titlebarGitAppBtn.classList.toggle('visible', true);
   titlebarSwitchBtn.classList.toggle('visible', true);
 
   // Open PR button with status coloring

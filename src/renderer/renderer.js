@@ -6,6 +6,7 @@ import { toggleTerminal, createTerminal, showTerminal, showCloseButton } from '.
 import { getState, saveDirectories, resetDirectories, STORAGE_KEY } from './storage.js';
 import { showPatDialog } from './dialogs/dialog-pat.js';
 import { loadStoredPat } from './dialogs/utils.js';
+import { toast } from './toast.js';
 
 // Wire cross-module dependencies (avoids circular imports)
 registerWorktreeDialog(showWorktreeDialog);
@@ -155,6 +156,12 @@ document.getElementById('btn-titlebar-verify').addEventListener('click', () => {
 document.getElementById('btn-titlebar-open-task').addEventListener('click', () => {
   const ws = getActive();
   if (ws && ws.tabEl._taskUrl) window.shellAPI.openExternal(ws.tabEl._taskUrl);
+});
+document.getElementById('btn-titlebar-git-app').addEventListener('click', () => {
+  const ws = getActive();
+  if (ws) window.shellAPI.openInGitApp(ws.tabEl._wtPath).then(result => {
+    if (!result || !result.app) toast.error('No Git app found (Fork, SourceTree, GitKraken)');
+  });
 });
 document.getElementById('btn-titlebar-switch').addEventListener('click', () => {
   const ws = getActive();

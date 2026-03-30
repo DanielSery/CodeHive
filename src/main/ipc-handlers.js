@@ -182,6 +182,39 @@ function register(mainWindow, getServerPort) {
     return shell.openExternal(url);
   });
 
+  ipcMain.handle('shell:openInGitApp', (event, repoPath) => {
+    const localAppData = process.env.LOCALAPPDATA || '';
+
+    // Fork (Velopack install: %LOCALAPPDATA%\Fork\current\Fork.exe)
+    const forkExe = path.join(localAppData, 'Fork', 'current', 'Fork.exe');
+    if (fs.existsSync(forkExe)) {
+      spawn(forkExe, [repoPath], { detached: true, stdio: 'ignore' }).unref();
+      return { app: 'Fork' };
+    }
+
+    // SourceTree
+    const sourcetreeExe = path.join(localAppData, 'SourceTree', 'SourceTree.exe');
+    if (fs.existsSync(sourcetreeExe)) {
+      spawn(sourcetreeExe, ['-p', repoPath], { detached: true, stdio: 'ignore' }).unref();
+      return { app: 'SourceTree' };
+    }
+
+    // GitKraken (versioned install directory)
+    const gitkrakenDir = path.join(localAppData, 'gitkraken');
+    if (fs.existsSync(gitkrakenDir)) {
+      const versions = fs.readdirSync(gitkrakenDir).filter(d => d.startsWith('app-')).sort().reverse();
+      for (const v of versions) {
+        const exe = path.join(gitkrakenDir, v, 'gitkraken.exe');
+        if (fs.existsSync(exe)) {
+          spawn(exe, ['--path', repoPath], { detached: true, stdio: 'ignore' }).unref();
+          return { app: 'GitKraken' };
+        }
+      }
+    }
+
+    return { app: null };
+  });
+
   ipcMain.handle('setupInstall:start', (event, { downloadUrl, auth }) => {
     const result = createSetupInstallPty(mainWindow, { downloadUrl, auth });
     setupInstallPty = result.proc;

@@ -49,6 +49,9 @@
       <button class="titlebar-action-btn" id="btn-titlebar-open-task" title="Open Task (Ctrl+Alt+A)">
         <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="2" width="10" height="12" rx="1.5"/><path d="M6 6h4M6 9h3"/></svg>
       </button>
+      <button class="titlebar-action-btn" id="btn-titlebar-git-app" title="Open in Git App">
+        <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="3" r="1.5"/><circle cx="4" cy="13" r="1.5"/><circle cx="12" cy="13" r="1.5"/><path d="M8 4.5V8"/><path d="M8 8L5 11.5"/><path d="M8 8l3 3.5"/></svg>
+      </button>
       <button class="titlebar-action-btn" id="btn-titlebar-switch" title="Switch Worktree (Ctrl+Alt+R)">
         <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M11 1l3 3-3 3"/><path d="M14 4H5"/><path d="M5 15l-3-3 3-3"/><path d="M2 12h9"/></svg>
       </button>
@@ -347,6 +350,7 @@
   <!-- Worktree context menu -->
   <div id="wt-context-menu" class="context-menu">
     <button class="context-menu-item" data-action="open-explorer">Open in Explorer<span class="context-menu-shortcut">Ctrl+Alt+E</span></button>
+    <button class="context-menu-item" data-action="open-git-app">Open in Git App</button>
     <hr class="context-menu-separator">
     <button class="context-menu-item" data-action="open-workspace">Open Workspace<span class="context-menu-shortcut">Ctrl+Alt+O</span></button>
     <button class="context-menu-item" data-action="switch">Switch Worktree<span class="context-menu-shortcut">Ctrl+Alt+R</span></button>
