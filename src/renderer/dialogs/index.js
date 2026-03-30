@@ -7,6 +7,7 @@ export { showCommitPushDialog } from './dialog-commit-push.js';
 export { showCreatePrDialog } from './dialog-create-pr.js';
 export { showResolveTaskDialog } from './dialog-resolve.js';
 export { showVerifyDialog } from './dialog-verify.js';
+export { showCompletePrDialog } from './dialog-complete-pr.js';
 
 import { registerWorktreeSidebarFns } from './dialog-worktree.js';
 import { registerSwitchSidebarFns } from './dialog-switch.js';

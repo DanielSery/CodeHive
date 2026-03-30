@@ -57,7 +57,7 @@ function buildTargetFromTask(name) {
   } else {
     result = nameToBranch(wtSwitchGitUser, name);
   }
-  return result.substring(0, 30).replace(/-+$/, '');
+  return result.substring(0, 50).replace(/-+$/, '');
 }
 
 function updateTargetFromTask() {

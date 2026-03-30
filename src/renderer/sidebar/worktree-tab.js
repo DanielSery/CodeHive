@@ -7,6 +7,7 @@ import { _showWorktreeSwitchDialog, _showWorktreeRemoveDialog, _showCommitPushDi
 import { parseAzureRemoteUrl, fetchPolicyEvaluations, fetchPrUnresolvedThreadCount, completePullRequest, fetchWorkItemById, fetchLatestBuild } from '../azure-api.js';
 import { showResolveTaskDialog } from '../dialogs/dialog-resolve.js';
 import { showVerifyDialog } from '../dialogs/dialog-verify.js';
+import { showCompletePrDialog } from '../dialogs/dialog-complete-pr.js';
 
 const BIN_ICON_SVG = '<svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2 4h12M5.3 4V2.7a1 1 0 011-1h3.4a1 1 0 011 1V4M6.5 7.3v4.4M9.5 7.3v4.4"/><path d="M3.5 4l.7 9.3a1 1 0 001 .9h5.6a1 1 0 001-.9L12.5 4"/></svg>';
 
@@ -19,7 +20,7 @@ const DOT_RESOLVE_TASK_SVG = '<svg width="14" height="14" viewBox="0 0 16 16" fi
 const DOT_OPEN_TASK_SVG = '<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="2" width="10" height="12" rx="1.5"/><path d="M6 6h4M6 9h3"/></svg>';
 const DOT_SWITCH_SVG = '<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M11 1l3 3-3 3"/><path d="M14 4H5"/><path d="M5 15l-3-3 3-3"/><path d="M2 12h9"/></svg>';
 const DOT_DONE_SVG = '<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8.5l3.5 3.5 6.5-8"/></svg>';
-const DOT_PIPELINE_SVG = '<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="5" width="4" height="6" rx="1"/><rect x="6" y="5" width="4" height="6" rx="1"/><rect x="11" y="5" width="4" height="6" rx="1"/><path d="M5 8h1M10 8h1"/></svg>';
+const DOT_PIPELINE_SVG = '<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="5" width="3" height="6" rx="1"/><path d="M4 8H6M5 7L6 8L5 9"/><rect x="6" y="5" width="3" height="6" rx="1"/><path d="M9 8H11M10 7L11 8L10 9"/><rect x="11" y="5" width="4" height="6" rx="1"/></svg>';
 const DOT_VERIFY_SVG = '<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2v8M5 7l3 3 3-3"/><path d="M3 13h10"/></svg>';
 
 const PIPELINE_STATUS_CLASSES = ['pipeline-running', 'pipeline-failed', 'pipeline-succeeded'];
@@ -393,7 +394,7 @@ async function _refreshTabStatusInner(tabEl) {
               showFallbackSwitch(tabEl);
               return;
             }
-            tabEl._prData = { id: cPr.pullRequestId, repoId: cPr.repository.id, lastCommitId: cPr.lastMergeSourceCommit?.commitId, org, project, auth, targetRefName: cPr.targetRefName };
+            tabEl._prData = { id: cPr.pullRequestId, repoId: cPr.repository.id, lastCommitId: cPr.lastMergeSourceCommit?.commitId, org, project, auth, targetRefName: cPr.targetRefName, title: cPr.title };
             tabEl._canCompletePr = false;
             if (createPrBtn) createPrBtn.style.display = 'none';
             if (completePrBtn) completePrBtn.style.display = 'none';
@@ -428,7 +429,7 @@ async function _refreshTabStatusInner(tabEl) {
   const pr = data.value[0];
   const prUrl = `https://dev.azure.com/${encodeURIComponent(org)}/${encodeURIComponent(project)}/_git/${encodeURIComponent(pr.repository.name)}/pullrequest/${pr.pullRequestId}`;
   tabEl._existingPrUrl = prUrl;
-  tabEl._prData = { id: pr.pullRequestId, repoId: pr.repository.id, lastCommitId: pr.lastMergeSourceCommit?.commitId, org, project, auth, targetRefName: pr.targetRefName };
+  tabEl._prData = { id: pr.pullRequestId, repoId: pr.repository.id, lastCommitId: pr.lastMergeSourceCommit?.commitId, org, project, auth, targetRefName: pr.targetRefName, title: pr.title };
 
   // Hide create-pr since there's already an active PR
   if (createPrBtn) createPrBtn.style.display = 'none';
@@ -649,6 +650,8 @@ export function createWorktreeTab(wt) {
     const btn = tabEl.querySelector('.workspace-tab-complete-pr');
     const d = tabEl._prData;
     if (!d) return;
+    const confirmed = await showCompletePrDialog(d.title, d.targetRefName);
+    if (!confirmed) return;
     btn.disabled = true;
     const ok = await completePullRequest(d.org, d.project, d.auth, d.repoId, d.id, d.lastCommitId);
     btn.disabled = false;

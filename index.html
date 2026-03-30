@@ -315,6 +315,19 @@
     </div>
   </div>
 
+  <!-- Complete PR confirmation dialog -->
+  <div id="complete-pr-dialog-overlay" class="dialog-overlay">
+    <div class="dialog-box">
+      <h3 class="dialog-title">Complete Pull Request</h3>
+      <p id="complete-pr-dialog-title" class="dialog-preview" style="margin-bottom: 4px;"></p>
+      <p id="complete-pr-dialog-branch" class="dialog-desc" style="margin-top:0;color:var(--text-muted);font-size:11px"></p>
+      <div class="dialog-buttons">
+        <button id="complete-pr-cancel-btn" class="dialog-btn dialog-btn-cancel" tabindex="-1">Cancel</button>
+        <button id="complete-pr-confirm-btn" class="dialog-btn dialog-btn-confirm">Complete</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Delete confirmation dialog -->
   <div id="delete-dialog-overlay" class="dialog-overlay">
     <div class="dialog-box">
