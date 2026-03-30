@@ -50,4 +50,5 @@
   "dotnet.codeLens.enableTestsCodeLens": false,
   "quickInput.position": "center",
   "security.workspace.trust.startupPrompt": "always",
+  "task.reconnection": true,
 }

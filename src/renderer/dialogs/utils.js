@@ -3,7 +3,7 @@ export function inferWorkItemType(title) {
 }
 
 export function sanitizePathPart(s) {
-  return s.replace(/[^a-zA-Z0-9\s-]/g, '');
+  return s.replace(/[^a-zA-Z0-9\s-]/g, '').replace(/[\s-]+/g, ' ');
 }
 
 export function nameToSlug(name) {

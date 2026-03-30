@@ -19,15 +19,6 @@ const titlebarCompletePrBtn = document.getElementById('btn-titlebar-complete-pr'
 const titlebarResolveTaskBtn = document.getElementById('btn-titlebar-resolve-task');
 const titlebarOpenTaskBtn = document.getElementById('btn-titlebar-open-task');
 const titlebarSwitchBtn = document.getElementById('btn-titlebar-switch');
-const titlebarRunGroup = document.getElementById('titlebar-run-group');
-const titlebarStartBtn = document.getElementById('btn-titlebar-start');
-const titlebarDebugBtn = document.getElementById('btn-titlebar-debug');
-const titlebarLaunchCombobox = document.getElementById('titlebar-launch-combobox');
-const titlebarLaunchName = document.getElementById('titlebar-launch-name');
-const titlebarLaunchList = document.getElementById('titlebar-launch-list');
-
-let launchConfigs = [];
-let selectedLaunchConfig = null;
 
 const sessionPartition = window.appSession.getPartition();
 
@@ -46,89 +37,11 @@ const serverReady = new Promise((resolve) => {
   });
 });
 
-function renderLaunchList() {
-  titlebarLaunchList.innerHTML = '';
-  launchConfigs.forEach(config => {
-    const item = document.createElement('div');
-    item.className = 'titlebar-launch-item';
-    if (selectedLaunchConfig && config.name === selectedLaunchConfig.name) item.classList.add('selected');
-    item.textContent = config.name;
-    item.addEventListener('click', () => {
-      selectedLaunchConfig = config;
-      titlebarLaunchName.textContent = config.name;
-      titlebarLaunchList.classList.remove('open');
-      renderLaunchList();
-    });
-    titlebarLaunchList.appendChild(item);
-  });
-}
-
-async function loadLaunchConfigs(folderPath) {
-  try {
-    const configs = await window.reposAPI.launchConfigs(folderPath);
-    launchConfigs = configs;
-    if (configs.length > 0) {
-      const stillValid = selectedLaunchConfig && configs.find(c => c.name === selectedLaunchConfig.name);
-      selectedLaunchConfig = stillValid || configs[0];
-      titlebarLaunchName.textContent = selectedLaunchConfig.name;
-      titlebarRunGroup.classList.add('visible');
-      titlebarStartBtn.classList.add('visible');
-      titlebarDebugBtn.classList.add('visible');
-    } else {
-      titlebarRunGroup.classList.remove('visible');
-      titlebarStartBtn.classList.remove('visible');
-      titlebarDebugBtn.classList.remove('visible');
-      launchConfigs = [];
-      selectedLaunchConfig = null;
-    }
-  } catch {
-    titlebarRunGroup.classList.remove('visible');
-    titlebarStartBtn.classList.remove('visible');
-    titlebarDebugBtn.classList.remove('visible');
-  }
-}
-
-titlebarLaunchCombobox.addEventListener('click', () => {
-  if (titlebarLaunchList.classList.contains('open')) {
-    titlebarLaunchList.classList.remove('open');
-  } else {
-    renderLaunchList();
-    titlebarLaunchList.classList.add('open');
-  }
-});
-
-document.addEventListener('click', (e) => {
-  if (!titlebarLaunchCombobox.contains(e.target)) {
-    titlebarLaunchList.classList.remove('open');
-  }
-});
-
-titlebarStartBtn.addEventListener('click', () => {
-  const ws = getActive();
-  if (!ws) return;
-  ws.webview.focus();
-  ws.webview.sendInputEvent({ type: 'keyDown', keyCode: 'F5', modifiers: ['control'] });
-  ws.webview.sendInputEvent({ type: 'keyUp', keyCode: 'F5', modifiers: ['control'] });
-});
-
-titlebarDebugBtn.addEventListener('click', () => {
-  const ws = getActive();
-  if (!ws) return;
-  ws.webview.focus();
-  ws.webview.sendInputEvent({ type: 'keyDown', keyCode: 'F5', modifiers: [] });
-  ws.webview.sendInputEvent({ type: 'keyUp', keyCode: 'F5', modifiers: [] });
-});
-
 const allTitlebarActionBtns = [titlebarCommitBtn, titlebarCreatePrBtn, titlebarOpenPrBtn, titlebarCompletePrBtn, titlebarResolveTaskBtn, titlebarOpenTaskBtn, titlebarSwitchBtn];
 
 function updateTitlebarActions(hasActive) {
   if (!hasActive) {
     for (const btn of allTitlebarActionBtns) btn.classList.remove('visible');
-    titlebarRunGroup.classList.remove('visible');
-    titlebarStartBtn.classList.remove('visible');
-    titlebarDebugBtn.classList.remove('visible');
-    launchConfigs = [];
-    selectedLaunchConfig = null;
     return;
   }
   syncTitlebarToTab();
@@ -354,7 +267,6 @@ function switchWorkspace(id) {
     }
     document.querySelector('.titlebar-title').textContent = `CodeHive — ${ws.name}`;
     updateTitlebarActions(true);
-    loadLaunchConfigs(ws.folderPath);
   }
 }
 
