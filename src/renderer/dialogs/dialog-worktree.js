@@ -189,7 +189,7 @@ async function fetchTasksForDialog(barePath) {
 
   const result = await fetchAzureTasks(barePath, pat);
   if (result.error === 'no-pat') { if (!cached) { wtTaskSearch.placeholder = 'Configure PAT to load tasks'; wtTaskSearch.disabled = false; focusTaskSearch(); } return; }
-  if (result.error === 'not-azure') { if (!cached) { wtTaskSearch.placeholder = 'Not an Azure DevOps repository'; wtTaskSearch.disabled = false; focusTaskSearch(); } return; }
+  if (result.error === 'not-azure') { if (!cached) { wtTaskSearch.placeholder = 'Not an Azure DevOps repository'; wtTaskSearch.disabled = false; wtChangeName.focus(); } return; }
   if (result.error) { if (!cached) { wtTaskSearch.placeholder = 'Could not load tasks'; wtTaskSearch.disabled = false; focusTaskSearch(); } return; }
   saveTaskCache(barePath, { tasks: result.tasks, azureContext: result.azureContext });
   applyWtTasks(result.tasks, result.azureContext, focusTaskSearch);
