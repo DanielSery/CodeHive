@@ -128,6 +128,17 @@ contextBridge.exposeInMainWorld('shellAPI', {
   openExternal: (url) => ipcRenderer.invoke('shell:openExternal', url),
 });
 
+contextBridge.exposeInMainWorld('setupInstallAPI', {
+  start: (opts) => ipcRenderer.invoke('setupInstall:start', opts),
+  ready: () => ipcRenderer.send('setupInstall:ready'),
+  onData: (cb) => ipcRenderer.on('setupInstall:data', (_, data) => cb(data)),
+  onExit: (cb) => ipcRenderer.on('setupInstall:exit', (_, info) => cb(info)),
+  removeListeners: () => {
+    ipcRenderer.removeAllListeners('setupInstall:data');
+    ipcRenderer.removeAllListeners('setupInstall:exit');
+  }
+});
+
 contextBridge.exposeInMainWorld('windowAPI', {
   minimize: () => ipcRenderer.send('window:minimize'),
   maximize: () => ipcRenderer.send('window:maximize'),

@@ -1,4 +1,6 @@
 const fs = require('fs');
+const path = require('path');
+const os = require('os');
 const { spawnProc } = require('./pty-spawn.js');
 const { buildWorktreeCmd, buildCloneCmd, buildDeleteScript, buildWorktreeRemoveScript, buildCommitPushScript, buildPrCreateScript } = require('./pty-scripts.js');
 
@@ -166,4 +168,47 @@ function createAzInstallPty(mainWindow) {
   return { proc };
 }
 
-module.exports = { createWorktreePty, createClonePty, createDeletePty, createWorktreeRemovePty, createWorktreeSwitchPty, createCommitPushPty, createPrCreatePty, createAzInstallPty };
+function createSetupInstallPty(mainWindow, { downloadUrl, auth }) {
+  const timestamp = Date.now();
+  const zipPath = path.join(os.tmpdir(), `codehive-setup-${timestamp}.zip`);
+  const extractDir = path.join(os.tmpdir(), `codehive-setup-${timestamp}`);
+  const scriptPath = path.join(os.tmpdir(), `codehive-install-${timestamp}.ps1`);
+
+  const script = `
+$zipPath = '${zipPath.replace(/'/g, "''")}'
+$extractDir = '${extractDir.replace(/'/g, "''")}'
+$url = '${downloadUrl}'
+$auth = '${auth}'
+
+Write-Host "Downloading setup package..."
+curl.exe -L -s -H "Authorization: Basic $auth" -o $zipPath $url
+if ($LASTEXITCODE -ne 0) { Write-Host "Download failed" -ForegroundColor Red; exit 1 }
+Write-Host "Download complete."
+
+Write-Host "Extracting..."
+Expand-Archive -Path $zipPath -DestinationPath $extractDir -Force
+$msi = Get-ChildItem -Path $extractDir -Filter "*.msi" -Recurse | Select-Object -First 1
+if ($null -eq $msi) { Write-Host "No .msi found in artifact" -ForegroundColor Red; exit 1 }
+Write-Host "Launching $($msi.Name)..."
+Start-Process $msi.FullName -Wait
+Write-Host "Installer finished." -ForegroundColor Green
+Remove-Item $zipPath -Force -ErrorAction SilentlyContinue
+Remove-Item $extractDir -Recurse -Force -ErrorAction SilentlyContinue
+`;
+
+  fs.writeFileSync(scriptPath, script, 'utf8');
+  const cmd = `powershell -NoProfile -ExecutionPolicy Bypass -File "${scriptPath}"`;
+  const proc = spawnProc(cmd, os.tmpdir());
+
+  proc.onData((data) => {
+    if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send('setupInstall:data', data);
+  });
+  proc.onExit(({ exitCode }) => {
+    try { fs.unlinkSync(scriptPath); } catch {}
+    if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send('setupInstall:exit', { exitCode });
+  });
+
+  return { proc };
+}
+
+module.exports = { createWorktreePty, createClonePty, createDeletePty, createWorktreeRemovePty, createWorktreeSwitchPty, createCommitPushPty, createPrCreatePty, createAzInstallPty, createSetupInstallPty };

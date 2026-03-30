@@ -6,7 +6,7 @@ const { app } = require('electron');
 const vscode = require('./vscode-server');
 const { scanDirectory, checkClaudeActive, getCachedBranches, fetchAndListBranches, getGitUser, getRemoteUrl, getLaunchConfigs, gitDiffStat, getFirstBranchCommit, hasUncommittedChanges, hasPushedCommits, gitRevertFile } = require('./repo-scanner');
 const { watchClaude, unwatchClaude } = require('./claude-status');
-const { createWorktreePty, createClonePty, createDeletePty, createWorktreeRemovePty, createWorktreeSwitchPty, createCommitPushPty, createPrCreatePty, createAzInstallPty } = require('./pty-manager');
+const { createWorktreePty, createClonePty, createDeletePty, createWorktreeRemovePty, createWorktreeSwitchPty, createCommitPushPty, createPrCreatePty, createAzInstallPty, createSetupInstallPty } = require('./pty-manager');
 
 let worktreePty = null;
 let clonePty = null;
@@ -16,6 +16,8 @@ let worktreeSwitchPty = null;
 let commitPushPty = null;
 let prCreatePty = null;
 let azInstallPty = null;
+let setupInstallPty = null;
+
 
 function register(mainWindow, getServerPort) {
   ipcMain.handle('codeserver:openFolder', (event, folderPath) => {
@@ -179,6 +181,13 @@ function register(mainWindow, getServerPort) {
   ipcMain.handle('shell:openExternal', (event, url) => {
     return shell.openExternal(url);
   });
+
+  ipcMain.handle('setupInstall:start', (event, { downloadUrl, auth }) => {
+    const result = createSetupInstallPty(mainWindow, { downloadUrl, auth });
+    setupInstallPty = result.proc;
+  });
+
+  ipcMain.on('setupInstall:ready', () => { if (setupInstallPty) setupInstallPty.flush(); });
 
   // Claude CLI
   ipcMain.handle('claude:run', (event, prompt) => {

@@ -28,6 +28,7 @@ export function showContextMenu(x, y, tabEl) {
   contextMenu.querySelector('[data-action="create-pr"]').style.display = showCreatePr ? '' : 'none';
   contextMenu.querySelector('[data-action="complete-pr"]').style.display = !hasChanges && canComplete ? '' : 'none';
   contextMenu.querySelector('[data-action="open-pipeline"]').style.display = !hasChanges && canOpenPipeline ? '' : 'none';
+  contextMenu.querySelector('[data-action="install"]').style.display = !hasChanges && canVerify ? '' : 'none';
   contextMenu.querySelector('[data-action="verify"]').style.display = !hasChanges && canVerify ? '' : 'none';
   contextMenu.querySelector('[data-action="resolve-task"]').style.display = !hasChanges && canResolve ? '' : 'none';
   contextMenu.querySelector('[data-action="open-task"]').style.display = hasTask ? '' : 'none';
@@ -126,6 +127,9 @@ contextMenu.addEventListener('click', (e) => {
     if (btn) btn.click();
   } else if (action === 'open-pipeline') {
     if (tabEl._pipelineUrl) window.shellAPI.openExternal(tabEl._pipelineUrl);
+  } else if (action === 'install') {
+    const btn = tabEl.querySelector('.workspace-tab-install-btn');
+    if (btn) btn.click();
   } else if (action === 'verify') {
     const btn = tabEl.querySelector('.workspace-tab-verify');
     if (btn) btn.click();

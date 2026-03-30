@@ -6,7 +6,7 @@ import { showContextMenu } from './context-menu.js';
 import { _showWorktreeSwitchDialog, _showWorktreeRemoveDialog, _showCommitPushDialog, _showCreatePrDialog, _onStateChange } from './registers.js';
 import { parseAzureRemoteUrl, fetchPolicyEvaluations, fetchPrUnresolvedThreadCount, completePullRequest, fetchWorkItemById, fetchLatestBuild } from '../azure-api.js';
 import { showResolveTaskDialog } from '../dialogs/dialog-resolve.js';
-import { showVerifyDialog } from '../dialogs/dialog-verify.js';
+import { showInstallDialog, showVerifyDialog } from '../dialogs/dialog-verify.js';
 import { showCompletePrDialog } from '../dialogs/dialog-complete-pr.js';
 
 const BIN_ICON_SVG = '<svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2 4h12M5.3 4V2.7a1 1 0 011-1h3.4a1 1 0 011 1V4M6.5 7.3v4.4M9.5 7.3v4.4"/><path d="M3.5 4l.7 9.3a1 1 0 001 .9h5.6a1 1 0 001-.9L12.5 4"/></svg>';
@@ -21,7 +21,9 @@ const DOT_OPEN_TASK_SVG = '<svg width="14" height="14" viewBox="0 0 16 16" fill=
 const DOT_SWITCH_SVG = '<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M11 1l3 3-3 3"/><path d="M14 4H5"/><path d="M5 15l-3-3 3-3"/><path d="M2 12h9"/></svg>';
 const DOT_DONE_SVG = '<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8.5l3.5 3.5 6.5-8"/></svg>';
 const DOT_PIPELINE_SVG = '<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="2.5" cy="8" r="1.5"/><line x1="4" y1="8" x2="6" y2="8"/><circle cx="7.5" cy="8" r="1.5"/><line x1="9" y1="8" x2="11" y2="8"/><path d="M11 6l3 2-3 2"/></svg>';
-const DOT_VERIFY_SVG = '<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2v8M5 7l3 3 3-3"/><path d="M3 13h10"/></svg>';
+const DOT_VERIFY_RUNNING_SVG = '<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="2" cy="7.5" r="1.5"/><line x1="3.5" y1="7.5" x2="5.5" y2="7.5"/><circle cx="7" cy="7.5" r="1.5"/><path d="M12 3v6"/><path d="M10 7.5l2 2 2-2"/><line x1="10" y1="12" x2="14" y2="12"/></svg>';
+const DOT_VERIFY_DONE_SVG = '<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M1.5 7.5l2.5 2.5 4-5"/><path d="M12 3v6"/><path d="M10 7.5l2 2 2-2"/><line x1="10" y1="12" x2="14" y2="12"/></svg>';
+const INSTALL_BTN_SVG = '<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3v7"/><path d="M5 8l3 3 3-3"/><path d="M3 13h10"/></svg>';
 
 const PIPELINE_STATUS_CLASSES = ['pipeline-running', 'pipeline-failed', 'pipeline-succeeded'];
 
@@ -74,7 +76,8 @@ function getTabDotState(tabEl) {
     return { icon: DOT_PIPELINE_SVG, color };
   }
   if (isButtonVisible(verifyBtn)) {
-    return { icon: DOT_VERIFY_SVG, color: 'var(--green)' };
+    if (tabEl._pipelineStatus === 'running') return { icon: DOT_VERIFY_RUNNING_SVG, color: 'var(--yellow)' };
+    return { icon: DOT_VERIFY_DONE_SVG, color: 'var(--green)' };
   }
   if (isButtonVisible(resolveTaskBtn)) {
     return { icon: DOT_RESOLVE_TASK_SVG, color: 'var(--green)' };
@@ -225,6 +228,7 @@ async function updatePipelineForTab(tabEl, { org, project, auth }) {
   const build = await fetchLatestBuild(org, project, auth, targetBranch, tabEl._pipelineMergeTime);
   const pipelineBtn = tabEl.querySelector('.workspace-tab-open-pipeline');
   const verifyBtn = tabEl.querySelector('.workspace-tab-verify');
+  const installBtn = tabEl.querySelector('.workspace-tab-install-btn');
   const resolveTaskBtn = tabEl.querySelector('.workspace-tab-resolve-task');
   const switchBtn = tabEl.querySelector('.workspace-tab-switch');
 
@@ -235,6 +239,7 @@ async function updatePipelineForTab(tabEl, { org, project, auth }) {
     tabEl._pipelineUrl = null;
     if (pipelineBtn) { pipelineBtn.style.display = 'inline-flex'; pipelineBtn.title = 'Waiting for pipeline\u2026'; }
     if (verifyBtn) verifyBtn.style.display = 'none';
+    if (installBtn) installBtn.style.display = 'none';
     if (resolveTaskBtn) resolveTaskBtn.style.display = 'none';
     if (switchBtn) switchBtn.style.display = 'none';
     return;
@@ -243,6 +248,7 @@ async function updatePipelineForTab(tabEl, { org, project, auth }) {
   tabEl._pipelineBuildId = build.id;
   tabEl._pipelineBuildNumber = build.buildNumber;
   tabEl._pipelineUrl = build.webUrl;
+  if (build.definitionId) tabEl._pipelineDefinitionId = build.definitionId;
 
   if (build.status === 'completed') {
     if (build.result === 'succeeded' || build.result === 'partiallySucceeded') {
@@ -251,10 +257,14 @@ async function updatePipelineForTab(tabEl, { org, project, auth }) {
       if (tabEl._pipelineVerified) {
         if (pipelineBtn) pipelineBtn.style.display = 'none';
         if (verifyBtn) verifyBtn.style.display = 'none';
-        tabEl._canResolveTask = true;
-        if (resolveTaskBtn && tabEl._wtTaskId) { resolveTaskBtn.style.display = 'inline-flex'; }
+        if (installBtn) installBtn.style.display = 'none';
+        if (!tabEl._taskResolved) {
+          tabEl._canResolveTask = true;
+          if (resolveTaskBtn && tabEl._wtTaskId) { resolveTaskBtn.style.display = 'inline-flex'; }
+        }
       } else {
         if (pipelineBtn) pipelineBtn.style.display = 'none';
+        if (installBtn) { installBtn.style.display = 'inline-flex'; installBtn.title = `Install build ${build.buildNumber}`; }
         if (verifyBtn) { verifyBtn.style.display = 'inline-flex'; verifyBtn.title = `Verify build ${build.buildNumber}`; }
         if (resolveTaskBtn) resolveTaskBtn.style.display = 'none';
       }
@@ -267,18 +277,27 @@ async function updatePipelineForTab(tabEl, { org, project, auth }) {
         pipelineBtn.title = `Pipeline ${build.buildNumber} failed`;
       }
       if (verifyBtn) verifyBtn.style.display = 'none';
+      if (installBtn) installBtn.style.display = 'none';
       if (resolveTaskBtn) resolveTaskBtn.style.display = 'none';
     }
   } else {
     tabEl._pipelineStatus = 'running';
-    tabEl._canVerify = false;
     if (pipelineBtn) {
       pipelineBtn.classList.add('pipeline-running');
       pipelineBtn.style.display = 'inline-flex';
       pipelineBtn.title = `Pipeline ${build.buildNumber} running\u2026`;
     }
-    if (verifyBtn) verifyBtn.style.display = 'none';
     if (resolveTaskBtn) resolveTaskBtn.style.display = 'none';
+    if (!tabEl._pipelineVerified) {
+      tabEl._canVerify = true;
+      if (pipelineBtn) pipelineBtn.style.display = 'none';
+      if (installBtn) { installBtn.style.display = 'inline-flex'; installBtn.title = `Install build ${build.buildNumber}`; }
+      if (verifyBtn) { verifyBtn.style.display = 'inline-flex'; verifyBtn.title = `Verify build ${build.buildNumber}`; }
+    } else {
+      tabEl._canVerify = false;
+      if (verifyBtn) verifyBtn.style.display = 'none';
+      if (installBtn) installBtn.style.display = 'none';
+    }
   }
 
   if (switchBtn) switchBtn.style.display = 'none';
@@ -371,8 +390,10 @@ async function _refreshTabStatusInner(tabEl) {
         } else {
           const pipelineBtn = tabEl.querySelector('.workspace-tab-open-pipeline');
           const verifyBtn = tabEl.querySelector('.workspace-tab-verify');
+          const installBtn = tabEl.querySelector('.workspace-tab-install-btn');
           if (pipelineBtn) pipelineBtn.style.display = 'none';
           if (verifyBtn) verifyBtn.style.display = 'none';
+          if (installBtn) installBtn.style.display = 'none';
         }
         return;
       }
@@ -474,6 +495,7 @@ export function showTabRemoveButton(tabEl) {
   const completePrBtn = tabEl.querySelector('.workspace-tab-complete-pr');
   const pipelineBtn = tabEl.querySelector('.workspace-tab-open-pipeline');
   const verifyBtn = tabEl.querySelector('.workspace-tab-verify');
+  const installBtn = tabEl.querySelector('.workspace-tab-install-btn');
   const resolveTaskBtn = tabEl.querySelector('.workspace-tab-resolve-task');
   const closeBtn = tabEl.querySelector('.workspace-tab-close');
   if (switchBtn) switchBtn.style.display = 'none';
@@ -484,6 +506,7 @@ export function showTabRemoveButton(tabEl) {
   if (completePrBtn) completePrBtn.style.display = 'none';
   if (pipelineBtn) pipelineBtn.style.display = 'none';
   if (verifyBtn) verifyBtn.style.display = 'none';
+  if (installBtn) installBtn.style.display = 'none';
   if (resolveTaskBtn) resolveTaskBtn.style.display = 'none';
   if (closeBtn) closeBtn.style.display = 'none';
   tabEl._hasUncommittedChanges = false;
@@ -519,6 +542,7 @@ export function createWorktreeTab(wt) {
   tabEl.innerHTML = `
     <span class="workspace-tab-status"></span>
     <button class="workspace-tab-action" title="Switch Worktree">${DOT_SWITCH_SVG}</button>
+    <button class="workspace-tab-install-btn" style="display:none" title="Install Build">${INSTALL_BTN_SVG}</button>
     <button class="workspace-tab-commit-push" style="display:none"></button>
     <button class="workspace-tab-complete-pr" style="display:none"></button>
     <button class="workspace-tab-open-pipeline" style="display:none"></button>
@@ -697,17 +721,25 @@ export function createWorktreeTab(wt) {
     if (tabEl._pipelineUrl) window.shellAPI.openExternal(tabEl._pipelineUrl);
   });
 
-  tabEl.querySelector('.workspace-tab-verify').addEventListener('click', async (e) => {
+  tabEl.querySelector('.workspace-tab-install-btn').addEventListener('click', async (e) => {
     e.stopPropagation();
     const d = tabEl._prData;
     if (!d || !tabEl._pipelineBuildId) return;
-    const result = await showVerifyDialog(d.org, d.project, d.auth, tabEl._pipelineBuildId, tabEl._pipelineBuildNumber);
+    await showInstallDialog(d.org, d.project, d.auth, tabEl._pipelineBuildId, tabEl._pipelineBuildNumber, tabEl._pipelineStatus === 'succeeded', tabEl._pipelineDefinitionId);
+  });
+
+  tabEl.querySelector('.workspace-tab-verify').addEventListener('click', async (e) => {
+    e.stopPropagation();
+    if (!tabEl._pipelineBuildId) return;
+    const result = await showVerifyDialog(tabEl._pipelineBuildNumber);
     if (result === 'verified') {
       tabEl._pipelineVerified = true;
       tabEl._canVerify = false;
       const verifyBtn = tabEl.querySelector('.workspace-tab-verify');
+      const installBtn = tabEl.querySelector('.workspace-tab-install-btn');
       if (verifyBtn) verifyBtn.style.display = 'none';
-      if (tabEl._wtTaskId) {
+      if (installBtn) installBtn.style.display = 'none';
+      if (tabEl._wtTaskId && tabEl._pipelineStatus === 'succeeded') {
         tabEl._canResolveTask = true;
         const resolveBtn = tabEl.querySelector('.workspace-tab-resolve-task');
         if (resolveBtn) resolveBtn.style.display = 'inline-flex';
@@ -720,7 +752,7 @@ export function createWorktreeTab(wt) {
   });
 
   tabEl.addEventListener('click', (e) => {
-    if (e.target.closest('.workspace-tab-close') || e.target.closest('.workspace-tab-switch') || e.target.closest('.workspace-tab-remove') || e.target.closest('.workspace-tab-commit-push') || e.target.closest('.workspace-tab-create-pr') || e.target.closest('.workspace-tab-open-pr') || e.target.closest('.workspace-tab-complete-pr') || e.target.closest('.workspace-tab-open-pipeline') || e.target.closest('.workspace-tab-verify') || e.target.closest('.workspace-tab-resolve-task') || e.target.closest('.workspace-tab-action')) return;
+    if (e.target.closest('.workspace-tab-close') || e.target.closest('.workspace-tab-switch') || e.target.closest('.workspace-tab-remove') || e.target.closest('.workspace-tab-commit-push') || e.target.closest('.workspace-tab-create-pr') || e.target.closest('.workspace-tab-open-pr') || e.target.closest('.workspace-tab-complete-pr') || e.target.closest('.workspace-tab-open-pipeline') || e.target.closest('.workspace-tab-verify') || e.target.closest('.workspace-tab-resolve-task') || e.target.closest('.workspace-tab-action') || e.target.closest('.workspace-tab-install-btn')) return;
     openWorktree(tabEl, wt);
   });
 

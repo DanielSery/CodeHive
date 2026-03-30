@@ -287,6 +287,7 @@
     <div class="dialog-box">
       <h3 class="dialog-title">Resolve Task</h3>
       <p class="dialog-desc">Set the task to Resolved with build and release info</p>
+      <p class="dialog-desc resolve-task-test-reminder">Before resolving, ensure you have installed the build and tested your changes in the application.</p>
       <label class="dialog-label">Comment <span style="color: var(--text-muted); font-weight: 400;">(optional)</span></label>
       <textarea id="resolve-task-comment-input" class="dialog-input dialog-textarea" placeholder="Add a comment to the task..." spellcheck="false" rows="3"></textarea>
       <label class="dialog-label">Integrated in Build</label>
@@ -304,12 +305,13 @@
   <!-- Verify Build dialog -->
   <div id="verify-dialog-overlay" class="dialog-overlay">
     <div class="dialog-box">
-      <h3 class="dialog-title">Verify Build</h3>
+      <h3 class="dialog-title" id="verify-dialog-title">Verify Build</h3>
       <p class="dialog-desc" id="verify-build-desc">Build completed successfully</p>
-      <p class="dialog-desc" style="margin-top:0;color:var(--text-muted);font-size:11px">Download and verify the setup before resolving the task</p>
+      <p class="dialog-desc" id="verify-dialog-subtitle" style="margin-top:0;color:var(--text-muted);font-size:11px">Download and verify the setup before resolving the task</p>
       <div id="verify-artifacts-list" class="verify-artifacts-list"></div>
       <div class="dialog-buttons">
         <button id="verify-cancel-btn" class="dialog-btn dialog-btn-cancel" tabindex="-1">Cancel</button>
+        <button id="verify-skip-btn" class="dialog-btn dialog-btn-danger" tabindex="-1" style="display:none">Skip Installation</button>
         <button id="verify-confirm-btn" class="dialog-btn dialog-btn-confirm">Mark as Verified</button>
       </div>
     </div>
@@ -352,6 +354,7 @@
     <button class="context-menu-item" data-action="create-pr">Create Pull Request<span class="context-menu-shortcut">Ctrl+Alt+M</span></button>
     <button class="context-menu-item" data-action="complete-pr">Complete Pull Request</button>
     <button class="context-menu-item" data-action="open-pipeline">Open Pipeline</button>
+    <button class="context-menu-item" data-action="install">Install Build</button>
     <button class="context-menu-item" data-action="verify">Verify Build</button>
     <button class="context-menu-item" data-action="resolve-task">Resolve Task</button>
     <button class="context-menu-item" data-action="open-task">Open Task<span class="context-menu-shortcut">Ctrl+Alt+A</span></button>

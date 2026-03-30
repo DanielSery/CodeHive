@@ -141,8 +141,16 @@ function hasPushedCommits(wtPath, branch, sourceBranch) {
       timeout: 5000
     });
     return { value: parseInt(out.trim(), 10) > 0, error: false };
-  } catch (err) {
-    return { value: false, error: true, message: err.message };
+  } catch {
+    // Source branch may not be fetched in this worktree — fall back to checking
+    // whether the feature branch itself exists on origin.
+    try {
+      assertSafeRef(branch);
+      execSync(`git rev-parse --verify origin/${branch}`, { cwd: wtPath, encoding: 'utf8', timeout: 5000 });
+      return { value: true, error: false };
+    } catch (err) {
+      return { value: false, error: true, message: err.message };
+    }
   }
 }
 

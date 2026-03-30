@@ -66,6 +66,7 @@ function closeTerminal() {
   window.commitPushAPI.removeListeners();
   window.prCreateAPI.removeListeners();
   window.azInstallAPI.removeListeners();
+  window.setupInstallAPI.removeListeners();
 
   // Restore previous view
   const ws = getActive();

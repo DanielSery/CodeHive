@@ -340,23 +340,59 @@ export async function fetchLatestBuild(org, project, auth, branchName, minTime) 
     const builds = data.value || [];
     if (builds.length === 0) return null;
     const b = builds[0];
-    return { id: b.id, buildNumber: b.buildNumber, status: b.status, result: b.result, webUrl: b._links?.web?.href || null };
+    return { id: b.id, buildNumber: b.buildNumber, status: b.status, result: b.result, webUrl: b._links?.web?.href || null, definitionId: b.definition?.id || null };
   } catch {
     return null;
   }
 }
 
 /**
- * Fetch build artifacts for a given build.
+ * Fetch artifacts for a given build — checks both legacy build artifacts and modern pipeline artifacts.
  * Returns array of { name, downloadUrl } or [].
  */
-export async function fetchBuildArtifacts(org, project, auth, buildId) {
-  const url = `https://dev.azure.com/${encodeURIComponent(org)}/${encodeURIComponent(project)}/_apis/build/builds/${buildId}/artifacts?api-version=7.0`;
+export async function fetchBuildArtifacts(org, project, auth, buildId, definitionId = null) {
+  try {
+    const base = `https://dev.azure.com/${encodeURIComponent(org)}/${encodeURIComponent(project)}`;
+
+    // Legacy build artifacts (PublishBuildArtifacts task)
+    const buildResp = await fetch(`${base}/_apis/build/builds/${buildId}/artifacts?api-version=7.0`, { headers: { Authorization: `Basic ${auth}` } });
+    if (buildResp.ok) {
+      const data = await buildResp.json();
+      const buildArtifacts = (data.value || []).map(a => {
+        console.log('[artifacts] raw resource for', a.name, JSON.stringify(a.resource));
+        const containerId = a.resource?.data?.startsWith('#/')
+          ? a.resource.data.slice(2)
+          : (a.resource?.url?.match(/\/Containers\/(\d+)/)?.[1] ?? null);
+        return { name: a.name, downloadUrl: a.resource?.downloadUrl || null, containerId };
+      });
+      if (buildArtifacts.length > 0) return buildArtifacts;
+    }
+
+    // Modern pipeline artifacts (PublishPipelineArtifact task) — requires definition ID
+    const defId = definitionId;
+    if (!defId) return [];
+    const pipelineResp = await fetch(`${base}/_apis/pipelines/${defId}/runs/${buildId}/artifacts?api-version=7.2-preview.1`, { headers: { Authorization: `Basic ${auth}` } });
+    if (!pipelineResp.ok) return [];
+    const pipelineData = await pipelineResp.json();
+    return (pipelineData.value || []).map(a => ({ name: a.name, downloadUrl: a.signedContent?.url || null }));
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Fetch the individual file items within a build artifact container.
+ * Returns array of { name, downloadUrl } or [].
+ */
+export async function fetchContainerItems(org, auth, containerId) {
+  const url = `https://dev.azure.com/${encodeURIComponent(org)}/_apis/resources/Containers/${containerId}?api-version=7.0`;
   try {
     const resp = await fetch(url, { headers: { Authorization: `Basic ${auth}` } });
     if (!resp.ok) return [];
     const data = await resp.json();
-    return (data.value || []).map(a => ({ name: a.name, downloadUrl: a.resource?.downloadUrl || null }));
+    return (Array.isArray(data) ? data : (data.value || []))
+      .filter(item => item.itemType === 1)
+      .map(item => ({ name: item.path.split('/').pop(), downloadUrl: item.contentLocation || null }));
   } catch {
     return [];
   }
