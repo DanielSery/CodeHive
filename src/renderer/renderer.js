@@ -1,4 +1,5 @@
 import { addRepoGroup, clearAllGroups, createWorktreeTab, rebuildCollapsedDots, registerWorktreeDialog, registerDeleteDialog, registerWorktreeRemoveDialog, registerWorktreeSwitchDialog, registerCommitPushDialog, registerCreatePrDialog, registerToggleTerminal, registerOnStateChange, registerRefreshTabStatus, removeRepoGroup, showTabCloseButton, showTabRemoveButton, getRepoOrder, getWorktreeOrders, refreshTabStatus } from './sidebar/index.js';
+import './titlebar-icons.js';
 import { showWorktreeDialog, showCloneDialog, showDeleteDialog, showWorktreeRemoveDialog, showWorktreeSwitchDialog, showCommitPushDialog, showCreatePrDialog, setCloneReposDir, registerSidebarFns, registerRemoveRepoGroup, registerOnCloneComplete } from './dialogs/index.js';
 import { cycleWorkspace, registerTabButtonFns } from './workspace-manager.js';
 import { getActive } from './state.js';
