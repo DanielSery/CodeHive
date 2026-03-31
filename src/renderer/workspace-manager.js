@@ -25,6 +25,75 @@ const titlebarSwitchBtn = document.getElementById('btn-titlebar-switch');
 
 const sessionPartition = window.appSession.getPartition();
 
+// Shared handler for URLs that VS Code tries to open in a new window.
+// Used by both the (legacy) new-window webview event and the main-process setWindowOpenHandler.
+function handleWebviewLink(webview, url) {
+  if (!url) return;
+
+  // vscode://file/... links — open file inside the webview
+  if (url.startsWith('vscode://file/')) {
+    const currentUrl = new URL(webview.getURL());
+    const port = currentUrl.port;
+    const token = currentUrl.searchParams.get('tkn');
+    const folder = currentUrl.searchParams.get('folder');
+    if (port && token && folder) {
+      let filePart = url.slice('vscode://file/'.length);
+      if (/^\/[A-Za-z]:/.test(filePart)) filePart = filePart.slice(1);
+      filePart = filePart.replace(/:(\d+)(?::(\d+))?$/, '');
+      let normalized = filePart.replace(/\\/g, '/');
+      if (/^[A-Za-z]:/.test(normalized)) normalized = '/' + normalized;
+      const fileUri = `vscode-remote://localhost:${port}${normalized}`;
+      const openUrl = `http://127.0.0.1:${port}/?tkn=${encodeURIComponent(token)}&folder=${encodeURIComponent(folder)}&open-file=${encodeURIComponent(fileUri)}`;
+      webview.loadURL(openUrl);
+    }
+    return;
+  }
+
+  // http://127.0.0.1: URLs — load in webview, but intercept file-like paths
+  if (url.startsWith('http://127.0.0.1:')) {
+    const parsedUrl = new URL(url);
+    const pathPart = parsedUrl.pathname;
+    if (/\.\w{1,10}$/.test(pathPart) && !parsedUrl.search) {
+      const currentUrl = new URL(webview.getURL());
+      const port = currentUrl.port;
+      const token = currentUrl.searchParams.get('tkn');
+      const folder = currentUrl.searchParams.get('folder');
+      if (port && token && folder) {
+        let absPath;
+        if (/^\/[A-Za-z]:\//.test(pathPart)) {
+          absPath = pathPart.slice(1);
+        } else {
+          let folderPath = '';
+          try {
+            const folderUri = new URL(folder);
+            folderPath = folderUri.pathname;
+            if (/^\/[A-Za-z]:/.test(folderPath)) folderPath = folderPath.slice(1);
+          } catch {}
+          const relPath = pathPart.startsWith('/') ? pathPart.slice(1) : pathPart;
+          absPath = (folderPath + '/' + relPath).replace(/\\/g, '/');
+        }
+        let normalized = absPath.replace(/\\/g, '/');
+        if (/^[A-Za-z]:/.test(normalized)) normalized = '/' + normalized;
+        const fileUri = `vscode-remote://localhost:${port}${normalized}`;
+        const openUrl = `http://127.0.0.1:${port}/?tkn=${encodeURIComponent(token)}&folder=${encodeURIComponent(folder)}&open-file=${encodeURIComponent(fileUri)}`;
+        webview.loadURL(openUrl);
+        return;
+      }
+    }
+    webview.loadURL(url);
+    return;
+  }
+  // Block everything else (external CDN requests, etc.)
+}
+
+// Handle window-open events forwarded from the main process via setWindowOpenHandler.
+// This is the Electron 14+ replacement for the webview's deprecated new-window event.
+window.webviewEventsAPI.onWindowOpen((url) => {
+  const ws = getActive();
+  if (!ws) return;
+  handleWebviewLink(ws.webview, url);
+});
+
 // Resolves when the VS Code server signals it's ready (startup status clears).
 // Also queries current status in case the event fired before this listener registered.
 const serverReady = new Promise((resolve) => {
@@ -157,39 +226,8 @@ async function openWorktree(tabEl, wt) {
 
   // Suppress popups that navigate to external URLs (e.g. Azure CDN 404s when opening diffs)
   const onNewWindow = (e) => {
-    const popupUrl = e.url || '';
     e.preventDefault();
-
-    // Allow local VS Code server URLs to open inside the webview
-    if (popupUrl.startsWith(`http://127.0.0.1:`)) {
-      webview.loadURL(popupUrl);
-      return;
-    }
-
-    // Handle vscode://file/... links (e.g. Claude Code file references) — open inside the webview
-    if (popupUrl.startsWith('vscode://file/')) {
-      const currentUrl = new URL(webview.getURL());
-      const port = currentUrl.port;
-      const token = currentUrl.searchParams.get('tkn');
-      const folder = currentUrl.searchParams.get('folder');
-      if (port && token && folder) {
-        // Parse path from vscode://file/C:/path/to/file:line:col
-        let filePart = popupUrl.slice('vscode://file/'.length);
-        // Windows paths arrive as /C:/... — strip leading slash
-        if (/^\/[A-Za-z]:/.test(filePart)) filePart = filePart.slice(1);
-        // Strip optional :line and :line:col suffix (digits only, not the drive-letter colon)
-        filePart = filePart.replace(/:(\d+)(?::(\d+))?$/, '');
-        // Build VS Code remote URI
-        let normalized = filePart.replace(/\\/g, '/');
-        if (/^[A-Za-z]:/.test(normalized)) normalized = '/' + normalized;
-        const fileUri = `vscode-remote://localhost:${port}${normalized}`;
-        const openUrl = `http://127.0.0.1:${port}/?tkn=${encodeURIComponent(token)}&folder=${encodeURIComponent(folder)}&open-file=${encodeURIComponent(fileUri)}`;
-        webview.loadURL(openUrl);
-      }
-      return;
-    }
-
-    // Block all other popups (external CDN requests that cause 404 errors)
+    handleWebviewLink(webview, e.url || '');
   };
 
   // F11 is "step into" in VS Code — prevent Chromium from using it for fullscreen

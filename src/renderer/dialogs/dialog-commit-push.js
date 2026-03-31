@@ -3,13 +3,64 @@ import { toast } from '../toast.js';
 import { _refreshTabStatus } from '../sidebar/registers.js';
 
 const commitPushDialogOverlay = document.getElementById('commit-push-dialog-overlay');
+const commitPushDialogBox = document.getElementById('commit-push-dialog-box');
 const commitPushTitleInput = document.getElementById('commit-push-title-input');
 const commitPushDescInput = document.getElementById('commit-push-desc-input');
 const commitPushFileList = document.getElementById('commit-push-file-list');
 
+const DIALOG_SIZE_KEY = 'commitPushDialogSize';
+
+function saveDialogSize() {
+  localStorage.setItem(DIALOG_SIZE_KEY, JSON.stringify({
+    width: commitPushDialogBox.offsetWidth,
+    height: commitPushDialogBox.offsetHeight,
+  }));
+}
+
+function restoreDialogSize() {
+  const saved = localStorage.getItem(DIALOG_SIZE_KEY);
+  if (!saved) return;
+  const { width, height } = JSON.parse(saved);
+  commitPushDialogBox.style.width = `${width}px`;
+  commitPushDialogBox.style.height = `${height}px`;
+}
+
+let _saveTimer = null;
+const _resizeObserver = new ResizeObserver(() => {
+  if (!commitPushDialogOverlay.classList.contains('visible')) return;
+  clearTimeout(_saveTimer);
+  _saveTimer = setTimeout(saveDialogSize, 300);
+});
+_resizeObserver.observe(commitPushDialogBox);
+
 let _commitPushTabEl = null;
 let _commitFiles = [];
 let _folderUpdaters = [];
+
+function renderFileDiff(panel, diff) {
+  panel.innerHTML = '';
+  if (!diff || !diff.trim()) {
+    panel.innerHTML = '<div class="commit-diff-line commit-diff-meta">No diff available</div>';
+    return;
+  }
+  const fragment = document.createDocumentFragment();
+  for (const line of diff.split('\n')) {
+    const el = document.createElement('div');
+    el.className = 'commit-diff-line';
+    if (line.startsWith('+++') || line.startsWith('---') || line.startsWith('diff ') || line.startsWith('index ') || line.startsWith('Binary')) {
+      el.classList.add('commit-diff-meta');
+    } else if (line.startsWith('+')) {
+      el.classList.add('commit-diff-add');
+    } else if (line.startsWith('-')) {
+      el.classList.add('commit-diff-del');
+    } else if (line.startsWith('@@')) {
+      el.classList.add('commit-diff-hunk');
+    }
+    el.textContent = line;
+    fragment.appendChild(el);
+  }
+  panel.appendChild(fragment);
+}
 
 function buildFileTree(files) {
   const root = { children: new Map(), files: [] };
@@ -144,8 +195,8 @@ function renderTreeNode(container, node, depth) {
     });
 
     const nameSpan = document.createElement('span');
-    nameSpan.className = 'commit-file-path';
-    nameSpan.title = f.path;
+    nameSpan.className = 'commit-file-path commit-file-path-diffable';
+    nameSpan.title = 'Click to view diff';
     nameSpan.textContent = name;
 
     const statSpan = document.createElement('span');
@@ -166,6 +217,7 @@ function renderTreeNode(container, node, depth) {
       if (result.ok) {
         _commitFiles[idx] = null;
         row.remove();
+        diffPanel.remove();
         _folderUpdaters.forEach(fn => fn());
         // If no files left, show empty state
         const remaining = _commitFiles.filter(Boolean);
@@ -180,6 +232,33 @@ function renderTreeNode(container, node, depth) {
     row.appendChild(statSpan);
     row.appendChild(revertBtn);
     container.appendChild(row);
+
+    const diffPanel = document.createElement('div');
+    diffPanel.className = 'commit-diff-panel';
+    diffPanel.style.display = 'none';
+    container.appendChild(diffPanel);
+
+    nameSpan.addEventListener('click', async (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      if (diffPanel.style.display !== 'none') {
+        diffPanel.style.display = 'none';
+        nameSpan.classList.remove('commit-file-path-expanded');
+        return;
+      }
+      nameSpan.classList.add('commit-file-path-expanded');
+      diffPanel.style.display = 'block';
+      if (diffPanel._loaded) return;
+      if (f.isNew) {
+        diffPanel._loaded = true;
+        diffPanel.innerHTML = '<div class="commit-diff-line commit-diff-meta">New untracked file — no diff available</div>';
+        return;
+      }
+      diffPanel.innerHTML = '<div class="commit-diff-line commit-diff-meta">Loading…</div>';
+      const result = await window.reposAPI.gitFileDiff(_commitPushTabEl._wtPath, f.path);
+      diffPanel._loaded = true;
+      renderFileDiff(diffPanel, result.ok ? result.diff : '');
+    });
   }
 }
 
@@ -200,6 +279,7 @@ export async function showCommitPushDialog(tabEl, _groupEl) {
   commitPushTitleInput.value = '';
   commitPushDescInput.value = '';
   commitPushFileList.innerHTML = '<span class="commit-file-list-empty">Loading...</span>';
+  restoreDialogSize();
   commitPushDialogOverlay.classList.add('visible');
   setTimeout(() => commitPushTitleInput.focus(), 50);
 

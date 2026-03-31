@@ -22,6 +22,7 @@ contextBridge.exposeInMainWorld('reposAPI', {
   hasUncommittedChanges: (wtPath) => ipcRenderer.invoke('repos:hasUncommittedChanges', wtPath),
   hasPushedCommits: (wtPath, branch, sourceBranch) => ipcRenderer.invoke('repos:hasPushedCommits', { wtPath, branch, sourceBranch }),
   gitRevertFile: (wtPath, filePath, isNew) => ipcRenderer.invoke('repos:gitRevertFile', { wtPath, filePath, isNew }),
+  gitFileDiff: (wtPath, filePath) => ipcRenderer.invoke('repos:gitFileDiff', { wtPath, filePath }),
 });
 
 contextBridge.exposeInMainWorld('worktreeAPI', {
@@ -148,6 +149,10 @@ contextBridge.exposeInMainWorld('windowAPI', {
 
 contextBridge.exposeInMainWorld('shortcutAPI', {
   onCtrlAlt: (cb) => ipcRenderer.on('shortcut:ctrlAlt', (_, key) => cb(key))
+});
+
+contextBridge.exposeInMainWorld('webviewEventsAPI', {
+  onWindowOpen: (cb) => ipcRenderer.on('webview:windowOpen', (_, url) => cb(url))
 });
 
 contextBridge.exposeInMainWorld('startupAPI', {

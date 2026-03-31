@@ -957,6 +957,24 @@ html, body {
   font-family: 'Segoe UI', -apple-system, sans-serif;
 }
 
+#commit-push-dialog-box {
+  display: flex;
+  flex-direction: column;
+  resize: both;
+  overflow: hidden;
+  min-width: 420px;
+  min-height: 340px;
+  max-width: 95vw;
+  max-height: 95vh;
+  height: 540px;
+}
+
+#commit-push-dialog-box .commit-file-list {
+  flex: 1 1 0;
+  max-height: none;
+  min-height: 60px;
+}
+
 .commit-file-list {
   border: 1px solid var(--border);
   border-radius: 4px;
@@ -1058,6 +1076,31 @@ html, body {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+.commit-file-path-diffable {
+  cursor: pointer;
+}
+.commit-file-path-diffable:hover { text-decoration: underline; }
+.commit-file-path-expanded { color: var(--accent); }
+
+.commit-diff-panel {
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  background: color-mix(in srgb, var(--bg) 60%, transparent);
+  overflow-x: auto;
+  font-size: 11px;
+  font-family: 'Consolas', 'Courier New', monospace;
+}
+.commit-diff-line {
+  padding: 1px 10px;
+  white-space: pre;
+  line-height: 1.5;
+  color: var(--text);
+}
+.commit-diff-add { background: color-mix(in srgb, var(--green) 15%, transparent); color: var(--green); }
+.commit-diff-del { background: color-mix(in srgb, var(--red) 15%, transparent); color: var(--red); }
+.commit-diff-hunk { color: var(--accent); background: color-mix(in srgb, var(--accent) 8%, transparent); }
+.commit-diff-meta { color: var(--text-muted); }
 
 .dialog-buttons {
   display: flex;

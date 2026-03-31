@@ -108,6 +108,16 @@ function gitDiffStat(wtPath) {
   return result;
 }
 
+function gitFileDiff(wtPath, filePath) {
+  try {
+    const escaped = filePath.replace(/"/g, '\\"');
+    const out = execSync(`git diff HEAD -- "${escaped}"`, { cwd: wtPath, encoding: 'utf8', timeout: 5000 });
+    return { ok: true, diff: out };
+  } catch {
+    return { ok: false, diff: '' };
+  }
+}
+
 function getFirstBranchCommit(wtPath, sourceBranch) {
   try {
     assertSafeRef(sourceBranch);
@@ -181,4 +191,4 @@ function gitRevertFile(wtPath, filePath, isNew) {
   }
 }
 
-module.exports = { getCachedBranches, fetchAndListBranches, getGitUser, getRemoteUrl, getLaunchConfigs, gitDiffStat, getFirstBranchCommit, hasUncommittedChanges, hasPushedCommits, gitRevertFile };
+module.exports = { getCachedBranches, fetchAndListBranches, getGitUser, getRemoteUrl, getLaunchConfigs, gitDiffStat, gitFileDiff, getFirstBranchCommit, hasUncommittedChanges, hasPushedCommits, gitRevertFile };

@@ -4,7 +4,7 @@ const fs = require('fs');
 const path = require('path');
 const { app } = require('electron');
 const vscode = require('./vscode-server');
-const { scanDirectory, checkClaudeActive, getCachedBranches, fetchAndListBranches, getGitUser, getRemoteUrl, getLaunchConfigs, gitDiffStat, getFirstBranchCommit, hasUncommittedChanges, hasPushedCommits, gitRevertFile } = require('./repo-scanner');
+const { scanDirectory, checkClaudeActive, getCachedBranches, fetchAndListBranches, getGitUser, getRemoteUrl, getLaunchConfigs, gitDiffStat, gitFileDiff, getFirstBranchCommit, hasUncommittedChanges, hasPushedCommits, gitRevertFile } = require('./repo-scanner');
 const { watchClaude, unwatchClaude } = require('./claude-status');
 const { createWorktreePty, createClonePty, createDeletePty, createWorktreeRemovePty, createWorktreeSwitchPty, createCommitPushPty, createPrCreatePty, createAzInstallPty, createSetupInstallPty } = require('./pty-manager');
 
@@ -91,6 +91,10 @@ function register(mainWindow, getServerPort) {
 
   ipcMain.handle('repos:gitRevertFile', (event, { wtPath, filePath, isNew }) => {
     return gitRevertFile(wtPath, filePath, isNew);
+  });
+
+  ipcMain.handle('repos:gitFileDiff', (event, { wtPath, filePath }) => {
+    return gitFileDiff(wtPath, filePath);
   });
 
 

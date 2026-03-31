@@ -49,6 +49,13 @@ function createWindow() {
         event.preventDefault();
       }
     });
+
+    // Block all new windows opened by VS Code (new-window event is deprecated in Electron 14+).
+    // Forward the URL to the renderer so it can open file links inside the embedded editor.
+    webContents.setWindowOpenHandler(({ url }) => {
+      mainWindow.webContents.send('webview:windowOpen', url);
+      return { action: 'deny' };
+    });
   });
 }
 
