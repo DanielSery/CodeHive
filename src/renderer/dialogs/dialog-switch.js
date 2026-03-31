@@ -1,6 +1,6 @@
 import { openWorktree } from '../workspace-manager.js';
 import { createTerminal, showTerminal, showCloseButton, setTitle, closeTerminal } from '../terminal-panel.js';
-import { getCachedBranchesFromState, saveBranchCache, saveSourceBranch, saveTaskId } from '../storage.js';
+import { getCachedBranchesFromState, saveBranchCache, saveSourceBranch, saveTaskId, saveDeleteBranchPref, getDeleteBranchPref } from '../storage.js';
 import { fetchAzureTasks, createAzureWorkItem, buildAzureTaskUrl, fetchWorkItemById, updateWorkItemState } from '../azure-api.js';
 import { inferWorkItemType, sanitizePathPart, userToPrefix, nameToBranch, loadStoredPat, getCachedTasks, saveTaskCache, stripHtml } from './utils.js';
 import { toast } from '../toast.js';
@@ -21,6 +21,7 @@ const wtSwitchTargetList = document.getElementById('wt-switch-target-list');
 const wtSwitchPreview = document.getElementById('wt-switch-preview');
 const wtSwitchSkipTaskBtn = document.getElementById('wt-switch-skip-task-btn');
 const wtSwitchConfirmBtn = document.getElementById('wt-switch-confirm-btn');
+const wtSwitchDeleteBranchCheckbox = document.getElementById('wt-switch-delete-branch');
 
 let wtSwitchTabEl = null;
 let wtSwitchGroupEl = null;
@@ -277,6 +278,7 @@ export async function showWorktreeSwitchDialog(tabEl, groupEl) {
   wtSwitchChangeNameEdited = false;
   clearTimeout(wtSwitchFetchByIdTimer);
 
+  wtSwitchDeleteBranchCheckbox.checked = getDeleteBranchPref('switchDeleteBranch');
   wtSwitchBranchSearch.value = '';
   wtSwitchBranchSearch.placeholder = 'Fetching branches...';
   wtSwitchBranchSearch.disabled = true;
@@ -402,7 +404,9 @@ export async function confirmSwitchWorktree() {
   });
 
   try {
-    await window.worktreeSwitchAPI.start({ oldWtPath, branchName, sourceBranch: wtSwitchSelectedBranch });
+    const deleteBranch = wtSwitchDeleteBranchCheckbox.checked;
+    saveDeleteBranchPref('switchDeleteBranch', deleteBranch);
+    await window.worktreeSwitchAPI.start({ oldWtPath, branchName, sourceBranch: wtSwitchSelectedBranch, oldBranch: tabEl._wtBranch, deleteBranch });
     window.worktreeSwitchAPI.ready();
   } catch (err) {
     xterm.writeln(`\x1b[31m${err.message || err}\x1b[0m`);

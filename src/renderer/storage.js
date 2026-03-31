@@ -55,4 +55,16 @@ export function resetDirectories(dirPath) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
 }
 
+export function saveDeleteBranchPref(key, value) {
+  const state = getState();
+  if (!state.prefs) state.prefs = {};
+  state.prefs[key] = value;
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+}
+
+export function getDeleteBranchPref(key) {
+  const state = getState();
+  return !!(state.prefs && state.prefs[key]);
+}
+
 export { STORAGE_KEY };

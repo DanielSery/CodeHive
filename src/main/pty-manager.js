@@ -2,7 +2,7 @@ const fs = require('fs');
 const path = require('path');
 const os = require('os');
 const { spawnProc } = require('./pty-spawn.js');
-const { buildWorktreeCmd, buildCloneCmd, buildDeleteScript, buildWorktreeRemoveScript, buildCommitPushScript, buildPrCreateScript } = require('./pty-scripts.js');
+const { buildWorktreeCmd, buildCloneCmd, buildDeleteScript, buildWorktreeRemoveScript, buildWorktreeSwitchScript, buildCommitPushScript, buildPrCreateScript } = require('./pty-scripts.js');
 
 function createWorktreePty(mainWindow, { barePath, repoDir, branchName, dirName, sourceBranch }) {
   const { cmd, cwd, wtPath } = buildWorktreeCmd(barePath, { repoDir, dirName, branchName, sourceBranch });
@@ -62,8 +62,8 @@ function createDeletePty(mainWindow, { repoDir }) {
   return { proc };
 }
 
-function createWorktreeRemovePty(mainWindow, { barePath, wtPath }) {
-  const { cmd, cwd, scriptPath } = buildWorktreeRemoveScript(barePath, wtPath);
+function createWorktreeRemovePty(mainWindow, { barePath, wtPath, branchName, deleteBranch }) {
+  const { cmd, cwd, scriptPath } = buildWorktreeRemoveScript(barePath, wtPath, { branchName, deleteBranch });
   const proc = spawnProc(cmd, cwd);
 
   proc.onData((data) => {
@@ -82,14 +82,21 @@ function createWorktreeRemovePty(mainWindow, { barePath, wtPath }) {
   return { proc };
 }
 
-function createWorktreeSwitchPty(mainWindow, { oldWtPath, branchName, sourceBranch }) {
-  const startPoint = `refs/remotes/origin/${sourceBranch}`;
+function createWorktreeSwitchPty(mainWindow, { oldWtPath, branchName, sourceBranch, oldBranch, deleteBranch }) {
   const oldWtForGit = oldWtPath.replace(/\\/g, '/');
   const dirName = require('path').basename(oldWtPath);
-
   const cwd = require('path').resolve(oldWtPath);
-  const cmd = `git checkout -B ${branchName} ${startPoint}`;
-  const proc = spawnProc(cmd, cwd);
+
+  let proc, scriptPath;
+  if (deleteBranch && oldBranch && oldBranch !== branchName) {
+    const result = buildWorktreeSwitchScript(cwd, { branchName, sourceBranch, oldBranch });
+    proc = spawnProc(result.cmd, cwd);
+    scriptPath = result.scriptPath;
+  } else {
+    const startPoint = `refs/remotes/origin/${sourceBranch}`;
+    const cmd = `git checkout -B ${branchName} ${startPoint}`;
+    proc = spawnProc(cmd, cwd);
+  }
 
   proc.onData((data) => {
     if (mainWindow && !mainWindow.isDestroyed()) {
@@ -98,6 +105,7 @@ function createWorktreeSwitchPty(mainWindow, { oldWtPath, branchName, sourceBran
   });
 
   proc.onExit(({ exitCode }) => {
+    if (scriptPath) { try { fs.unlinkSync(scriptPath); } catch {} }
     if (mainWindow && !mainWindow.isDestroyed()) {
       mainWindow.webContents.send('worktreeSwitch:exit', { exitCode, wtPath: oldWtForGit, branchName, dirName });
     }

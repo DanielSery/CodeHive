@@ -1,8 +1,10 @@
 import { createTerminal, showTerminal, showCloseButton, setTitle, closeTerminal } from '../terminal-panel.js';
 import { toast } from '../toast.js';
+import { saveDeleteBranchPref, getDeleteBranchPref } from '../storage.js';
 
 const wtRemoveDialogOverlay = document.getElementById('wt-remove-dialog-overlay');
 const wtRemoveDialogPath = document.getElementById('wt-remove-dialog-path');
+const wtRemoveDeleteBranchCheckbox = document.getElementById('wt-remove-delete-branch');
 
 let _removeTabEl = null;
 let _removeGroupEl = null;
@@ -11,6 +13,7 @@ export function showWorktreeRemoveDialog(tabEl, groupEl) {
   _removeTabEl = tabEl;
   _removeGroupEl = groupEl;
   wtRemoveDialogPath.textContent = tabEl._wtPath;
+  wtRemoveDeleteBranchCheckbox.checked = getDeleteBranchPref('removeDeleteBranch');
   wtRemoveDialogOverlay.classList.add('visible');
 }
 
@@ -26,6 +29,8 @@ async function confirmRemoveWorktree() {
   const groupEl = _removeGroupEl;
   const wtPath = tabEl._wtPath;
   const branchLabel = tabEl._wtBranch;
+  const deleteBranch = wtRemoveDeleteBranchCheckbox.checked;
+  saveDeleteBranchPref('removeDeleteBranch', deleteBranch);
   hideWorktreeRemoveDialog();
 
   showTerminal(`Removing worktree: ${branchLabel}`);
@@ -57,7 +62,9 @@ async function confirmRemoveWorktree() {
   try {
     await window.worktreeRemoveAPI.start({
       barePath: groupEl._barePath,
-      wtPath
+      wtPath,
+      branchName: branchLabel,
+      deleteBranch
     });
     window.worktreeRemoveAPI.ready();
   } catch (err) {

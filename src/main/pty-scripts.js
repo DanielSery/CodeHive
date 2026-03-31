@@ -137,7 +137,7 @@ function buildDeleteScript(repoDir) {
   return { cmd, cwd: barePath, scriptPath };
 }
 
-function buildWorktreeRemoveScript(barePath, wtPath) {
+function buildWorktreeRemoveScript(barePath, wtPath, { branchName, deleteBranch } = {}) {
   const isWin = process.platform === 'win32';
   const scriptExt = isWin ? '.cmd' : '.sh';
   const scriptPath = path.join(os.tmpdir(), `codehive-wt-remove-${Date.now()}${scriptExt}`);
@@ -155,6 +155,11 @@ function buildWorktreeRemoveScript(barePath, wtPath) {
     lines.push(`  rd /s /q "${wtForFs}"`);
     lines.push(`)`);
     lines.push(`git worktree prune 2>nul`);
+    if (deleteBranch && branchName) {
+      assertSafeRef(branchName);
+      lines.push(`echo Deleting branch: ${branchName}`);
+      lines.push(`git branch -D ${shellQuote(branchName)}`);
+    }
     lines.push('echo.');
     lines.push('echo === REMOVE COMPLETE ===');
   } else {
@@ -166,6 +171,11 @@ function buildWorktreeRemoveScript(barePath, wtPath) {
     lines.push(`  rm -rf "${wtPath}"`);
     lines.push('fi');
     lines.push('git worktree prune 2>/dev/null');
+    if (deleteBranch && branchName) {
+      assertSafeRef(branchName);
+      lines.push(`echo "Deleting branch: ${branchName}"`);
+      lines.push(`git branch -D ${shellQuote(branchName)}`);
+    }
     lines.push('echo ""');
     lines.push('echo "=== REMOVE COMPLETE ==="');
   }
@@ -174,6 +184,43 @@ function buildWorktreeRemoveScript(barePath, wtPath) {
 
   const cmd = isWin ? scriptPath : `sh "${scriptPath}"`;
   return { cmd, cwd: barePath, scriptPath };
+}
+
+function buildWorktreeSwitchScript(cwd, { branchName, sourceBranch, oldBranch }) {
+  assertSafeRef(branchName);
+  assertSafeRef(sourceBranch);
+  assertSafeRef(oldBranch);
+
+  const startPoint = `refs/remotes/origin/${sourceBranch}`;
+  const isWin = process.platform === 'win32';
+  const scriptExt = isWin ? '.cmd' : '.sh';
+  const scriptPath = path.join(os.tmpdir(), `codehive-wt-switch-${Date.now()}${scriptExt}`);
+
+  const lines = [];
+  if (isWin) {
+    lines.push('@echo off');
+    lines.push(`echo Switching to ${branchName}...`);
+    lines.push(`git checkout -B ${shellQuote(branchName)} ${shellQuote(startPoint)}`);
+    lines.push('if %errorlevel% neq 0 exit /b %errorlevel%');
+    lines.push(`echo Deleting old branch: ${oldBranch}`);
+    lines.push(`git branch -D ${shellQuote(oldBranch)}`);
+    lines.push('echo.');
+    lines.push('echo === SWITCH COMPLETE ===');
+  } else {
+    lines.push('#!/bin/sh');
+    lines.push('set -e');
+    lines.push(`echo "Switching to ${branchName}..."`);
+    lines.push(`git checkout -B ${shellQuote(branchName)} ${shellQuote(startPoint)}`);
+    lines.push(`echo "Deleting old branch: ${oldBranch}"`);
+    lines.push(`git branch -D ${shellQuote(oldBranch)}`);
+    lines.push('echo ""');
+    lines.push('echo "=== SWITCH COMPLETE ==="');
+  }
+
+  fs.writeFileSync(scriptPath, lines.join('\n'), { encoding: 'utf8' });
+
+  const cmd = isWin ? scriptPath : `sh "${scriptPath}"`;
+  return { cmd, cwd, scriptPath };
 }
 
 function buildCommitPushScript(wtPath, { title, description, branch, files }) {
@@ -281,4 +328,4 @@ function buildPrCreateScript(wtPath, { sourceBranch, targetBranch, title, descri
   return { cmd, cwd: wtPath, scriptPath, env };
 }
 
-module.exports = { buildWorktreeCmd, buildCloneCmd, buildDeleteScript, buildWorktreeRemoveScript, buildCommitPushScript, buildPrCreateScript, shellQuote, assertSafeRef };
+module.exports = { buildWorktreeCmd, buildCloneCmd, buildDeleteScript, buildWorktreeRemoveScript, buildWorktreeSwitchScript, buildCommitPushScript, buildPrCreateScript, shellQuote, assertSafeRef };
