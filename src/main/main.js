@@ -41,11 +41,12 @@ function createWindow() {
     });
   }
 
-  // Forward Ctrl+Alt shortcuts from webviews (which capture keyboard focus away from the main document)
+  // Forward Alt shortcuts from webviews (which capture keyboard focus away from the main document)
+  const ALT_SHORTCUT_KEYS = new Set(['0','1','2','3','4','5','6','7','8','9','w','W','n','N','r','R','Enter']);
   mainWindow.webContents.on('did-attach-webview', (event, webContents) => {
     webContents.on('before-input-event', (event, input) => {
-      if (input.type === 'keyDown' && input.control && input.alt) {
-        mainWindow.webContents.send('shortcut:ctrlAlt', input.key);
+      if (input.type === 'keyDown' && input.alt && !input.control && ALT_SHORTCUT_KEYS.has(input.key)) {
+        mainWindow.webContents.send('shortcut:alt', input.key);
         event.preventDefault();
       }
     });

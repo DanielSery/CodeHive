@@ -54,7 +54,7 @@ export function addRepoGroup(repo) {
   // Inline add-worktree button at bottom of tabs list
   const addBtn = document.createElement('button');
   addBtn.className = 'repo-group-tabs-add';
-  addBtn.title = 'Add Worktree (Ctrl+Alt+N)';
+  addBtn.title = 'Add Worktree (Alt+N)';
   addBtn.innerHTML = `<span class="repo-group-tabs-add-icon"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M8 3v10M3 8h10"/></svg></span><span class="repo-group-tabs-add-label">Add worktree</span>`;
   addBtn.addEventListener('click', (e) => {
     e.stopPropagation();

@@ -148,7 +148,7 @@ contextBridge.exposeInMainWorld('windowAPI', {
 });
 
 contextBridge.exposeInMainWorld('shortcutAPI', {
-  onCtrlAlt: (cb) => ipcRenderer.on('shortcut:ctrlAlt', (_, key) => cb(key))
+  onAlt: (cb) => ipcRenderer.on('shortcut:alt', (_, key) => cb(key))
 });
 
 contextBridge.exposeInMainWorld('webviewEventsAPI', {

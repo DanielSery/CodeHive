@@ -136,8 +136,7 @@ function syncTitlebarToTab() {
   const hasPushed = !!tabEl._hasPushedCommits;
   const showCreatePr = !hasChanges && hasPushed && !hasPr && !canComplete && !canResolve;
 
-  const canOpenPipeline = !!tabEl._canOpenPipeline && !tabEl._pipelineVerified && tabEl._pipelineStatus !== 'succeeded';
-  const canVerify = !!tabEl._canVerify && !tabEl._pipelineVerified;
+  const canOpenPipeline = !!tabEl._canOpenPipeline && tabEl._pipelineStatus === 'running';
 
   titlebarCommitBtn.classList.toggle('visible', isOpen && hasChanges);
   titlebarCreatePrBtn.classList.toggle('visible', showCreatePr);
@@ -145,14 +144,11 @@ function syncTitlebarToTab() {
   titlebarResolveTaskBtn.classList.toggle('visible', !hasChanges && canResolve);
   titlebarOpenPipelineBtn.classList.toggle('visible', !hasChanges && canOpenPipeline);
   if (canOpenPipeline) {
-    let color = 'var(--accent)';
-    if (tabEl._pipelineStatus === 'running') color = 'var(--yellow)';
-    else if (tabEl._pipelineStatus === 'failed') color = 'var(--red)';
-    titlebarOpenPipelineBtn.style.color = color;
+    titlebarOpenPipelineBtn.style.color = 'var(--yellow)';
   } else {
     titlebarOpenPipelineBtn.style.color = '';
   }
-  titlebarVerifyBtn.classList.toggle('visible', !hasChanges && canVerify);
+  titlebarVerifyBtn.classList.toggle('visible', false);
   titlebarOpenTaskBtn.classList.toggle('visible', hasTask);
   titlebarGitAppBtn.classList.toggle('visible', true);
   titlebarSwitchBtn.classList.toggle('visible', true);

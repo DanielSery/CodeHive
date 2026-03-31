@@ -1,7 +1,8 @@
 {
   "permissions": {
     "allow": [
-      "Bash(find /c/Repos/CodeHive/master -type f \\\\\\(-name *.css -o -name *.html \\\\\\))"
+      "Bash(find /c/Repos/CodeHive/master -type f \\\\\\(-name *.css -o -name *.html \\\\\\))",
+      "Bash(node export-svgs.js)"
     ]
   }
 }

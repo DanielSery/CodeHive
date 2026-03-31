@@ -64,7 +64,7 @@ function _activeTab() {
   return getActive()?.tabEl ?? null;
 }
 
-export function handleCtrlAltShortcut(key) {
+export function handleAltShortcut(key) {
   cancelShortcutHold();
 
   const digits = ['1','2','3','4','5','6','7','8','9','0'];
@@ -78,33 +78,9 @@ export function handleCtrlAltShortcut(key) {
 
   const lkey = key.toLowerCase();
 
-  if (lkey === 't') {
-    if (_toggleTerminal) _toggleTerminal();
-    return;
-  }
-
   if (lkey === 'w') {
     const ws = getActive();
     if (ws) closeWorkspace(ws.tabEl._workspaceId);
-    return;
-  }
-
-  if (lkey === 'p') {
-    const tabEl = _activeTab();
-    if (tabEl && _showCommitPushDialog) {
-      _showCommitPushDialog(tabEl, tabEl.closest('.repo-group'));
-    }
-    return;
-  }
-
-  if (lkey === 'm') {
-    const tabEl = _activeTab();
-    if (!tabEl) return;
-    if (tabEl._existingPrUrl) {
-      window.shellAPI.openExternal(tabEl._existingPrUrl);
-    } else if (_showCreatePrDialog) {
-      _showCreatePrDialog(tabEl, tabEl.closest('.repo-group'));
-    }
     return;
   }
 
@@ -125,7 +101,7 @@ export function handleCtrlAltShortcut(key) {
     return;
   }
 
-  // Ctrl+Alt+Enter — smart action: trigger the visible action button on active tab
+  // Alt+Enter — smart action: trigger the visible action button on active tab
   if (key === 'Enter') {
     const tabEl = _activeTab();
     if (!tabEl) return;
@@ -146,40 +122,6 @@ export function handleCtrlAltShortcut(key) {
     }
     return;
   }
-
-  if (lkey === 'e') {
-    const tabEl = _activeTab();
-    if (tabEl) window.shellAPI.openInExplorer(tabEl._wtPath);
-    return;
-  }
-
-  if (lkey === 'a') {
-    const tabEl = _activeTab();
-    if (!tabEl) return;
-    const taskId = tabEl._wtTaskId;
-    if (!taskId) return;
-    const groupEl = tabEl.closest('.repo-group');
-    const barePath = groupEl ? groupEl._barePath : null;
-    (async () => {
-      let url = null;
-      if (barePath) {
-        try {
-          const remoteUrl = await window.reposAPI.remoteUrl(barePath);
-          const m = remoteUrl && remoteUrl.match(/https?:\/\/(?:[^@/]+@)?dev\.azure\.com\/([^/]+)\/([^/]+)\/_git\//);
-          if (m) {
-            url = `https://dev.azure.com/${encodeURIComponent(decodeURIComponent(m[1]))}/${encodeURIComponent(decodeURIComponent(m[2]))}/_workitems/edit/${taskId}`;
-          } else {
-            const m2 = remoteUrl && remoteUrl.match(/https?:\/\/(?:[^@/]+@)?([^.]+)\.visualstudio\.com\/([^/]+)\/_git\//);
-            if (m2) {
-              url = `https://dev.azure.com/${encodeURIComponent(m2[1])}/${encodeURIComponent(decodeURIComponent(m2[2]))}/_workitems/edit/${taskId}`;
-            }
-          }
-        } catch {}
-      }
-      if (url) window.shellAPI.openExternal(url);
-    })();
-    return;
-  }
 }
 
 function isDialogOpen() {
@@ -187,25 +129,25 @@ function isDialogOpen() {
 }
 
 document.addEventListener('keydown', (e) => {
-  if (!e.ctrlKey || !e.altKey) return;
+  if (!e.altKey || e.ctrlKey) return;
   if (isDialogOpen()) return;
 
-  if (!_shortcutBadgesVisible && !_shortcutHoldTimer && (e.key === 'Control' || e.key === 'Alt')) {
+  if (!_shortcutBadgesVisible && !_shortcutHoldTimer && e.key === 'Alt') {
     _shortcutHoldTimer = setTimeout(showShortcutBadges, SHORTCUT_HOLD_DELAY);
   }
 
-  if (e.key === 'Control' || e.key === 'Alt') return;
+  if (e.key === 'Alt') return;
   e.preventDefault();
-  handleCtrlAltShortcut(e.key);
+  handleAltShortcut(e.key);
 });
 
 // Also handle shortcuts when keyboard focus is inside a VS Code webview
-window.shortcutAPI.onCtrlAlt((key) => {
-  handleCtrlAltShortcut(key);
+window.shortcutAPI.onAlt((key) => {
+  handleAltShortcut(key);
 });
 
 document.addEventListener('keyup', (e) => {
-  if (e.key === 'Control' || e.key === 'Alt') cancelShortcutHold();
+  if (e.key === 'Alt') cancelShortcutHold();
 });
 
 window.addEventListener('blur', () => {

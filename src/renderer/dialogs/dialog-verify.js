@@ -54,7 +54,7 @@ export function showInstallDialog(org, project, auth, buildId, buildNumber, pipe
         if (link.dataset.runnable) {
           overlay.classList.remove('visible');
           startSetupInstall(link.dataset.url, _auth,
-            () => hide(false),
+            () => hide('installed'),
             () => hide(false)
           );
         } else {
@@ -114,7 +114,7 @@ function hide(result) {
 }
 
 document.getElementById('verify-confirm-btn').addEventListener('click', () => hide('verified'));
-document.getElementById('verify-skip-btn').addEventListener('click', () => hide(false));
+document.getElementById('verify-skip-btn').addEventListener('click', () => hide('skipped'));
 document.getElementById('verify-cancel-btn').addEventListener('click', () => hide(false));
 overlay.addEventListener('keydown', e => {
   if (e.key === 'Escape') hide(false);

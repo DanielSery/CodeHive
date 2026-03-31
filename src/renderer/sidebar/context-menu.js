@@ -14,6 +14,7 @@ export function showContextMenu(x, y, tabEl) {
   const isOpen = tabEl._workspaceId !== null;
   const hasTask = !!tabEl._wtTaskId;
   const hasPr = !!tabEl._existingPrUrl;
+  const hasMergedPr = !!tabEl._mergedPrUrl;
   const canComplete = !!tabEl._canCompletePr;
   const canResolve = !!tabEl._canResolveTask;
   const hasChanges = !!tabEl._hasUncommittedChanges;
@@ -34,6 +35,7 @@ export function showContextMenu(x, y, tabEl) {
   contextMenu.querySelector('[data-action="resolve-task"]').style.display = !hasChanges && canResolve ? '' : 'none';
   contextMenu.querySelector('[data-action="open-task"]').style.display = hasTask ? '' : 'none';
   contextMenu.querySelector('[data-action="open-pr"]').style.display = hasPr ? '' : 'none';
+  contextMenu.querySelector('[data-action="open-merged-pr"]').style.display = hasMergedPr ? '' : 'none';
   contextMenu.querySelector('[data-action="close-editor"]').style.display = isOpen ? '' : 'none';
   contextMenu.querySelector('[data-action="remove"]').style.display = isOpen ? 'none' : '';
 
@@ -103,6 +105,8 @@ contextMenu.addEventListener('click', (e) => {
     }
   } else if (action === 'open-pr') {
     if (tabEl._existingPrUrl) window.shellAPI.openExternal(tabEl._existingPrUrl);
+  } else if (action === 'open-merged-pr') {
+    if (tabEl._mergedPrUrl) window.shellAPI.openExternal(tabEl._mergedPrUrl);
   } else if (action === 'close-editor') {
     if (tabEl._workspaceId !== null) {
       closeWorkspace(tabEl._workspaceId);
