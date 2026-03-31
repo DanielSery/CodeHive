@@ -6,7 +6,9 @@
   "scripts": {
     "start": "electron .",
     "dev": "electron . --dev",
-    "build": "electron-builder --win --dir"
+    "build": "electron-builder --win --dir",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "build": {
     "appId": "com.codehive.app",
@@ -27,7 +29,9 @@
         "dir"
       ],
       "icon": "CodeHive.ico",
-      "electronLanguages": ["en-US"]
+      "electronLanguages": [
+        "en-US"
+      ]
     }
   },
   "dependencies": {
@@ -38,6 +42,8 @@
   "devDependencies": {
     "electron": "^33.0.0",
     "electron-builder": "^26.8.1",
-    "puppeteer-core": "^24.40.0"
+    "jsdom": "^25.0.1",
+    "puppeteer-core": "^24.40.0",
+    "vitest": "^2.1.9"
   }
 }
