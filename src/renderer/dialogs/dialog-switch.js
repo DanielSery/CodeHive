@@ -25,10 +25,12 @@ const wtSwitchDeleteBranchCheckbox = document.getElementById('wt-switch-delete-b
 
 let wtSwitchTabEl = null;
 let wtSwitchGroupEl = null;
+let wtSwitchCurrentBarePath = null;
 let wtSwitchGitUser = '';
 let wtSwitchSelectedTask = null;
 let wtSwitchAzureContext = null;
 let wtSwitchFetchByIdTimer = null;
+let wtSwitchFetchRetryTimer = null;
 let wtSwitchChangeNameEdited = false;
 let wtSwitchSelectedBranch = null;
 let wtSwitchSelectedTarget = null;
@@ -119,19 +121,29 @@ const taskCombobox = createCombobox({
     syncSwitchChangeNameFromTask();
     if (typed) updateTargetFromTask();
 
+    // Retry fetch if tasks haven't loaded yet
+    clearTimeout(wtSwitchFetchRetryTimer);
+    if (typed && !wtSwitchAzureContext && taskCombobox.getItems().length === 0) {
+      wtSwitchFetchRetryTimer = setTimeout(() => {
+        if (wtSwitchDialogOverlay.classList.contains('visible') && wtSwitchCurrentBarePath) fetchSwitchTasksForDialog(wtSwitchCurrentBarePath);
+      }, 600);
+    }
+
     clearTimeout(wtSwitchFetchByIdTimer);
     const idMatch = typed.match(/^#?(\d+)$/);
-    if (idMatch && wtSwitchAzureContext && taskCombobox.getFiltered().length === 0) {
+    if (idMatch && wtSwitchAzureContext) {
       const numId = parseInt(idMatch[1], 10);
-      wtSwitchFetchByIdTimer = setTimeout(async () => {
-        if (wtSwitchTaskSearch.value.trim() !== typed) return;
-        const found = await fetchWorkItemById(wtSwitchAzureContext, numId);
-        if (!found) return;
-        if (wtSwitchTaskSearch.value.trim() !== typed) return;
-        const allTasks = taskCombobox.getItems();
-        if (!allTasks.some(t => t.id === found.id)) taskCombobox.setItems([found, ...allTasks]);
-        taskCombobox.render(wtSwitchTaskSearch.value);
-      }, 400);
+      if (!taskCombobox.getFiltered().some(t => t.id === numId)) {
+        wtSwitchFetchByIdTimer = setTimeout(async () => {
+          if (wtSwitchTaskSearch.value.trim() !== typed) return;
+          const found = await fetchWorkItemById(wtSwitchAzureContext, numId);
+          if (!found) return;
+          if (wtSwitchTaskSearch.value.trim() !== typed) return;
+          const allTasks = taskCombobox.getItems();
+          if (!allTasks.some(t => t.id === found.id)) taskCombobox.setItems([found, ...allTasks]);
+          taskCombobox.render(wtSwitchTaskSearch.value);
+        }, 400);
+      }
     }
   },
   onBlur: () => {
@@ -167,6 +179,27 @@ function applyWtSwitchTasks(tasks, azureContext, focusTaskSearch) {
   wtSwitchTaskSearch.placeholder = tasks.length === 0 ? 'No active tasks found' : 'Search or type new task...';
   wtSwitchTaskSearch.disabled = false;
   focusTaskSearch();
+
+  // Re-render if the user already typed something (focus event won't re-fire if input is already focused)
+  const typed = wtSwitchTaskSearch.value.trim();
+  if (typed) taskCombobox.render(wtSwitchTaskSearch.value);
+
+  // If the user already typed an ID and that exact ID isn't in results, fetch it specifically
+  const idMatch = typed.match(/^#?(\d+)$/);
+  if (idMatch) {
+    const numId = parseInt(idMatch[1], 10);
+    if (taskCombobox.getFiltered().some(t => t.id === numId)) return;
+    clearTimeout(wtSwitchFetchByIdTimer);
+    wtSwitchFetchByIdTimer = setTimeout(async () => {
+      if (wtSwitchTaskSearch.value.trim() !== typed) return;
+      const found = await fetchWorkItemById(wtSwitchAzureContext, numId);
+      if (!found) return;
+      if (wtSwitchTaskSearch.value.trim() !== typed) return;
+      const allTasks = taskCombobox.getItems();
+      if (!allTasks.some(t => t.id === found.id)) taskCombobox.setItems([found, ...allTasks]);
+      taskCombobox.render(wtSwitchTaskSearch.value);
+    }, 400);
+  }
 }
 
 async function fetchSwitchTasksForDialog(barePath) {
@@ -260,12 +293,14 @@ export async function showWorktreeSwitchDialog(tabEl, groupEl) {
   // Reset all state
   wtSwitchTabEl = tabEl;
   wtSwitchGroupEl = groupEl;
+  wtSwitchCurrentBarePath = groupEl._barePath;
   wtSwitchSelectedBranch = null;
   wtSwitchSelectedTarget = null;
   wtSwitchSelectedTask = null;
   wtSwitchAzureContext = null;
   wtSwitchChangeNameEdited = false;
   clearTimeout(wtSwitchFetchByIdTimer);
+  clearTimeout(wtSwitchFetchRetryTimer);
 
   wtSwitchDeleteBranchCheckbox.checked = getDeleteBranchPref('switchDeleteBranch');
   wtSwitchBranchSearch.value = '';
@@ -327,6 +362,7 @@ export function hideWorktreeSwitchDialog() {
   wtSwitchTaskTypeRow.style.display = 'none';
   wtSwitchTaskDesc.value = '';
   clearTimeout(wtSwitchFetchByIdTimer);
+  clearTimeout(wtSwitchFetchRetryTimer);
 }
 
 export async function confirmSwitchWorktree() {

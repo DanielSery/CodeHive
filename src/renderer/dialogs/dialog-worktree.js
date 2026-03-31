@@ -24,10 +24,12 @@ const wtConfirmBtn = document.getElementById('wt-confirm-btn');
 
 let wtCurrentGroupEl = null;
 let wtCurrentTabsEl = null;
+let wtCurrentBarePath = null;
 let wtGitUser = '';
 let wtSelectedTask = null;
 let wtAzureContext = null;
 let wtFetchByIdTimer = null;
+let wtFetchRetryTimer = null;
 let wtChangeNameEdited = false;
 let wtSelectedBranch = null;
 let wtSelectedTarget = null;
@@ -118,20 +120,30 @@ const taskCombobox = createCombobox({
     syncChangeNameFromTask();
     if (typed) updateTargetFromTask();
 
-    // Fallback: if query looks like an ID and no matches found, fetch directly
+    // Retry fetch if tasks haven't loaded yet
+    clearTimeout(wtFetchRetryTimer);
+    if (typed && !wtAzureContext && taskCombobox.getItems().length === 0) {
+      wtFetchRetryTimer = setTimeout(() => {
+        if (wtDialogOverlay.classList.contains('visible') && wtCurrentBarePath) fetchTasksForDialog(wtCurrentBarePath);
+      }, 600);
+    }
+
+    // Fallback: if query looks like an ID and that exact ID isn't in the results, fetch directly
     clearTimeout(wtFetchByIdTimer);
     const idMatch = typed.match(/^#?(\d+)$/);
-    if (idMatch && wtAzureContext && taskCombobox.getFiltered().length === 0) {
+    if (idMatch && wtAzureContext) {
       const numId = parseInt(idMatch[1], 10);
-      wtFetchByIdTimer = setTimeout(async () => {
-        if (wtTaskSearch.value.trim() !== typed) return;
-        const found = await fetchWorkItemById(wtAzureContext, numId);
-        if (!found) return;
-        if (wtTaskSearch.value.trim() !== typed) return;
-        const allTasks = taskCombobox.getItems();
-        if (!allTasks.some(t => t.id === found.id)) taskCombobox.setItems([found, ...allTasks]);
-        taskCombobox.render(wtTaskSearch.value);
-      }, 400);
+      if (!taskCombobox.getFiltered().some(t => t.id === numId)) {
+        wtFetchByIdTimer = setTimeout(async () => {
+          if (wtTaskSearch.value.trim() !== typed) return;
+          const found = await fetchWorkItemById(wtAzureContext, numId);
+          if (!found) return;
+          if (wtTaskSearch.value.trim() !== typed) return;
+          const allTasks = taskCombobox.getItems();
+          if (!allTasks.some(t => t.id === found.id)) taskCombobox.setItems([found, ...allTasks]);
+          taskCombobox.render(wtTaskSearch.value);
+        }, 400);
+      }
     }
   },
   onBlur: () => {
@@ -167,6 +179,27 @@ function applyWtTasks(tasks, azureContext, focusTaskSearch) {
   wtTaskSearch.placeholder = tasks.length === 0 ? 'No active tasks found' : 'Search or type new task...';
   wtTaskSearch.disabled = false;
   focusTaskSearch();
+
+  // Re-render if the user already typed something (focus event won't re-fire if input is already focused)
+  const typed = wtTaskSearch.value.trim();
+  if (typed) taskCombobox.render(wtTaskSearch.value);
+
+  // If the user already typed an ID and that exact ID isn't in results, fetch it specifically
+  const idMatch = typed.match(/^#?(\d+)$/);
+  if (idMatch) {
+    const numId = parseInt(idMatch[1], 10);
+    if (taskCombobox.getFiltered().some(t => t.id === numId)) return;
+    clearTimeout(wtFetchByIdTimer);
+    wtFetchByIdTimer = setTimeout(async () => {
+      if (wtTaskSearch.value.trim() !== typed) return;
+      const found = await fetchWorkItemById(wtAzureContext, numId);
+      if (!found) return;
+      if (wtTaskSearch.value.trim() !== typed) return;
+      const allTasks = taskCombobox.getItems();
+      if (!allTasks.some(t => t.id === found.id)) taskCombobox.setItems([found, ...allTasks]);
+      taskCombobox.render(wtTaskSearch.value);
+    }, 400);
+  }
 }
 
 async function fetchTasksForDialog(barePath) {
@@ -255,12 +288,14 @@ export async function showWorktreeDialog(groupEl, tabsEl) {
   // Reset all state
   wtCurrentGroupEl = groupEl;
   wtCurrentTabsEl = tabsEl;
+  wtCurrentBarePath = groupEl._barePath;
   wtSelectedBranch = null;
   wtSelectedTarget = null;
   wtSelectedTask = null;
   wtAzureContext = null;
   wtChangeNameEdited = false;
   clearTimeout(wtFetchByIdTimer);
+  clearTimeout(wtFetchRetryTimer);
 
   wtBranchSearch.value = '';
   wtBranchSearch.placeholder = 'Fetching branches...';
@@ -320,6 +355,7 @@ export function hideWorktreeDialog() {
   wtTaskTypeRow.style.display = 'none';
   wtTaskDesc.value = '';
   clearTimeout(wtFetchByIdTimer);
+  clearTimeout(wtFetchRetryTimer);
 }
 
 export async function confirmCreateWorktree() {
