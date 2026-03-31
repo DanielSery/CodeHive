@@ -177,7 +177,7 @@ export async function updatePipelineForTab(tabEl, { org, project, auth }) {
         if (installBtn) {
           installBtn.innerHTML = INSTALL_PIPELINE_RUNNING_SVG;
           installBtn.classList.add('pipeline-running');
-          installBtn.style.color = pipelineColor;
+          installBtn.style.color = 'var(--accent)';
           installBtn.style.display = 'inline-flex';
           installBtn.title = `Download build ${build.buildNumber}`;
         }

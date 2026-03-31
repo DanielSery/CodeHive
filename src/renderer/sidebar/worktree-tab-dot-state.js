@@ -71,11 +71,11 @@ export function getTabDotState(tabEl) {
     return { icon: DOT_CREATE_PR_SVG, color: 'var(--accent)' };
   }
   if (isButtonVisible(switchBtn)) {
-    if (tabEl._switchMode === 'open-task') return { icon: DOT_OPEN_TASK_SVG, color: 'var(--accent)' };
-    if (tabEl._taskResolved) return { icon: DOT_DONE_SWITCH_SVG, color: 'var(--green)' };
+    if (tabEl._switchMode === 'open-task') return { icon: DOT_OPEN_TASK_SVG, color: 'var(--text-muted)' };
+    if (tabEl._taskResolved) return { icon: DOT_DONE_SWITCH_SVG, color: 'var(--text-muted)' };
     return { icon: DOT_SWITCH_SVG, color: 'var(--text-muted)' };
   }
-  if (tabEl._taskResolved) return { icon: DOT_DONE_SWITCH_SVG, color: 'var(--green)' };
+  if (tabEl._taskResolved) return { icon: DOT_DONE_SWITCH_SVG, color: 'var(--text-muted)' };
   return { icon: DOT_SWITCH_SVG, color: 'var(--text-muted)' };
 }
 
