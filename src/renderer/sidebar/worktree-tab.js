@@ -221,15 +221,15 @@ export function createWorktreeTab(wt) {
     const confirmed = await showCompletePrDialog(d.title, d.targetRefName);
     if (!confirmed) return;
     btn.disabled = true;
-    const ok = await completePullRequest(d.org, d.project, d.auth, d.repoId, d.id, d.lastCommitId);
+    const result = await completePullRequest(d.org, d.project, d.auth, d.repoId, d.id, d.lastCommitId);
     btn.disabled = false;
-    if (ok) {
+    if (result) {
       btn.style.display = 'none';
       tabEl._canCompletePr = false;
       if (tabEl._wtTaskId) {
         tabEl._canOpenPipeline = true;
         tabEl._pipelineTargetBranch = d.targetRefName;
-        tabEl._pipelineMergeTime = new Date().toISOString();
+        tabEl._pipelineMergeTime = result.closedDate || new Date().toISOString();
         const switchBtn = tabEl.querySelector('.workspace-tab-switch');
         if (switchBtn) switchBtn.style.display = 'none';
       }

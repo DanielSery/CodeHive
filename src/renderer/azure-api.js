@@ -227,9 +227,11 @@ export async function completePullRequest(org, project, auth, repositoryId, prId
         completionOptions: { deleteSourceBranch: true }
       })
     });
-    return resp.ok;
+    if (!resp.ok) return null;
+    const data = await resp.json();
+    return { closedDate: data.closedDate || null };
   } catch {
-    return false;
+    return null;
   }
 }
 
