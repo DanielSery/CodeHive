@@ -138,7 +138,8 @@ function hasPushedCommits(wtPath, branch, sourceBranch) {
     const out = execSync(`git rev-list --count origin/${sourceBranch}..origin/${branch}`, {
       cwd: wtPath,
       encoding: 'utf8',
-      timeout: 5000
+      timeout: 5000,
+      stdio: 'pipe'
     });
     return { value: parseInt(out.trim(), 10) > 0, error: false };
   } catch {
@@ -146,7 +147,7 @@ function hasPushedCommits(wtPath, branch, sourceBranch) {
     // whether the feature branch itself exists on origin.
     try {
       assertSafeRef(branch);
-      execSync(`git rev-parse --verify origin/${branch}`, { cwd: wtPath, encoding: 'utf8', timeout: 5000 });
+      execSync(`git rev-parse --verify origin/${branch}`, { cwd: wtPath, encoding: 'utf8', timeout: 5000, stdio: 'pipe' });
       return { value: true, error: false };
     } catch (err) {
       return { value: false, error: true, message: err.message };

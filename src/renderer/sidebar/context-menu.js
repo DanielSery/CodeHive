@@ -19,7 +19,8 @@ export function showContextMenu(x, y, tabEl) {
   const hasChanges = !!tabEl._hasUncommittedChanges;
   const hasPushed = !!tabEl._hasPushedCommits;
   const canOpenPipeline = !!tabEl._canOpenPipeline && !!tabEl._pipelineUrl && tabEl._pipelineStatus !== 'succeeded';
-  const canVerify = !!tabEl._canVerify && !tabEl._pipelineVerified;
+  const installBtn = tabEl.querySelector('.workspace-tab-install-btn');
+  const canInstall = !!installBtn && installBtn.style.display !== 'none';
   // Create PR only when no uncommitted changes, pushed commits exist, no active PR or completion state
   const showCreatePr = !hasChanges && hasPushed && !hasPr && !canComplete && !canResolve;
 
@@ -29,8 +30,7 @@ export function showContextMenu(x, y, tabEl) {
   contextMenu.querySelector('[data-action="create-pr"]').style.display = showCreatePr ? '' : 'none';
   contextMenu.querySelector('[data-action="complete-pr"]').style.display = !hasChanges && canComplete ? '' : 'none';
   contextMenu.querySelector('[data-action="open-pipeline"]').style.display = !hasChanges && canOpenPipeline ? '' : 'none';
-  contextMenu.querySelector('[data-action="install"]').style.display = !hasChanges && canVerify ? '' : 'none';
-  contextMenu.querySelector('[data-action="verify"]').style.display = !hasChanges && canVerify ? '' : 'none';
+  contextMenu.querySelector('[data-action="install"]').style.display = !hasChanges && canInstall ? '' : 'none';
   contextMenu.querySelector('[data-action="resolve-task"]').style.display = !hasChanges && canResolve ? '' : 'none';
   contextMenu.querySelector('[data-action="open-task"]').style.display = hasTask ? '' : 'none';
   contextMenu.querySelector('[data-action="open-pr"]').style.display = hasPr ? '' : 'none';
@@ -134,9 +134,6 @@ contextMenu.addEventListener('click', (e) => {
     if (tabEl._pipelineUrl) window.shellAPI.openExternal(tabEl._pipelineUrl);
   } else if (action === 'install') {
     const btn = tabEl.querySelector('.workspace-tab-install-btn');
-    if (btn) btn.click();
-  } else if (action === 'verify') {
-    const btn = tabEl.querySelector('.workspace-tab-verify');
     if (btn) btn.click();
   } else if (action === 'resolve-task') {
     const btn = tabEl.querySelector('.workspace-tab-resolve-task');

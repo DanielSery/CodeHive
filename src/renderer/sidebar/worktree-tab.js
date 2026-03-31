@@ -4,7 +4,7 @@ import { getSourceBranch, getTaskId } from '../storage.js';
 import { rebuildCollapsedDots, collapsedDotsEl } from './collapsed-dots.js';
 import { showContextMenu } from './context-menu.js';
 import { _showWorktreeSwitchDialog, _showWorktreeRemoveDialog, _showCommitPushDialog, _showCreatePrDialog, _onStateChange } from './registers.js';
-import { parseAzureRemoteUrl, fetchPolicyEvaluations, fetchPrUnresolvedThreadCount, completePullRequest, fetchWorkItemById, fetchLatestBuild } from '../azure-api.js';
+import { parseAzureRemoteUrl, fetchPolicyEvaluations, fetchPrUnresolvedThreadCount, completePullRequest, fetchWorkItemById, fetchLatestBuild, fetchBuildArtifacts } from '../azure-api.js';
 import { showResolveTaskDialog } from '../dialogs/dialog-resolve.js';
 import { showInstallDialog, showVerifyDialog } from '../dialogs/dialog-verify.js';
 import { showCompletePrDialog } from '../dialogs/dialog-complete-pr.js';
@@ -24,6 +24,7 @@ const DOT_PIPELINE_SVG = '<svg width="14" height="14" viewBox="0 0 16 16" fill="
 const DOT_VERIFY_RUNNING_SVG = '<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="2" cy="7.5" r="1.5"/><line x1="3.5" y1="7.5" x2="5.5" y2="7.5"/><circle cx="7" cy="7.5" r="1.5"/><path d="M12 3v6"/><path d="M10 7.5l2 2 2-2"/><line x1="10" y1="12" x2="14" y2="12"/></svg>';
 const DOT_VERIFY_DONE_SVG = '<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M1.5 7.5l2.5 2.5 4-5"/><path d="M12 3v6"/><path d="M10 7.5l2 2 2-2"/><line x1="10" y1="12" x2="14" y2="12"/></svg>';
 const INSTALL_BTN_SVG = '<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3v7"/><path d="M5 8l3 3 3-3"/><path d="M3 13h10"/></svg>';
+const INSTALL_PIPELINE_RUNNING_SVG = '<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="2" cy="7.5" r="1.5"/><line x1="3.5" y1="7.5" x2="5.5" y2="7.5"/><circle cx="7" cy="7.5" r="1.5"/><path d="M12 3v6"/><path d="M10 7.5l2 2 2-2"/><line x1="10" y1="13" x2="14" y2="13"/></svg>';
 
 const PIPELINE_STATUS_CLASSES = ['pipeline-running', 'pipeline-failed', 'pipeline-succeeded'];
 
@@ -108,6 +109,7 @@ function getTabActionTitle(tabEl) {
   const commitPushBtn = tabEl.querySelector('.workspace-tab-commit-push');
   const completePrBtn = tabEl.querySelector('.workspace-tab-complete-pr');
   const pipelineBtn = tabEl.querySelector('.workspace-tab-open-pipeline');
+  const installBtn = tabEl.querySelector('.workspace-tab-install-btn');
   const verifyBtn = tabEl.querySelector('.workspace-tab-verify');
   const resolveTaskBtn = tabEl.querySelector('.workspace-tab-resolve-task');
   const openPrBtn = tabEl.querySelector('.workspace-tab-open-pr');
@@ -121,6 +123,10 @@ function getTabActionTitle(tabEl) {
     if (tabEl._pipelineStatus === 'running') return `Pipeline${num} running\u2026`;
     if (tabEl._pipelineStatus === 'failed') return `Pipeline${num} failed`;
     return `Open Pipeline${num}`;
+  }
+  if (isButtonVisible(installBtn) && installBtn.classList.contains('pipeline-running')) {
+    const num = tabEl._pipelineBuildNumber ? ` ${tabEl._pipelineBuildNumber}` : '';
+    return `Pipeline${num} running \u2014 Install build`;
   }
   if (isButtonVisible(verifyBtn)) return 'Verify Build';
   if (isButtonVisible(resolveTaskBtn)) return 'Resolve Azure Task';
@@ -231,6 +237,7 @@ async function updatePipelineForTab(tabEl, { org, project, auth }) {
   const installBtn = tabEl.querySelector('.workspace-tab-install-btn');
   const resolveTaskBtn = tabEl.querySelector('.workspace-tab-resolve-task');
   const switchBtn = tabEl.querySelector('.workspace-tab-switch');
+  const actionBtn = tabEl.querySelector('.workspace-tab-action');
 
   if (pipelineBtn) pipelineBtn.classList.remove(...PIPELINE_STATUS_CLASSES);
 
@@ -239,7 +246,13 @@ async function updatePipelineForTab(tabEl, { org, project, auth }) {
     tabEl._pipelineUrl = null;
     if (pipelineBtn) { pipelineBtn.style.display = 'inline-flex'; pipelineBtn.title = 'Waiting for pipeline\u2026'; }
     if (verifyBtn) verifyBtn.style.display = 'none';
-    if (installBtn) installBtn.style.display = 'none';
+    if (installBtn) {
+      installBtn.innerHTML = INSTALL_BTN_SVG;
+      installBtn.classList.remove('pipeline-running');
+      installBtn.style.color = '';
+      installBtn.style.display = 'none';
+    }
+    if (actionBtn) actionBtn.style.display = '';
     if (resolveTaskBtn) resolveTaskBtn.style.display = 'none';
     if (switchBtn) switchBtn.style.display = 'none';
     return;
@@ -264,7 +277,14 @@ async function updatePipelineForTab(tabEl, { org, project, auth }) {
         }
       } else {
         if (pipelineBtn) pipelineBtn.style.display = 'none';
-        if (installBtn) { installBtn.style.display = 'inline-flex'; installBtn.title = `Install build ${build.buildNumber}`; }
+        if (installBtn) {
+          installBtn.innerHTML = INSTALL_BTN_SVG;
+          installBtn.classList.remove('pipeline-running');
+          installBtn.style.color = '';
+          installBtn.style.display = 'inline-flex';
+          installBtn.title = `Install build ${build.buildNumber}`;
+        }
+        if (actionBtn) actionBtn.style.display = '';
         if (verifyBtn) { verifyBtn.style.display = 'inline-flex'; verifyBtn.title = `Verify build ${build.buildNumber}`; }
         if (resolveTaskBtn) resolveTaskBtn.style.display = 'none';
       }
@@ -277,26 +297,51 @@ async function updatePipelineForTab(tabEl, { org, project, auth }) {
         pipelineBtn.title = `Pipeline ${build.buildNumber} failed`;
       }
       if (verifyBtn) verifyBtn.style.display = 'none';
-      if (installBtn) installBtn.style.display = 'none';
+      if (installBtn) {
+        installBtn.innerHTML = INSTALL_BTN_SVG;
+        installBtn.classList.remove('pipeline-running');
+        installBtn.style.color = '';
+        installBtn.style.display = 'none';
+      }
+      if (actionBtn) actionBtn.style.display = '';
       if (resolveTaskBtn) resolveTaskBtn.style.display = 'none';
     }
   } else {
     tabEl._pipelineStatus = 'running';
-    if (pipelineBtn) {
-      pipelineBtn.classList.add('pipeline-running');
-      pipelineBtn.style.display = 'inline-flex';
-      pipelineBtn.title = `Pipeline ${build.buildNumber} running\u2026`;
-    }
     if (resolveTaskBtn) resolveTaskBtn.style.display = 'none';
     if (!tabEl._pipelineVerified) {
       tabEl._canVerify = true;
-      if (pipelineBtn) pipelineBtn.style.display = 'none';
-      if (installBtn) { installBtn.style.display = 'inline-flex'; installBtn.title = `Install build ${build.buildNumber}`; }
       if (verifyBtn) { verifyBtn.style.display = 'inline-flex'; verifyBtn.title = `Verify build ${build.buildNumber}`; }
+      const artifacts = await fetchBuildArtifacts(org, project, auth, build.id, build.definitionId);
+      if (artifacts.some(a => a.name === 'Setups')) {
+        if (pipelineBtn) pipelineBtn.style.display = 'none';
+        if (installBtn) {
+          installBtn.innerHTML = INSTALL_PIPELINE_RUNNING_SVG;
+          installBtn.classList.add('pipeline-running');
+          installBtn.style.color = 'var(--yellow)';
+          installBtn.style.display = 'inline-flex';
+          installBtn.title = `Pipeline ${build.buildNumber} running — Install build`;
+        }
+        if (actionBtn) actionBtn.style.display = 'none';
+      } else {
+        if (pipelineBtn) {
+          pipelineBtn.classList.add('pipeline-running');
+          pipelineBtn.style.display = 'inline-flex';
+          pipelineBtn.title = `Pipeline ${build.buildNumber} running\u2026`;
+        }
+        if (installBtn) installBtn.style.display = 'none';
+        if (actionBtn) actionBtn.style.display = '';
+      }
     } else {
       tabEl._canVerify = false;
       if (verifyBtn) verifyBtn.style.display = 'none';
       if (installBtn) installBtn.style.display = 'none';
+      if (actionBtn) actionBtn.style.display = '';
+      if (pipelineBtn) {
+        pipelineBtn.classList.add('pipeline-running');
+        pipelineBtn.style.display = 'inline-flex';
+        pipelineBtn.title = `Pipeline ${build.buildNumber} running\u2026`;
+      }
     }
   }
 
@@ -474,6 +519,21 @@ async function _refreshTabStatusInner(tabEl) {
   }
 
   applyActionButtonVisibility(tabEl, { statusClass, switchBtn });
+
+  // Active PR is being shown — clear any stale pipeline/install/verify buttons
+  const pipelineBtnActive = tabEl.querySelector('.workspace-tab-open-pipeline');
+  const verifyBtnActive = tabEl.querySelector('.workspace-tab-verify');
+  const installBtnActive = tabEl.querySelector('.workspace-tab-install-btn');
+  if (pipelineBtnActive) { pipelineBtnActive.style.display = 'none'; pipelineBtnActive.classList.remove(...PIPELINE_STATUS_CLASSES); }
+  if (verifyBtnActive) verifyBtnActive.style.display = 'none';
+  if (installBtnActive) {
+    installBtnActive.innerHTML = INSTALL_BTN_SVG;
+    installBtnActive.classList.remove('pipeline-running');
+    installBtnActive.style.color = '';
+    installBtnActive.style.display = 'none';
+  }
+  const actionBtnActive = tabEl.querySelector('.workspace-tab-action');
+  if (actionBtnActive) actionBtnActive.style.display = '';
 }
 
 export function showTabCloseButton(tabEl) {
@@ -506,7 +566,14 @@ export function showTabRemoveButton(tabEl) {
   if (completePrBtn) completePrBtn.style.display = 'none';
   if (pipelineBtn) pipelineBtn.style.display = 'none';
   if (verifyBtn) verifyBtn.style.display = 'none';
-  if (installBtn) installBtn.style.display = 'none';
+  if (installBtn) {
+    installBtn.innerHTML = INSTALL_BTN_SVG;
+    installBtn.classList.remove('pipeline-running');
+    installBtn.style.color = '';
+    installBtn.style.display = 'none';
+  }
+  const actionBtnReset = tabEl.querySelector('.workspace-tab-action');
+  if (actionBtnReset) actionBtnReset.style.display = '';
   if (resolveTaskBtn) resolveTaskBtn.style.display = 'none';
   if (closeBtn) closeBtn.style.display = 'none';
   tabEl._hasUncommittedChanges = false;
