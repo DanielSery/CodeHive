@@ -74,19 +74,8 @@ function syncChangeNameFromTask() {
   wtChangeName.value = getTaskName();
 }
 
-function getDirName() {
-  const target = wtSelectedTarget || wtTargetSearch.value.trim();
-  if (!target) return '';
-  const parts = target.split('/');
-  const last = parts[parts.length - 1];
-  return last.substring(0, 15);
-}
-
 function updateWtPreview() {
-  const target = wtSelectedTarget || wtTargetSearch.value.trim();
-  if (!target || !wtSelectedBranch) { wtPreview.textContent = ''; return; }
-  const dir = getDirName();
-  wtPreview.textContent = `Dir: ${dir}`;
+  wtPreview.textContent = '';
   updateConfirmState();
 }
 
@@ -354,7 +343,6 @@ export async function confirmCreateWorktree() {
   }
 
   const branchName = targetBranch;
-  const dirName = getDirName();
   const groupEl = wtCurrentGroupEl;
   const tabsEl = wtCurrentTabsEl;
   const taskId = wtSelectedTask ? wtSelectedTask.id : null;
@@ -394,7 +382,7 @@ export async function confirmCreateWorktree() {
   });
 
   try {
-    await window.worktreeAPI.start({ barePath: groupEl._barePath, repoDir: groupEl._repoDir, branchName, dirName, sourceBranch: wtSelectedBranch });
+    await window.worktreeAPI.start({ barePath: groupEl._barePath, repoDir: groupEl._repoDir, branchName, sourceBranch: wtSelectedBranch });
     window.worktreeAPI.ready();
   } catch (err) {
     xterm.writeln(`\x1b[31m${err.message || err}\x1b[0m`);

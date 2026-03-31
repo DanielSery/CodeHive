@@ -39,10 +39,24 @@ function assertSafeRef(ref) {
   return ref;
 }
 
-function buildWorktreeCmd(barePath, { repoDir, dirName, branchName, sourceBranch }) {
+function nextWorktreeId(repoDir) {
+  const existing = new Set();
+  try {
+    for (const entry of fs.readdirSync(repoDir)) {
+      if (/^\d{3}$/.test(entry)) existing.add(parseInt(entry, 10));
+    }
+  } catch {}
+  for (let i = 1; i <= 999; i++) {
+    if (!existing.has(i)) return String(i).padStart(3, '0');
+  }
+  return String(Date.now()).slice(-3);
+}
+
+function buildWorktreeCmd(barePath, { repoDir, branchName, sourceBranch }) {
   assertSafeRef(branchName);
   assertSafeRef(sourceBranch);
 
+  const dirName = nextWorktreeId(repoDir);
   const wtPath = path.join(repoDir, dirName).replace(/\\/g, '/');
   const startPoint = `refs/remotes/origin/${sourceBranch}`;
 
@@ -56,7 +70,7 @@ function buildWorktreeCmd(barePath, { repoDir, dirName, branchName, sourceBranch
     ? `git worktree add ${shellQuote(wtPath)} ${shellQuote(branchName)}`
     : `git worktree add ${shellQuote(wtPath)} -b ${shellQuote(branchName)} ${shellQuote(startPoint)}`;
 
-  return { cmd, cwd: barePath, wtPath };
+  return { cmd, cwd: barePath, wtPath, dirName };
 }
 
 function buildCloneCmd({ url, reposDir }) {

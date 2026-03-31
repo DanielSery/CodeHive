@@ -4,8 +4,8 @@ const os = require('os');
 const { spawnProc } = require('./pty-spawn.js');
 const { buildWorktreeCmd, buildCloneCmd, buildDeleteScript, buildWorktreeRemoveScript, buildWorktreeSwitchScript, buildCommitPushScript, buildPrCreateScript } = require('./pty-scripts.js');
 
-function createWorktreePty(mainWindow, { barePath, repoDir, branchName, dirName, sourceBranch }) {
-  const { cmd, cwd, wtPath } = buildWorktreeCmd(barePath, { repoDir, dirName, branchName, sourceBranch });
+function createWorktreePty(mainWindow, { barePath, repoDir, branchName, sourceBranch }) {
+  const { cmd, cwd, wtPath, dirName } = buildWorktreeCmd(barePath, { repoDir, branchName, sourceBranch });
   const proc = spawnProc(cmd, cwd);
 
   proc.onData((data) => {

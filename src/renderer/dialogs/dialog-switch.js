@@ -75,19 +75,8 @@ function syncSwitchChangeNameFromTask() {
   wtSwitchChangeName.value = getTaskName();
 }
 
-function getDirName() {
-  const target = wtSwitchSelectedTarget || wtSwitchTargetSearch.value.trim();
-  if (!target) return '';
-  const parts = target.split('/');
-  const last = parts[parts.length - 1];
-  return last.substring(0, 15);
-}
-
 function updateWtSwitchPreview() {
-  const target = wtSwitchSelectedTarget || wtSwitchTargetSearch.value.trim();
-  if (!target || !wtSwitchSelectedBranch) { wtSwitchPreview.textContent = ''; return; }
-  const dir = getDirName();
-  wtSwitchPreview.textContent = `Dir: ${dir}`;
+  wtSwitchPreview.textContent = '';
   updateConfirmState();
 }
 
