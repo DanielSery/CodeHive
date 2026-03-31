@@ -18,7 +18,6 @@ const titlebarOpenPrBtn = document.getElementById('btn-titlebar-open-pr');
 const titlebarCompletePrBtn = document.getElementById('btn-titlebar-complete-pr');
 const titlebarResolveTaskBtn = document.getElementById('btn-titlebar-resolve-task');
 const titlebarOpenPipelineBtn = document.getElementById('btn-titlebar-open-pipeline');
-const titlebarVerifyBtn = document.getElementById('btn-titlebar-verify');
 const titlebarOpenTaskBtn = document.getElementById('btn-titlebar-open-task');
 const titlebarGitAppBtn = document.getElementById('btn-titlebar-git-app');
 const titlebarSwitchBtn = document.getElementById('btn-titlebar-switch');
@@ -109,7 +108,7 @@ const serverReady = new Promise((resolve) => {
   });
 });
 
-const allTitlebarActionBtns = [titlebarCommitBtn, titlebarCreatePrBtn, titlebarOpenPrBtn, titlebarCompletePrBtn, titlebarResolveTaskBtn, titlebarOpenPipelineBtn, titlebarVerifyBtn, titlebarOpenTaskBtn, titlebarGitAppBtn, titlebarSwitchBtn];
+const allTitlebarActionBtns = [titlebarCommitBtn, titlebarCreatePrBtn, titlebarOpenPrBtn, titlebarCompletePrBtn, titlebarResolveTaskBtn, titlebarOpenPipelineBtn, titlebarOpenTaskBtn, titlebarGitAppBtn, titlebarSwitchBtn];
 
 function updateTitlebarActions(hasActive) {
   if (!hasActive) {
@@ -136,19 +135,18 @@ function syncTitlebarToTab() {
   const hasPushed = !!tabEl._hasPushedCommits;
   const showCreatePr = !hasChanges && hasPushed && !hasPr && !canComplete && !canResolve;
 
-  const canOpenPipeline = !!tabEl._canOpenPipeline && tabEl._pipelineStatus === 'running';
+  const canOpenPipeline = !!tabEl._canOpenPipeline && !!tabEl._pipelineUrl && tabEl._pipelineStatus !== 'succeeded';
 
-  titlebarCommitBtn.classList.toggle('visible', isOpen && hasChanges);
+  titlebarCommitBtn.classList.toggle('visible', hasChanges);
   titlebarCreatePrBtn.classList.toggle('visible', showCreatePr);
   titlebarCompletePrBtn.classList.toggle('visible', !hasChanges && canComplete);
   titlebarResolveTaskBtn.classList.toggle('visible', !hasChanges && canResolve);
   titlebarOpenPipelineBtn.classList.toggle('visible', !hasChanges && canOpenPipeline);
   if (canOpenPipeline) {
-    titlebarOpenPipelineBtn.style.color = 'var(--yellow)';
+    titlebarOpenPipelineBtn.style.color = tabEl._pipelineStatus === 'failed' ? 'var(--red)' : 'var(--yellow)';
   } else {
     titlebarOpenPipelineBtn.style.color = '';
   }
-  titlebarVerifyBtn.classList.toggle('visible', false);
   titlebarOpenTaskBtn.classList.toggle('visible', hasTask);
   titlebarGitAppBtn.classList.toggle('visible', true);
   titlebarSwitchBtn.classList.toggle('visible', true);

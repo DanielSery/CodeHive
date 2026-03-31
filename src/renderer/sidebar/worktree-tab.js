@@ -32,7 +32,6 @@ export function showTabRemoveButton(tabEl) {
   const openPrBtn = tabEl.querySelector('.workspace-tab-open-pr');
   const completePrBtn = tabEl.querySelector('.workspace-tab-complete-pr');
   const pipelineBtn = tabEl.querySelector('.workspace-tab-open-pipeline');
-  const verifyBtn = tabEl.querySelector('.workspace-tab-verify');
   const installBtn = tabEl.querySelector('.workspace-tab-install-btn');
   const resolveTaskBtn = tabEl.querySelector('.workspace-tab-resolve-task');
   const closeBtn = tabEl.querySelector('.workspace-tab-close');
@@ -43,7 +42,6 @@ export function showTabRemoveButton(tabEl) {
   if (openPrBtn) openPrBtn.style.display = 'none';
   if (completePrBtn) completePrBtn.style.display = 'none';
   if (pipelineBtn) pipelineBtn.style.display = 'none';
-  if (verifyBtn) verifyBtn.style.display = 'none';
   if (installBtn) {
     installBtn.innerHTML = INSTALL_BTN_SVG;
     installBtn.classList.remove('pipeline-running');
@@ -91,7 +89,6 @@ export function createWorktreeTab(wt) {
     <button class="workspace-tab-commit-push" style="display:none"></button>
     <button class="workspace-tab-complete-pr" style="display:none"></button>
     <button class="workspace-tab-open-pipeline" style="display:none"></button>
-    <button class="workspace-tab-verify" style="display:none"></button>
     <button class="workspace-tab-resolve-task" style="display:none"></button>
     <button class="workspace-tab-open-pr" style="display:none"></button>
     <button class="workspace-tab-create-pr" style="display:none"></button>
@@ -135,7 +132,6 @@ export function createWorktreeTab(wt) {
       '.workspace-tab-complete-pr',
       '.workspace-tab-resolve-task',
       '.workspace-tab-open-pipeline',
-      '.workspace-tab-verify',
       '.workspace-tab-create-pr',
       '.workspace-tab-open-pr',
       '.workspace-tab-switch'
@@ -163,7 +159,6 @@ export function createWorktreeTab(wt) {
       '.workspace-tab-complete-pr',
       '.workspace-tab-resolve-task',
       '.workspace-tab-open-pipeline',
-      '.workspace-tab-verify',
       '.workspace-tab-open-pr',
       '.workspace-tab-create-pr',
       '.workspace-tab-switch'
@@ -276,8 +271,6 @@ export function createWorktreeTab(wt) {
     }
     refreshTabStatus(tabEl);
   });
-
-  tabEl.querySelector('.workspace-tab-verify').addEventListener('click', (e) => { e.stopPropagation(); });
 
   tabEl.addEventListener('click', (e) => {
     if (e.target.closest('.workspace-tab-close') || e.target.closest('.workspace-tab-switch') || e.target.closest('.workspace-tab-remove') || e.target.closest('.workspace-tab-commit-push') || e.target.closest('.workspace-tab-create-pr') || e.target.closest('.workspace-tab-open-pr') || e.target.closest('.workspace-tab-complete-pr') || e.target.closest('.workspace-tab-open-pipeline') || e.target.closest('.workspace-tab-verify') || e.target.closest('.workspace-tab-resolve-task') || e.target.closest('.workspace-tab-action') || e.target.closest('.workspace-tab-install-btn')) return;

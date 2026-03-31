@@ -147,13 +147,6 @@ document.getElementById('btn-titlebar-open-pipeline').addEventListener('click', 
   const ws = getActive();
   if (ws && ws.tabEl._pipelineUrl) window.shellAPI.openExternal(ws.tabEl._pipelineUrl);
 });
-document.getElementById('btn-titlebar-verify').addEventListener('click', () => {
-  const ws = getActive();
-  if (ws) {
-    const btn = ws.tabEl.querySelector('.workspace-tab-verify');
-    if (btn) btn.click();
-  }
-});
 document.getElementById('btn-titlebar-open-task').addEventListener('click', () => {
   const ws = getActive();
   if (ws && ws.tabEl._taskUrl) window.shellAPI.openExternal(ws.tabEl._taskUrl);

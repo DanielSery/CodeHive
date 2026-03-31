@@ -27,7 +27,7 @@ export function showContextMenu(x, y, tabEl) {
 
   contextMenu.querySelector('[data-action="open-workspace"]').style.display = isOpen ? 'none' : '';
   contextMenu.querySelector('[data-action="switch"]').style.display = '';
-  contextMenu.querySelector('[data-action="commit-push"]').style.display = isOpen && hasChanges ? '' : 'none';
+  contextMenu.querySelector('[data-action="commit-push"]').style.display = hasChanges ? '' : 'none';
   contextMenu.querySelector('[data-action="create-pr"]').style.display = showCreatePr ? '' : 'none';
   contextMenu.querySelector('[data-action="complete-pr"]').style.display = !hasChanges && canComplete ? '' : 'none';
   contextMenu.querySelector('[data-action="open-pipeline"]').style.display = !hasChanges && canOpenPipeline ? '' : 'none';

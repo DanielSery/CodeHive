@@ -274,10 +274,8 @@ async function _refreshTabStatusInner(tabEl) {
           await updatePipelineForTab(tabEl, { org, project, auth });
         } else {
           const pipelineBtn = tabEl.querySelector('.workspace-tab-open-pipeline');
-          const verifyBtn = tabEl.querySelector('.workspace-tab-verify');
           const installBtn = tabEl.querySelector('.workspace-tab-install-btn');
           if (pipelineBtn) pipelineBtn.style.display = 'none';
-          if (verifyBtn) verifyBtn.style.display = 'none';
           if (installBtn) installBtn.style.display = 'none';
         }
         return;
@@ -367,12 +365,10 @@ async function _refreshTabStatusInner(tabEl) {
 
   applyActionButtonVisibility(tabEl, { statusClass, switchBtn });
 
-  // Active PR is being shown — clear any stale pipeline/install/verify buttons
+  // Active PR is being shown — clear any stale pipeline/install buttons
   const pipelineBtnActive = tabEl.querySelector('.workspace-tab-open-pipeline');
-  const verifyBtnActive = tabEl.querySelector('.workspace-tab-verify');
   const installBtnActive = tabEl.querySelector('.workspace-tab-install-btn');
   if (pipelineBtnActive) { pipelineBtnActive.style.display = 'none'; pipelineBtnActive.classList.remove(...PIPELINE_STATUS_CLASSES); }
-  if (verifyBtnActive) verifyBtnActive.style.display = 'none';
   if (installBtnActive) {
     installBtnActive.innerHTML = INSTALL_BTN_SVG;
     installBtnActive.classList.remove('pipeline-running');
