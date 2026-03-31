@@ -26,7 +26,8 @@
       "target": [
         "dir"
       ],
-      "icon": "CodeHive.ico"
+      "icon": "CodeHive.ico",
+      "electronLanguages": ["en-US"]
     }
   },
   "dependencies": {
