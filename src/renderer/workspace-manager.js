@@ -1,6 +1,7 @@
 import { getWorkspace, getActive, getActiveId, setActiveId, nextId, addWorkspace, removeWorkspace, getAllIds } from './state.js';
 import { setTabStatus, startClaudePoll, stopClaudePoll } from './claude-poll.js';
 import { deactivateTerminalTab } from './terminal-panel.js';
+import { getWtState } from './worktree-state.js';
 
 let _showTabCloseButton = null;
 let _showTabRemoveButton = null;
@@ -125,17 +126,17 @@ function syncTitlebarToTab() {
     return;
   }
   const tabEl = ws.tabEl;
+  const wtState = getWtState(tabEl._wtPath);
 
-  const isOpen = tabEl._workspaceId !== null;
   const hasTask = !!tabEl._wtTaskId;
-  const hasPr = !!tabEl._existingPrUrl;
-  const canComplete = !!tabEl._canCompletePr;
-  const canResolve = !!tabEl._canResolveTask;
-  const hasChanges = !!tabEl._hasUncommittedChanges;
-  const hasPushed = !!tabEl._hasPushedCommits;
+  const hasPr = !!wtState?.existingPrUrl;
+  const canComplete = !!wtState?.canCompletePr;
+  const canResolve = !!wtState?.canResolveTask;
+  const hasChanges = !!wtState?.hasUncommittedChanges;
+  const hasPushed = !!wtState?.hasPushedCommits;
   const showCreatePr = !hasChanges && hasPushed && !hasPr && !canComplete && !canResolve;
 
-  const canOpenPipeline = !!tabEl._canOpenPipeline && !!tabEl._pipelineUrl && tabEl._pipelineStatus !== 'succeeded';
+  const canOpenPipeline = !!wtState?.canOpenPipeline && !!wtState?.pipelineUrl && wtState?.pipelineStatus !== 'succeeded';
 
   titlebarCommitBtn.classList.toggle('visible', hasChanges);
   titlebarCreatePrBtn.classList.toggle('visible', showCreatePr);
@@ -143,7 +144,7 @@ function syncTitlebarToTab() {
   titlebarResolveTaskBtn.classList.toggle('visible', !hasChanges && canResolve);
   titlebarOpenPipelineBtn.classList.toggle('visible', !hasChanges && canOpenPipeline);
   if (canOpenPipeline) {
-    titlebarOpenPipelineBtn.style.color = tabEl._pipelineStatus === 'failed' ? 'var(--red)' : 'var(--yellow)';
+    titlebarOpenPipelineBtn.style.color = wtState?.pipelineStatus === 'failed' ? 'var(--red)' : 'var(--yellow)';
   } else {
     titlebarOpenPipelineBtn.style.color = '';
   }
@@ -334,7 +335,8 @@ function closeWorkspace(id) {
   ws.tabEl.classList.remove('active');
   if (ws.tabEl._dotEl) ws.tabEl._dotEl.classList.remove('active');
   ws.tabEl._workspaceId = null;
-  ws.tabEl._wasWorking = false;
+  const wtState = getWtState(ws.tabEl._wtPath);
+  if (wtState) wtState.wasWorking = false;
   setTabStatus(ws.tabEl, 'idle');
   if (_showTabRemoveButton) _showTabRemoveButton(ws.tabEl);
   removeWorkspace(id);

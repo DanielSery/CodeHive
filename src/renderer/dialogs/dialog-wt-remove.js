@@ -1,6 +1,7 @@
-import { createTerminal, showTerminal, showCloseButton, setTitle, closeTerminal } from '../terminal-panel.js';
+import { terminal } from '../terminal-service.js';
 import { toast } from '../toast.js';
 import { saveDeleteBranchPref, getDeleteBranchPref, clearWorktreeStorage } from '../storage.js';
+import { removeWtState } from '../worktree-state.js';
 
 const wtRemoveDialogOverlay = document.getElementById('wt-remove-dialog-overlay');
 const wtRemoveDialogPath = document.getElementById('wt-remove-dialog-path');
@@ -33,30 +34,29 @@ async function confirmRemoveWorktree() {
   saveDeleteBranchPref('removeDeleteBranch', deleteBranch);
   hideWorktreeRemoveDialog();
 
-  showTerminal(`Removing worktree: ${branchLabel}`);
-  const xterm = createTerminal();
+  terminal.show(`Removing worktree: ${branchLabel}`);
 
-
-  window.worktreeRemoveAPI.removeListeners();
-  window.worktreeRemoveAPI.onData((data) => {
-    xterm.write(data);
+  const disposeData = window.worktreeRemoveAPI.onData((data) => {
+    terminal.write(data);
   });
 
   window.worktreeRemoveAPI.onExit(({ exitCode }) => {
+    disposeData();
     if (exitCode === 0) {
-      xterm.writeln('');
-      xterm.writeln('\x1b[32mWorktree removed successfully!\x1b[0m');
-      setTitle('Worktree removed');
+      terminal.writeln('');
+      terminal.writeln('\x1b[32mWorktree removed successfully!\x1b[0m');
+      terminal.setTitle('Worktree removed');
       clearWorktreeStorage(wtPath);
+      removeWtState(wtPath);
       if (tabEl._dotEl) tabEl._dotEl.remove();
       tabEl.remove();
-      setTimeout(() => closeTerminal(), 1200);
+      setTimeout(() => terminal.close(), 1200);
     } else {
-      xterm.writeln('');
-      xterm.writeln(`\x1b[31mWorktree removal failed with exit code ${exitCode}\x1b[0m`);
-      setTitle(`Worktree removal failed`);
+      terminal.writeln('');
+      terminal.writeln(`\x1b[31mWorktree removal failed with exit code ${exitCode}\x1b[0m`);
+      terminal.setTitle('Worktree removal failed');
       toast.error('Worktree removal failed — see terminal');
-      showCloseButton();
+      terminal.showCloseButton();
     }
   });
 
@@ -69,10 +69,11 @@ async function confirmRemoveWorktree() {
     });
     window.worktreeRemoveAPI.ready();
   } catch (err) {
-    xterm.writeln(`\x1b[31m${err.message || err}\x1b[0m`);
-    setTitle(`Worktree removal failed`);
+    disposeData();
+    terminal.writeln(`\x1b[31m${err.message || err}\x1b[0m`);
+    terminal.setTitle('Worktree removal failed');
     toast.error('Worktree removal failed — see terminal');
-    showCloseButton();
+    terminal.showCloseButton();
   }
 }
 

@@ -1,5 +1,5 @@
 import { openWorktree } from '../workspace-manager.js';
-import { createTerminal, showTerminal, showCloseButton, setTitle, closeTerminal } from '../terminal-panel.js';
+import { terminal } from '../terminal-service.js';
 import { getCachedBranchesFromState, saveBranchCache, saveSourceBranch, saveTaskId } from '../storage.js';
 import { fetchAzureTasks, createAzureWorkItem, buildAzureTaskUrl, fetchWorkItemById, updateWorkItemState } from '../azure-api.js';
 import { inferWorkItemType, sanitizePathPart, userToPrefix, nameToBranch, loadStoredPat, getCachedTasks, saveTaskCache, stripHtml } from './utils.js';
@@ -33,6 +33,7 @@ let wtFetchRetryTimer = null;
 let wtChangeNameEdited = false;
 let wtSelectedBranch = null;
 let wtSelectedTarget = null;
+let _wtDialogGen = 0; // Incremented on each showWorktreeDialog call to cancel stale async fetches
 
 // Injected by index.js
 let _createWorktreeTab = null;
@@ -124,7 +125,7 @@ const taskCombobox = createCombobox({
     clearTimeout(wtFetchRetryTimer);
     if (typed && !wtAzureContext && taskCombobox.getItems().length === 0) {
       wtFetchRetryTimer = setTimeout(() => {
-        if (wtDialogOverlay.classList.contains('visible') && wtCurrentBarePath) fetchTasksForDialog(wtCurrentBarePath);
+        if (wtDialogOverlay.classList.contains('visible') && wtCurrentBarePath) fetchTasksForDialog(wtCurrentBarePath, _wtDialogGen);
       }, 600);
     }
 
@@ -134,10 +135,12 @@ const taskCombobox = createCombobox({
     if (idMatch && wtAzureContext) {
       const numId = parseInt(idMatch[1], 10);
       if (!taskCombobox.getFiltered().some(t => t.id === numId)) {
-        wtFetchByIdTimer = setTimeout(async () => {
+        const capturedGen = _wtDialogGen;
+      wtFetchByIdTimer = setTimeout(async () => {
+          if (_wtDialogGen !== capturedGen) return;
           if (wtTaskSearch.value.trim() !== typed) return;
           const found = await fetchWorkItemById(wtAzureContext, numId);
-          if (!found) return;
+          if (_wtDialogGen !== capturedGen) return;
           if (wtTaskSearch.value.trim() !== typed) return;
           const allTasks = taskCombobox.getItems();
           if (!allTasks.some(t => t.id === found.id)) taskCombobox.setItems([found, ...allTasks]);
@@ -190,10 +193,12 @@ function applyWtTasks(tasks, azureContext, focusTaskSearch) {
     const numId = parseInt(idMatch[1], 10);
     if (taskCombobox.getFiltered().some(t => t.id === numId)) return;
     clearTimeout(wtFetchByIdTimer);
+    const capturedGen2 = _wtDialogGen;
     wtFetchByIdTimer = setTimeout(async () => {
+      if (_wtDialogGen !== capturedGen2) return;
       if (wtTaskSearch.value.trim() !== typed) return;
       const found = await fetchWorkItemById(wtAzureContext, numId);
-      if (!found) return;
+      if (_wtDialogGen !== capturedGen2) return;
       if (wtTaskSearch.value.trim() !== typed) return;
       const allTasks = taskCombobox.getItems();
       if (!allTasks.some(t => t.id === found.id)) taskCombobox.setItems([found, ...allTasks]);
@@ -202,14 +207,16 @@ function applyWtTasks(tasks, azureContext, focusTaskSearch) {
   }
 }
 
-async function fetchTasksForDialog(barePath) {
+async function fetchTasksForDialog(barePath, gen) {
   const focusTaskSearch = () => { if (wtDialogOverlay.classList.contains('visible')) wtTaskSearch.focus(); };
   const pat = await loadStoredPat();
+  if (_wtDialogGen !== gen) return;
 
   const cached = getCachedTasks(barePath);
   if (cached) applyWtTasks(cached.tasks, cached.azureContext, focusTaskSearch);
 
   const result = await fetchAzureTasks(barePath, pat);
+  if (_wtDialogGen !== gen) return;
   if (result.error === 'no-pat') { if (!cached) { wtTaskSearch.placeholder = 'Configure PAT to load tasks'; wtTaskSearch.disabled = false; focusTaskSearch(); } return; }
   if (result.error === 'not-azure') { if (!cached) { wtTaskSearch.placeholder = 'Not an Azure DevOps repository'; wtTaskSearch.disabled = false; wtChangeName.focus(); } return; }
   if (result.error) { if (!cached) { wtTaskSearch.placeholder = 'Could not load tasks'; wtTaskSearch.disabled = false; focusTaskSearch(); } return; }
@@ -285,6 +292,7 @@ function applyBranches(branches) {
 // --- Dialog show/hide/confirm ---
 
 export async function showWorktreeDialog(groupEl, tabsEl) {
+  const gen = ++_wtDialogGen;
   // Reset all state
   wtCurrentGroupEl = groupEl;
   wtCurrentTabsEl = tabsEl;
@@ -334,16 +342,15 @@ export async function showWorktreeDialog(groupEl, tabsEl) {
   if (cached.length > 0 && stateCache.length === 0) applyBranches(cached);
 
   window.reposAPI.fetchBranches(groupEl._barePath).then((fetchResult) => {
+    if (_wtDialogGen !== gen) return;
     const fetched = fetchResult.value;
-    if (!wtDialogOverlay.classList.contains('visible')) return;
-    if (wtCurrentGroupEl !== groupEl) return;
     applyBranches(fetched);
     saveBranchCache(repoName, fetched);
     if (wtBranchList.classList.contains('open')) sourceBranchCombobox.render(wtBranchSearch.value);
     if (wtTargetList.classList.contains('open')) targetBranchCombobox.render(wtTargetSearch.value);
   });
 
-  fetchTasksForDialog(groupEl._barePath);
+  fetchTasksForDialog(groupEl._barePath, gen);
 }
 
 export function hideWorktreeDialog() {
@@ -385,18 +392,17 @@ export async function confirmCreateWorktree() {
 
   hideWorktreeDialog();
 
-  showTerminal(`Creating worktree: ${branchName}`);
-  const xterm = createTerminal();
+  terminal.show(`Creating worktree: ${branchName}`);
 
-  window.worktreeAPI.removeListeners();
-  window.worktreeAPI.onData((data) => { xterm.write(data); });
+  const disposeData = window.worktreeAPI.onData((data) => { terminal.write(data); });
 
   const sourceBranch = wtSelectedBranch;
   window.worktreeAPI.onExit(({ exitCode, wtPath, branchName: branch, dirName: dir }) => {
+    disposeData();
     if (exitCode === 0) {
-      xterm.writeln('');
-      xterm.writeln('\x1b[32mWorktree created successfully!\x1b[0m');
-      setTitle('Worktree created');
+      terminal.writeln('');
+      terminal.writeln('\x1b[32mWorktree created successfully!\x1b[0m');
+      terminal.setTitle('Worktree created');
       const wt = { path: wtPath, branch, name: dir, sourceBranch, taskId };
       saveSourceBranch(wtPath, sourceBranch);
       if (taskId) saveTaskId(wtPath, taskId);
@@ -405,15 +411,15 @@ export async function confirmCreateWorktree() {
       tabsEl.insertBefore(tabEl, addBtn);
       if (_rebuildCollapsedDots) _rebuildCollapsedDots();
       setTimeout(async () => {
-        closeTerminal();
+        terminal.close();
         try { await openWorktree(tabEl, wt); } catch (err) { toast.error(`Worktree created but failed to open: ${err.message || err}`); }
       }, 800);
     } else {
-      xterm.writeln('');
-      xterm.writeln(`\x1b[31mWorktree creation failed with exit code ${exitCode}\x1b[0m`);
-      setTitle('Worktree creation failed');
+      terminal.writeln('');
+      terminal.writeln(`\x1b[31mWorktree creation failed with exit code ${exitCode}\x1b[0m`);
+      terminal.setTitle('Worktree creation failed');
       toast.error('Worktree creation failed — see terminal');
-      showCloseButton();
+      terminal.showCloseButton();
     }
   });
 
@@ -421,10 +427,11 @@ export async function confirmCreateWorktree() {
     await window.worktreeAPI.start({ barePath: groupEl._barePath, repoDir: groupEl._repoDir, branchName, sourceBranch: wtSelectedBranch });
     window.worktreeAPI.ready();
   } catch (err) {
-    xterm.writeln(`\x1b[31m${err.message || err}\x1b[0m`);
-    setTitle('Worktree creation failed');
+    disposeData();
+    terminal.writeln(`\x1b[31m${err.message || err}\x1b[0m`);
+    terminal.setTitle('Worktree creation failed');
     toast.error('Worktree creation failed — see terminal');
-    showCloseButton();
+    terminal.showCloseButton();
   }
 }
 

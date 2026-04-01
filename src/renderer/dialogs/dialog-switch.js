@@ -1,6 +1,7 @@
 import { openWorktree } from '../workspace-manager.js';
-import { createTerminal, showTerminal, showCloseButton, setTitle, closeTerminal } from '../terminal-panel.js';
+import { terminal } from '../terminal-service.js';
 import { getCachedBranchesFromState, saveBranchCache, saveSourceBranch, saveTaskId, saveDeleteBranchPref, getDeleteBranchPref, clearWorktreeStorage } from '../storage.js';
+import { removeWtState } from '../worktree-state.js';
 import { fetchAzureTasks, createAzureWorkItem, buildAzureTaskUrl, fetchWorkItemById, updateWorkItemState } from '../azure-api.js';
 import { inferWorkItemType, sanitizePathPart, userToPrefix, nameToBranch, loadStoredPat, getCachedTasks, saveTaskCache, stripHtml } from './utils.js';
 import { toast } from '../toast.js';
@@ -34,6 +35,7 @@ let wtSwitchFetchRetryTimer = null;
 let wtSwitchChangeNameEdited = false;
 let wtSwitchSelectedBranch = null;
 let wtSwitchSelectedTarget = null;
+let _wtSwitchDialogGen = 0; // Incremented on each showWorktreeSwitchDialog call to cancel stale async fetches
 
 // Injected by index.js
 let _createWorktreeTab = null;
@@ -125,7 +127,7 @@ const taskCombobox = createCombobox({
     clearTimeout(wtSwitchFetchRetryTimer);
     if (typed && !wtSwitchAzureContext && taskCombobox.getItems().length === 0) {
       wtSwitchFetchRetryTimer = setTimeout(() => {
-        if (wtSwitchDialogOverlay.classList.contains('visible') && wtSwitchCurrentBarePath) fetchSwitchTasksForDialog(wtSwitchCurrentBarePath);
+        if (wtSwitchDialogOverlay.classList.contains('visible') && wtSwitchCurrentBarePath) fetchSwitchTasksForDialog(wtSwitchCurrentBarePath, _wtSwitchDialogGen);
       }, 600);
     }
 
@@ -134,10 +136,12 @@ const taskCombobox = createCombobox({
     if (idMatch && wtSwitchAzureContext) {
       const numId = parseInt(idMatch[1], 10);
       if (!taskCombobox.getFiltered().some(t => t.id === numId)) {
-        wtSwitchFetchByIdTimer = setTimeout(async () => {
+        const capturedGen = _wtSwitchDialogGen;
+      wtSwitchFetchByIdTimer = setTimeout(async () => {
+          if (_wtSwitchDialogGen !== capturedGen) return;
           if (wtSwitchTaskSearch.value.trim() !== typed) return;
           const found = await fetchWorkItemById(wtSwitchAzureContext, numId);
-          if (!found) return;
+          if (_wtSwitchDialogGen !== capturedGen) return;
           if (wtSwitchTaskSearch.value.trim() !== typed) return;
           const allTasks = taskCombobox.getItems();
           if (!allTasks.some(t => t.id === found.id)) taskCombobox.setItems([found, ...allTasks]);
@@ -190,10 +194,12 @@ function applyWtSwitchTasks(tasks, azureContext, focusTaskSearch) {
     const numId = parseInt(idMatch[1], 10);
     if (taskCombobox.getFiltered().some(t => t.id === numId)) return;
     clearTimeout(wtSwitchFetchByIdTimer);
+    const capturedGen2 = _wtSwitchDialogGen;
     wtSwitchFetchByIdTimer = setTimeout(async () => {
+      if (_wtSwitchDialogGen !== capturedGen2) return;
       if (wtSwitchTaskSearch.value.trim() !== typed) return;
       const found = await fetchWorkItemById(wtSwitchAzureContext, numId);
-      if (!found) return;
+      if (_wtSwitchDialogGen !== capturedGen2) return;
       if (wtSwitchTaskSearch.value.trim() !== typed) return;
       const allTasks = taskCombobox.getItems();
       if (!allTasks.some(t => t.id === found.id)) taskCombobox.setItems([found, ...allTasks]);
@@ -202,14 +208,16 @@ function applyWtSwitchTasks(tasks, azureContext, focusTaskSearch) {
   }
 }
 
-async function fetchSwitchTasksForDialog(barePath) {
+async function fetchSwitchTasksForDialog(barePath, gen) {
   const focusTaskSearch = () => { if (wtSwitchDialogOverlay.classList.contains('visible')) wtSwitchTaskSearch.focus(); };
   const pat = await loadStoredPat();
+  if (_wtSwitchDialogGen !== gen) return;
 
   const cached = getCachedTasks(barePath);
   if (cached) applyWtSwitchTasks(cached.tasks, cached.azureContext, focusTaskSearch);
 
   const result = await fetchAzureTasks(barePath, pat);
+  if (_wtSwitchDialogGen !== gen) return;
   if (result.error === 'no-pat') { if (!cached) { wtSwitchTaskSearch.placeholder = 'Configure PAT to load tasks'; wtSwitchTaskSearch.disabled = false; focusTaskSearch(); } return; }
   if (result.error === 'not-azure') { if (!cached) { wtSwitchTaskSearch.placeholder = 'Not an Azure DevOps repository'; wtSwitchTaskSearch.disabled = false; focusTaskSearch(); } return; }
   if (result.error) { if (!cached) { wtSwitchTaskSearch.placeholder = 'Could not load tasks'; wtSwitchTaskSearch.disabled = false; focusTaskSearch(); } return; }
@@ -290,6 +298,7 @@ function applySwitchBranches(branches, preselect) {
 // --- Dialog show/hide/confirm ---
 
 export async function showWorktreeSwitchDialog(tabEl, groupEl) {
+  const gen = ++_wtSwitchDialogGen;
   // Reset all state
   wtSwitchTabEl = tabEl;
   wtSwitchGroupEl = groupEl;
@@ -341,16 +350,15 @@ export async function showWorktreeSwitchDialog(tabEl, groupEl) {
   if (initialBranches.length > 0) applySwitchBranches(initialBranches, preselect);
 
   window.reposAPI.fetchBranches(groupEl._barePath).then((fetchResult) => {
+    if (_wtSwitchDialogGen !== gen) return;
     const fetched = fetchResult.value;
-    if (!wtSwitchDialogOverlay.classList.contains('visible')) return;
-    if (wtSwitchGroupEl !== groupEl) return;
     applySwitchBranches(fetched, preselect);
     saveBranchCache(repoName, fetched);
     if (wtSwitchBranchList.classList.contains('open')) sourceBranchCombobox.render(wtSwitchBranchSearch.value);
     if (wtSwitchTargetList.classList.contains('open')) targetBranchCombobox.render(wtSwitchTargetSearch.value);
   });
 
-  fetchSwitchTasksForDialog(groupEl._barePath);
+  fetchSwitchTasksForDialog(groupEl._barePath, gen);
 }
 
 export function hideWorktreeSwitchDialog() {
@@ -394,19 +402,19 @@ export async function confirmSwitchWorktree() {
 
   hideWorktreeSwitchDialog();
 
-  showTerminal(`Switching worktree: ${branchName}`);
-  const xterm = createTerminal();
+  terminal.show(`Switching worktree: ${branchName}`);
 
-  window.worktreeSwitchAPI.removeListeners();
-  window.worktreeSwitchAPI.onData((data) => { xterm.write(data); });
+  const disposeData = window.worktreeSwitchAPI.onData((data) => { terminal.write(data); });
 
   const switchSource = wtSwitchSelectedBranch;
   window.worktreeSwitchAPI.onExit(({ exitCode, wtPath, branchName: branch, dirName: dir }) => {
+    disposeData();
     if (exitCode === 0) {
-      xterm.writeln('');
-      xterm.writeln('\x1b[32mWorktree switched successfully!\x1b[0m');
-      setTitle('Worktree switched');
+      terminal.writeln('');
+      terminal.writeln('\x1b[32mWorktree switched successfully!\x1b[0m');
+      terminal.setTitle('Worktree switched');
       clearWorktreeStorage(oldWtPath);
+      removeWtState(oldWtPath);
       if (tabEl._dotEl) tabEl._dotEl.remove();
       tabEl.remove();
       const wt = { path: wtPath, branch, name: dir, sourceBranch: switchSource, taskId };
@@ -417,15 +425,15 @@ export async function confirmSwitchWorktree() {
       tabsEl.insertBefore(newTabEl, addBtn);
       if (_rebuildCollapsedDots) _rebuildCollapsedDots();
       setTimeout(async () => {
-        closeTerminal();
+        terminal.close();
         try { await openWorktree(newTabEl, wt); } catch (err) { console.error('Failed to open switched worktree:', err); }
       }, 800);
     } else {
-      xterm.writeln('');
-      xterm.writeln(`\x1b[31mWorktree switch failed with exit code ${exitCode}\x1b[0m`);
-      setTitle('Worktree switch failed');
+      terminal.writeln('');
+      terminal.writeln(`\x1b[31mWorktree switch failed with exit code ${exitCode}\x1b[0m`);
+      terminal.setTitle('Worktree switch failed');
       toast.error('Worktree switch failed — see terminal');
-      showCloseButton();
+      terminal.showCloseButton();
     }
   });
 
@@ -435,10 +443,11 @@ export async function confirmSwitchWorktree() {
     await window.worktreeSwitchAPI.start({ oldWtPath, branchName, sourceBranch: wtSwitchSelectedBranch, oldBranch: tabEl._wtBranch, deleteBranch });
     window.worktreeSwitchAPI.ready();
   } catch (err) {
-    xterm.writeln(`\x1b[31m${err.message || err}\x1b[0m`);
-    setTitle('Worktree switch failed');
+    disposeData();
+    terminal.writeln(`\x1b[31m${err.message || err}\x1b[0m`);
+    terminal.setTitle('Worktree switch failed');
     toast.error('Worktree switch failed — see terminal');
-    showCloseButton();
+    terminal.showCloseButton();
   }
 }
 

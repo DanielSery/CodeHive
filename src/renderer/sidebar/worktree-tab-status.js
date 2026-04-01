@@ -1,7 +1,9 @@
 import { syncTitlebarToTab } from '../workspace-manager.js';
 import { parseAzureRemoteUrl, fetchPolicyEvaluations, fetchPrUnresolvedThreadCount, fetchWorkItemById, fetchLatestBuild, fetchBuildArtifacts } from '../azure-api.js';
+import { pipeline } from '../pipeline-service.js';
 import { PIPELINE_STATUS_CLASSES, PR_STATUS_CLASSES, INSTALL_BTN_SVG, DOT_SWITCH_SVG } from './worktree-tab-icons.js';
 import { updateDotState } from './worktree-tab-dot-state.js';
+import { getWtState } from '../worktree-state.js';
 
 /**
  * Determines the PR status CSS class based on policy evaluations and reviewer votes.
@@ -33,13 +35,14 @@ function computePrStatusClass(reviewers, evaluations, unresolvedCount) {
  * Only one primary action is shown at a time (priority: commit > complete/resolve > PR > switch).
  */
 function applyActionButtonVisibility(tabEl, { statusClass, switchBtn }) {
+  const ws = getWtState(tabEl._wtPath);
   const openPrBtn = tabEl.querySelector('.workspace-tab-open-pr');
   const completePrBtn = tabEl.querySelector('.workspace-tab-complete-pr');
   let actionShown = false;
 
   if (statusClass === 'has-pr-approved') {
-    tabEl._canCompletePr = true;
-    if (!tabEl._hasUncommittedChanges) {
+    ws.canCompletePr = true;
+    if (!ws.hasUncommittedChanges) {
       if (completePrBtn) completePrBtn.style.display = 'inline-flex';
       if (openPrBtn) openPrBtn.style.display = 'inline-flex';
       actionShown = true;
@@ -48,9 +51,9 @@ function applyActionButtonVisibility(tabEl, { statusClass, switchBtn }) {
       if (openPrBtn) openPrBtn.style.display = 'none';
     }
   } else {
-    tabEl._canCompletePr = false;
+    ws.canCompletePr = false;
     if (completePrBtn) completePrBtn.style.display = 'none';
-    if (!tabEl._hasUncommittedChanges) {
+    if (!ws.hasUncommittedChanges) {
       if (openPrBtn) openPrBtn.style.display = 'inline-flex';
       actionShown = true;
     } else {
@@ -66,14 +69,15 @@ function applyActionButtonVisibility(tabEl, { statusClass, switchBtn }) {
 }
 
 export function showFallbackSwitch(tabEl) {
-  if (tabEl._hasUncommittedChanges) return;
+  const ws = getWtState(tabEl._wtPath);
+  if (ws?.hasUncommittedChanges) return;
   if (tabEl._workspaceId) return;
   const switchBtn = tabEl.querySelector('.workspace-tab-switch');
   if (!switchBtn) return;
-  if (tabEl._wtTaskId && !tabEl._taskResolved) {
-    tabEl._switchMode = 'open-task';
+  if (tabEl._wtTaskId && !ws?.taskResolved) {
+    ws.switchMode = 'open-task';
   } else {
-    tabEl._switchMode = 'switch';
+    ws.switchMode = 'switch';
   }
   switchBtn.style.display = '';
 }
@@ -103,10 +107,12 @@ async function findSetupsArtifactBuild(allBuilds, org, project, auth) {
 }
 
 export async function updatePipelineForTab(tabEl, { org, project, auth }) {
-  const targetBranch = tabEl._pipelineTargetBranch;
+  const ws = getWtState(tabEl._wtPath);
+  if (!ws) return;
+  const targetBranch = ws.pipelineTargetBranch;
   if (!targetBranch) return;
 
-  const build = await fetchLatestBuild(org, project, auth, targetBranch, tabEl._pipelineMergeTime);
+  const build = await fetchLatestBuild(org, project, auth, targetBranch, ws.pipelineMergeTime);
   const pipelineBtn = tabEl.querySelector('.workspace-tab-open-pipeline');
   const installBtn = tabEl.querySelector('.workspace-tab-install-btn');
   const resolveTaskBtn = tabEl.querySelector('.workspace-tab-resolve-task');
@@ -115,8 +121,8 @@ export async function updatePipelineForTab(tabEl, { org, project, auth }) {
   if (pipelineBtn) pipelineBtn.classList.remove(...PIPELINE_STATUS_CLASSES);
 
   if (!build) {
-    tabEl._pipelineStatus = null;
-    tabEl._pipelineUrl = null;
+    ws.pipelineStatus = null;
+    ws.pipelineUrl = null;
     if (pipelineBtn) { pipelineBtn.style.display = 'inline-flex'; pipelineBtn.title = 'Waiting for pipeline\u2026'; }
     if (installBtn) installBtn.style.display = 'none';
     resetActionState(tabEl);
@@ -125,23 +131,23 @@ export async function updatePipelineForTab(tabEl, { org, project, auth }) {
     return;
   }
 
-  tabEl._pipelineBuildId = build.id;
-  tabEl._pipelineBuildNumber = build.buildNumber;
-  tabEl._pipelineUrl = build.webUrl;
-  if (build.definitionId) tabEl._pipelineDefinitionId = build.definitionId;
+  ws.pipelineBuildId = build.id;
+  ws.pipelineBuildNumber = build.buildNumber;
+  ws.pipelineUrl = build.webUrl;
+  if (build.definitionId) ws.pipelineDefinitionId = build.definitionId;
 
   if (build.status === 'completed') {
     if (build.result === 'succeeded' || build.result === 'partiallySucceeded') {
-      tabEl._pipelineStatus = 'succeeded';
+      ws.pipelineStatus = 'succeeded';
       if (pipelineBtn) pipelineBtn.style.display = 'none';
       if (installBtn) installBtn.style.display = 'none';
-      if (tabEl._taskResolved) {
+      if (ws.taskResolved) {
         if (resolveTaskBtn) resolveTaskBtn.style.display = 'none';
-        if (!tabEl._pipelineInstalled) {
+        if (!ws.pipelineInstalled) {
           const ab = await findSetupsArtifactBuild(build.allBuilds, org, project, auth);
           if (ab) {
-            tabEl._pipelineBuildId = ab.id;
-            tabEl._pipelineDefinitionId = ab.definitionId;
+            ws.pipelineBuildId = ab.id;
+            ws.pipelineDefinitionId = ab.definitionId;
             setActionState(tabEl, INSTALL_BTN_SVG, 'var(--green)', `Download build ${ab.buildNumber}`);
             if (installBtn) installBtn.style.display = 'inline-flex';
             if (switchBtn) switchBtn.style.display = 'none';
@@ -153,42 +159,42 @@ export async function updatePipelineForTab(tabEl, { org, project, auth }) {
           resetActionState(tabEl);
           showFallbackSwitch(tabEl);
         }
-      } else if (tabEl._pipelineInstalled) {
+      } else if (ws.pipelineInstalled) {
         resetActionState(tabEl);
-        tabEl._canResolveTask = true;
+        ws.canResolveTask = true;
         if (resolveTaskBtn && tabEl._wtTaskId) { resolveTaskBtn.style.display = 'inline-flex'; resolveTaskBtn.title = 'Complete Azure Task'; }
         if (switchBtn) switchBtn.style.display = 'none';
       } else {
         // Not yet installed — offer download first
-        tabEl._canResolveTask = false;
+        ws.canResolveTask = false;
         if (resolveTaskBtn) resolveTaskBtn.style.display = 'none';
         const ab = await findSetupsArtifactBuild(build.allBuilds, org, project, auth);
         if (ab) {
-          tabEl._pipelineBuildId = ab.id;
-          tabEl._pipelineDefinitionId = ab.definitionId;
+          ws.pipelineBuildId = ab.id;
+          ws.pipelineDefinitionId = ab.definitionId;
           setActionState(tabEl, INSTALL_BTN_SVG, 'var(--green)', `Download build ${ab.buildNumber}`);
           if (installBtn) installBtn.style.display = 'inline-flex';
           if (switchBtn) switchBtn.style.display = 'none';
         } else {
           resetActionState(tabEl);
-          tabEl._canResolveTask = true;
+          ws.canResolveTask = true;
           if (resolveTaskBtn && tabEl._wtTaskId) { resolveTaskBtn.style.display = 'inline-flex'; resolveTaskBtn.title = 'Complete Azure Task'; }
           if (switchBtn) switchBtn.style.display = 'none';
         }
       }
     } else {
-      tabEl._pipelineStatus = 'failed';
+      ws.pipelineStatus = 'failed';
       if (pipelineBtn) {
         pipelineBtn.classList.add('pipeline-failed');
         pipelineBtn.title = `Pipeline ${build.buildNumber} failed`;
       }
-      if (tabEl._taskResolved) {
+      if (ws.taskResolved) {
         if (resolveTaskBtn) resolveTaskBtn.style.display = 'none';
-        if (!tabEl._pipelineInstalled) {
+        if (!ws.pipelineInstalled) {
           const ab = await findSetupsArtifactBuild(build.allBuilds, org, project, auth);
           if (ab) {
-            tabEl._pipelineBuildId = ab.id;
-            tabEl._pipelineDefinitionId = ab.definitionId;
+            ws.pipelineBuildId = ab.id;
+            ws.pipelineDefinitionId = ab.definitionId;
             setActionState(tabEl, INSTALL_BTN_SVG, 'var(--red)', `Download build ${ab.buildNumber}`);
             if (pipelineBtn) pipelineBtn.style.display = 'none';
             if (installBtn) installBtn.style.display = 'inline-flex';
@@ -205,19 +211,19 @@ export async function updatePipelineForTab(tabEl, { org, project, auth }) {
           resetActionState(tabEl);
           showFallbackSwitch(tabEl);
         }
-      } else if (tabEl._pipelineInstalled) {
+      } else if (ws.pipelineInstalled) {
         if (pipelineBtn) pipelineBtn.style.display = 'none';
         resetActionState(tabEl);
-        tabEl._canResolveTask = true;
+        ws.canResolveTask = true;
         if (resolveTaskBtn && tabEl._wtTaskId) { resolveTaskBtn.style.display = 'inline-flex'; resolveTaskBtn.title = 'Complete Azure Task'; }
         if (switchBtn) switchBtn.style.display = 'none';
       } else {
-        tabEl._canResolveTask = false;
+        ws.canResolveTask = false;
         if (resolveTaskBtn) resolveTaskBtn.style.display = 'none';
         const ab = await findSetupsArtifactBuild(build.allBuilds, org, project, auth);
         if (ab) {
-          tabEl._pipelineBuildId = ab.id;
-          tabEl._pipelineDefinitionId = ab.definitionId;
+          ws.pipelineBuildId = ab.id;
+          ws.pipelineDefinitionId = ab.definitionId;
           setActionState(tabEl, INSTALL_BTN_SVG, 'var(--red)', `Download build ${ab.buildNumber}`);
           if (pipelineBtn) pipelineBtn.style.display = 'none';
           if (installBtn) installBtn.style.display = 'inline-flex';
@@ -232,20 +238,20 @@ export async function updatePipelineForTab(tabEl, { org, project, auth }) {
     }
   } else {
     // Pipeline is running
-    tabEl._pipelineStatus = 'running';
+    ws.pipelineStatus = 'running';
     if (pipelineBtn) {
       pipelineBtn.classList.add('pipeline-running');
       pipelineBtn.title = `Pipeline ${build.buildNumber} running\u2026`;
     }
 
-    if (tabEl._taskResolved) {
+    if (ws.taskResolved) {
       // Task already completed — keep monitoring; pipeline status shown via button color
       if (resolveTaskBtn) resolveTaskBtn.style.display = 'none';
-      if (!tabEl._pipelineInstalled) {
+      if (!ws.pipelineInstalled) {
         const ab = await findSetupsArtifactBuild(build.allBuilds, org, project, auth);
         if (ab) {
-          tabEl._pipelineBuildId = ab.id;
-          tabEl._pipelineDefinitionId = ab.definitionId;
+          ws.pipelineBuildId = ab.id;
+          ws.pipelineDefinitionId = ab.definitionId;
           setActionState(tabEl, INSTALL_BTN_SVG, 'var(--yellow)', `Download build ${ab.buildNumber}`);
           if (pipelineBtn) pipelineBtn.style.display = 'none';
           if (installBtn) installBtn.style.display = 'inline-flex';
@@ -262,12 +268,12 @@ export async function updatePipelineForTab(tabEl, { org, project, auth }) {
         resetActionState(tabEl);
         showFallbackSwitch(tabEl);
       }
-    } else if (tabEl._pipelineInstalled) {
+    } else if (ws.pipelineInstalled) {
       // Installed — show complete task; pipeline status shown via button color
       if (pipelineBtn) pipelineBtn.style.display = 'none';
       if (installBtn) installBtn.style.display = 'none';
       resetActionState(tabEl);
-      tabEl._canResolveTask = true;
+      ws.canResolveTask = true;
       if (resolveTaskBtn && tabEl._wtTaskId) { resolveTaskBtn.style.display = 'inline-flex'; resolveTaskBtn.title = `Complete Task`; }
       if (switchBtn) switchBtn.style.display = 'none';
     } else {
@@ -275,8 +281,8 @@ export async function updatePipelineForTab(tabEl, { org, project, auth }) {
       if (resolveTaskBtn) resolveTaskBtn.style.display = 'none';
       const ab = await findSetupsArtifactBuild(build.allBuilds, org, project, auth);
       if (ab) {
-        tabEl._pipelineBuildId = ab.id;
-        tabEl._pipelineDefinitionId = ab.definitionId;
+        ws.pipelineBuildId = ab.id;
+        ws.pipelineDefinitionId = ab.definitionId;
         setActionState(tabEl, INSTALL_BTN_SVG, 'var(--yellow)', `Download build ${ab.buildNumber}`);
         if (pipelineBtn) pipelineBtn.style.display = 'none';
         if (installBtn) installBtn.style.display = 'inline-flex';
@@ -298,23 +304,26 @@ async function _refreshTabStatusInner(tabEl) {
   const branch = tabEl._wtBranch;
   if (!barePath || !branch) return;
 
+  const ws = getWtState(tabEl._wtPath);
+  if (!ws) return;
+
   // Check for uncommitted changes and pushed commits
   const commitPushBtn = tabEl.querySelector('.workspace-tab-commit-push');
   const switchBtn = tabEl.querySelector('.workspace-tab-switch');
   const isOpen = tabEl._workspaceId !== null;
   try {
     const ucResult = await window.reposAPI.hasUncommittedChanges(tabEl._wtPath);
-    tabEl._hasUncommittedChanges = ucResult.value;
+    ws.hasUncommittedChanges = ucResult.value;
     if (ucResult.error) console.warn('[refreshTabStatus] hasUncommittedChanges error:', ucResult.message);
-  } catch { tabEl._hasUncommittedChanges = false; }
+  } catch { ws.hasUncommittedChanges = false; }
   const sourceBranch = tabEl._wtSourceBranch || 'master';
   try {
     const pcResult = await window.reposAPI.hasPushedCommits(tabEl._wtPath, branch, sourceBranch);
-    tabEl._hasPushedCommits = pcResult.value;
+    ws.hasPushedCommits = pcResult.value;
     if (pcResult.error) console.warn('[refreshTabStatus] hasPushedCommits error:', pcResult.message);
-  } catch { tabEl._hasPushedCommits = false; }
-  if (commitPushBtn) commitPushBtn.style.display = tabEl._hasUncommittedChanges ? '' : 'none';
-  if (isOpen || tabEl._hasUncommittedChanges) {
+  } catch { ws.hasPushedCommits = false; }
+  if (commitPushBtn) commitPushBtn.style.display = ws.hasUncommittedChanges ? '' : 'none';
+  if (isOpen || ws.hasUncommittedChanges) {
     if (switchBtn) switchBtn.style.display = 'none';
   }
 
@@ -337,7 +346,7 @@ async function _refreshTabStatusInner(tabEl) {
   }
 
   if (tabEl._wtTaskId) {
-    tabEl._taskUrl = `https://dev.azure.com/${encodeURIComponent(parsed.org)}/${encodeURIComponent(parsed.project)}/_workitems/edit/${tabEl._wtTaskId}`;
+    ws.taskUrl = `https://dev.azure.com/${encodeURIComponent(parsed.org)}/${encodeURIComponent(parsed.project)}/_workitems/edit/${tabEl._wtTaskId}`;
   }
 
   const pat = await window.credentialsAPI.get('azure-pat');
@@ -361,16 +370,16 @@ async function _refreshTabStatusInner(tabEl) {
   const resolveTaskBtn = tabEl.querySelector('.workspace-tab-resolve-task');
 
   // Reset PR-related buttons
-  tabEl._existingPrUrl = null;
+  ws.existingPrUrl = null;
   if (openPrBtn) { openPrBtn.style.display = 'none'; openPrBtn.classList.remove(...PR_STATUS_CLASSES); }
   if (completePrBtn) completePrBtn.style.display = 'none';
 
   if (!data.value || data.value.length === 0) {
     // No active PR — check for completed PR (resolve task / pipeline flow)
-    if (!tabEl._canResolveTask) {
+    if (!ws.canResolveTask) {
       // If already in pipeline monitoring mode, just refresh the pipeline status
-      if (tabEl._canOpenPipeline) {
-        if (!tabEl._hasUncommittedChanges) {
+      if (ws.canOpenPipeline) {
+        if (!ws.hasUncommittedChanges) {
           await updatePipelineForTab(tabEl, { org, project, auth });
         } else {
           const pipelineBtn = tabEl.querySelector('.workspace-tab-open-pipeline');
@@ -389,7 +398,7 @@ async function _refreshTabStatusInner(tabEl) {
           if (cData.value && cData.value.length > 0) {
             const cPr = cData.value[0];
             const mergedPrUrl = `https://dev.azure.com/${encodeURIComponent(org)}/${encodeURIComponent(project)}/_git/${encodeURIComponent(cPr.repository.name)}/pullrequest/${cPr.pullRequestId}`;
-            tabEl._mergedPrUrl = mergedPrUrl;
+            ws.mergedPrUrl = mergedPrUrl;
             let taskIsDone = !tabEl._wtTaskId;
             if (tabEl._wtTaskId) {
               const taskCtx = { org, project, auth, apiBase: `https://dev.azure.com/${encodeURIComponent(org)}/${encodeURIComponent(project)}/_apis` };
@@ -397,31 +406,23 @@ async function _refreshTabStatusInner(tabEl) {
               taskIsDone = !!(wi && ['Resolved', 'Closed', 'Done', 'Removed'].includes(wi.state));
             }
             if (taskIsDone) {
-              tabEl._taskResolved = true;
-              tabEl._canResolveTask = false;
+              ws.taskResolved = true;
+              ws.canResolveTask = false;
               if (completePrBtn) completePrBtn.style.display = 'none';
               if (resolveTaskBtn) resolveTaskBtn.style.display = 'none';
               if (createPrBtn) createPrBtn.style.display = 'none';
-              tabEl._canOpenPipeline = true;
-              if (!tabEl._pipelineTargetBranch) {
-                tabEl._pipelineTargetBranch = cPr.targetRefName;
-                tabEl._pipelineMergeTime = cPr.closedDate || null;
-              }
+              pipeline.startMonitoring(tabEl, cPr.targetRefName, cPr.closedDate || null);
               await updatePipelineForTab(tabEl, { org, project, auth });
               return;
             }
-            tabEl._prData = { id: cPr.pullRequestId, repoId: cPr.repository.id, lastCommitId: cPr.lastMergeSourceCommit?.commitId, org, project, auth, targetRefName: cPr.targetRefName, title: cPr.title };
-            tabEl._canCompletePr = false;
+            ws.prData = { id: cPr.pullRequestId, repoId: cPr.repository.id, lastCommitId: cPr.lastMergeSourceCommit?.commitId, org, project, auth, targetRefName: cPr.targetRefName, title: cPr.title };
+            ws.canCompletePr = false;
             if (createPrBtn) createPrBtn.style.display = 'none';
             if (completePrBtn) completePrBtn.style.display = 'none';
-            if (tabEl._hasUncommittedChanges) {
+            if (ws.hasUncommittedChanges) {
               if (resolveTaskBtn) resolveTaskBtn.style.display = 'none';
             } else {
-              tabEl._canOpenPipeline = true;
-              if (!tabEl._pipelineTargetBranch) {
-                tabEl._pipelineTargetBranch = cPr.targetRefName;
-                tabEl._pipelineMergeTime = cPr.closedDate || null;
-              }
+              pipeline.startMonitoring(tabEl, cPr.targetRefName, cPr.closedDate || null);
               await updatePipelineForTab(tabEl, { org, project, auth });
             }
             return;
@@ -430,11 +431,11 @@ async function _refreshTabStatusInner(tabEl) {
       } catch (err) { console.warn('[refreshTabStatus] completed PR check error:', err); }
     }
     // No active PR, no completed PR — show Create PR only if pushed commits exist and no uncommitted changes
-    const canShowCreatePr = !tabEl._hasUncommittedChanges && tabEl._hasPushedCommits;
-    if (!tabEl._canResolveTask) {
+    const canShowCreatePr = !ws.hasUncommittedChanges && ws.hasPushedCommits;
+    if (!ws.canResolveTask) {
       if (completePrBtn) completePrBtn.style.display = 'none';
       if (resolveTaskBtn) resolveTaskBtn.style.display = 'none';
-      tabEl._canCompletePr = false;
+      ws.canCompletePr = false;
       if (createPrBtn) {
         createPrBtn.style.display = canShowCreatePr ? '' : 'none';
         if (canShowCreatePr && switchBtn) switchBtn.style.display = 'none';
@@ -447,13 +448,13 @@ async function _refreshTabStatusInner(tabEl) {
   // Active PR found
   const pr = data.value[0];
   const prUrl = `https://dev.azure.com/${encodeURIComponent(org)}/${encodeURIComponent(project)}/_git/${encodeURIComponent(pr.repository.name)}/pullrequest/${pr.pullRequestId}`;
-  tabEl._existingPrUrl = prUrl;
-  tabEl._prData = { id: pr.pullRequestId, repoId: pr.repository.id, lastCommitId: pr.lastMergeSourceCommit?.commitId, org, project, auth, targetRefName: pr.targetRefName, title: pr.title };
+  ws.existingPrUrl = prUrl;
+  ws.prData = { id: pr.pullRequestId, repoId: pr.repository.id, lastCommitId: pr.lastMergeSourceCommit?.commitId, org, project, auth, targetRefName: pr.targetRefName, title: pr.title };
 
   // Hide create-pr since there's already an active PR
   if (createPrBtn) createPrBtn.style.display = 'none';
   if (resolveTaskBtn) resolveTaskBtn.style.display = 'none';
-  tabEl._canResolveTask = false;
+  ws.canResolveTask = false;
 
   const [evaluations, unresolvedCount] = await Promise.all([
     fetchPolicyEvaluations(org, project, auth, pr.repository.project.id, pr.pullRequestId),
@@ -479,16 +480,18 @@ async function _refreshTabStatusInner(tabEl) {
 }
 
 export async function refreshTabStatus(tabEl) {
-  if (tabEl._refreshInFlight) { tabEl._refreshPending = true; return; }
-  tabEl._refreshInFlight = true;
+  const ws = getWtState(tabEl._wtPath);
+  if (!ws) return;
+  if (ws.refreshInFlight) { ws.refreshPending = true; return; }
+  ws.refreshInFlight = true;
   try {
     await _refreshTabStatusInner(tabEl);
   } finally {
-    tabEl._refreshInFlight = false;
+    ws.refreshInFlight = false;
     updateDotState(tabEl);
     syncTitlebarToTab();
-    if (tabEl._refreshPending) {
-      tabEl._refreshPending = false;
+    if (ws.refreshPending) {
+      ws.refreshPending = false;
       refreshTabStatus(tabEl);
     }
   }

@@ -1,6 +1,8 @@
 import { openWorktree, closeWorkspace } from '../workspace-manager.js';
 import { _showWorktreeSwitchDialog, _showWorktreeRemoveDialog, _showCommitPushDialog, _showCreatePrDialog, _showWorktreeDialog, _showDeleteDialog, _showSetTaskDialog, _showRebaseDialog } from './registers.js';
 import { toast } from '../toast.js';
+import { pr } from '../pr-service.js';
+import { pipeline } from '../pipeline-service.js';
 
 const contextMenu = document.getElementById('wt-context-menu');
 const projectContextMenu = document.getElementById('project-context-menu');
@@ -105,9 +107,9 @@ contextMenu.addEventListener('click', (e) => {
       })();
     }
   } else if (action === 'open-pr') {
-    if (tabEl._existingPrUrl) window.shellAPI.openExternal(tabEl._existingPrUrl);
+    pr.open(tabEl);
   } else if (action === 'open-merged-pr') {
-    if (tabEl._mergedPrUrl) window.shellAPI.openExternal(tabEl._mergedPrUrl);
+    pr.openMerged(tabEl);
   } else if (action === 'close-editor') {
     if (tabEl._workspaceId !== null) {
       closeWorkspace(tabEl._workspaceId);
@@ -136,7 +138,7 @@ contextMenu.addEventListener('click', (e) => {
     const btn = tabEl.querySelector('.workspace-tab-complete-pr');
     if (btn) btn.click();
   } else if (action === 'open-pipeline') {
-    if (tabEl._pipelineUrl) window.shellAPI.openExternal(tabEl._pipelineUrl);
+    pipeline.open(tabEl);
   } else if (action === 'install') {
     const btn = tabEl.querySelector('.workspace-tab-install-btn');
     if (btn) btn.click();

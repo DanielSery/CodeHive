@@ -1,4 +1,4 @@
-import { createTerminal, showTerminal, showCloseButton, setTitle, closeTerminal } from '../terminal-panel.js';
+import { terminal } from '../terminal-service.js';
 import { getCachedBranchesFromState, saveBranchCache } from '../storage.js';
 import { parseAzureRemoteUrl, buildAzureContext, fetchWorkItemTitle } from '../azure-api.js';
 import { loadStoredPat, AZURE_PAT_KEY } from './utils.js';
@@ -175,28 +175,27 @@ async function confirmCreatePr() {
 
   hideCreatePrDialog();
 
-  showTerminal(`Creating PR: ${sourceBranch} → ${targetBranch}`);
-  const xterm = createTerminal();
+  terminal.show(`Creating PR: ${sourceBranch} → ${targetBranch}`);
 
   window.prCreateAPI.removeListeners();
   window.prCreateAPI.onData((data) => {
-    xterm.write(data);
+    terminal.write(data);
   });
 
   window.prCreateAPI.onExit(({ exitCode }) => {
     if (exitCode === 0) {
-      xterm.writeln('');
-      xterm.writeln('\x1b[32mPull request created successfully!\x1b[0m');
-      setTitle('Pull request created');
+      terminal.writeln('');
+      terminal.writeln('\x1b[32mPull request created successfully!\x1b[0m');
+      terminal.setTitle('Pull request created');
       toast.success('Pull request created');
       if (_refreshTabStatus) _refreshTabStatus(tabEl);
-      setTimeout(() => closeTerminal(), 1200);
+      setTimeout(() => terminal.close(), 1200);
     } else {
-      xterm.writeln('');
-      xterm.writeln(`\x1b[31mPull request creation failed with exit code ${exitCode}\x1b[0m`);
-      setTitle('Pull request creation failed');
+      terminal.writeln('');
+      terminal.writeln(`\x1b[31mPull request creation failed with exit code ${exitCode}\x1b[0m`);
+      terminal.setTitle('Pull request creation failed');
       toast.error('Pull request creation failed — check your PAT and try again');
-      showCloseButton();
+      terminal.showCloseButton();
     }
   });
 
@@ -204,10 +203,10 @@ async function confirmCreatePr() {
     await window.prCreateAPI.start({ wtPath, sourceBranch, targetBranch, title, description: desc, pat, workItemId });
     window.prCreateAPI.ready();
   } catch (err) {
-    xterm.writeln(`\x1b[31m${err.message || err}\x1b[0m`);
-    setTitle('Pull request creation failed');
+    terminal.writeln(`\x1b[31m${err.message || err}\x1b[0m`);
+    terminal.setTitle('Pull request creation failed');
     toast.error('Pull request creation failed — see terminal');
-    showCloseButton();
+    terminal.showCloseButton();
   }
 }
 

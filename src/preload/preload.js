@@ -26,110 +26,93 @@ contextBridge.exposeInMainWorld('reposAPI', {
   rebaseCommits: (wtPath, sourceBranch) => ipcRenderer.invoke('repos:rebaseCommits', { wtPath, sourceBranch }),
 });
 
+// Helper: returns a disposer function. Exit uses `once` (auto-removes); data uses `on` with returned disposer.
+function makeApi(dataChannel, exitChannel, startChannel, readyChannel) {
+  return {
+    start: (opts) => ipcRenderer.invoke(startChannel, opts),
+    ready: () => ipcRenderer.send(readyChannel),
+    onData: (cb) => {
+      const handler = (_, data) => cb(data);
+      ipcRenderer.on(dataChannel, handler);
+      return () => ipcRenderer.removeListener(dataChannel, handler);
+    },
+    onExit: (cb) => {
+      const handler = (_, info) => cb(info);
+      ipcRenderer.once(exitChannel, handler);
+      return () => ipcRenderer.removeListener(exitChannel, handler);
+    },
+  };
+}
+
 contextBridge.exposeInMainWorld('rebaseAPI', {
   start: (opts) => ipcRenderer.invoke('rebase:start', opts),
   ready: () => ipcRenderer.send('rebase:ready'),
-  onData: (cb) => ipcRenderer.on('rebase:data', (_, data) => cb(data)),
-  onExit: (cb) => ipcRenderer.on('rebase:exit', (_, info) => cb(info)),
+  onData: (cb) => {
+    const handler = (_, data) => cb(data);
+    ipcRenderer.on('rebase:data', handler);
+    return () => ipcRenderer.removeListener('rebase:data', handler);
+  },
+  onExit: (cb) => {
+    const handler = (_, info) => cb(info);
+    ipcRenderer.once('rebase:exit', handler);
+    return () => ipcRenderer.removeListener('rebase:exit', handler);
+  },
   forcePushStart: (opts) => ipcRenderer.invoke('rebase:forcePushStart', opts),
   forcePushReady: () => ipcRenderer.send('rebase:forcePushReady'),
-  onForcePushData: (cb) => ipcRenderer.on('rebase:forcePushData', (_, data) => cb(data)),
-  onForcePushExit: (cb) => ipcRenderer.on('rebase:forcePushExit', (_, info) => cb(info)),
-  removeListeners: () => {
-    ipcRenderer.removeAllListeners('rebase:data');
-    ipcRenderer.removeAllListeners('rebase:exit');
-    ipcRenderer.removeAllListeners('rebase:forcePushData');
-    ipcRenderer.removeAllListeners('rebase:forcePushExit');
-  }
+  onForcePushData: (cb) => {
+    const handler = (_, data) => cb(data);
+    ipcRenderer.on('rebase:forcePushData', handler);
+    return () => ipcRenderer.removeListener('rebase:forcePushData', handler);
+  },
+  onForcePushExit: (cb) => {
+    const handler = (_, info) => cb(info);
+    ipcRenderer.once('rebase:forcePushExit', handler);
+    return () => ipcRenderer.removeListener('rebase:forcePushExit', handler);
+  },
 });
 
 contextBridge.exposeInMainWorld('worktreeAPI', {
-  start: (opts) => ipcRenderer.invoke('worktree:start', opts),
-  ready: () => ipcRenderer.send('worktree:ready'),
-  onData: (cb) => ipcRenderer.on('worktree:data', (_, data) => cb(data)),
-  onExit: (cb) => ipcRenderer.on('worktree:exit', (_, info) => cb(info)),
-  removeListeners: () => {
-    ipcRenderer.removeAllListeners('worktree:data');
-    ipcRenderer.removeAllListeners('worktree:exit');
-  }
+  ...makeApi('worktree:data', 'worktree:exit', 'worktree:start', 'worktree:ready'),
 });
 
 contextBridge.exposeInMainWorld('cloneAPI', {
   start: (url, reposDir) => ipcRenderer.invoke('clone:start', { url, reposDir }),
   ready: () => ipcRenderer.send('clone:ready'),
-  onData: (cb) => ipcRenderer.on('clone:data', (_, data) => cb(data)),
-  onExit: (cb) => ipcRenderer.on('clone:exit', (_, info) => cb(info)),
-  removeListeners: () => {
-    ipcRenderer.removeAllListeners('clone:data');
-    ipcRenderer.removeAllListeners('clone:exit');
-  }
+  onData: (cb) => {
+    const handler = (_, data) => cb(data);
+    ipcRenderer.on('clone:data', handler);
+    return () => ipcRenderer.removeListener('clone:data', handler);
+  },
+  onExit: (cb) => {
+    const handler = (_, info) => cb(info);
+    ipcRenderer.once('clone:exit', handler);
+    return () => ipcRenderer.removeListener('clone:exit', handler);
+  },
 });
 
 contextBridge.exposeInMainWorld('deleteAPI', {
-  start: (repoDir) => ipcRenderer.invoke('delete:start', { repoDir }),
-  ready: () => ipcRenderer.send('delete:ready'),
-  onData: (cb) => ipcRenderer.on('delete:data', (_, data) => cb(data)),
-  onExit: (cb) => ipcRenderer.on('delete:exit', (_, info) => cb(info)),
-  removeListeners: () => {
-    ipcRenderer.removeAllListeners('delete:data');
-    ipcRenderer.removeAllListeners('delete:exit');
-  }
+  ...makeApi('delete:data', 'delete:exit', 'delete:start', 'delete:ready'),
 });
 
 contextBridge.exposeInMainWorld('worktreeRemoveAPI', {
-  start: (opts) => ipcRenderer.invoke('worktreeRemove:start', opts),
-  ready: () => ipcRenderer.send('worktreeRemove:ready'),
-  onData: (cb) => ipcRenderer.on('worktreeRemove:data', (_, data) => cb(data)),
-  onExit: (cb) => ipcRenderer.on('worktreeRemove:exit', (_, info) => cb(info)),
-  removeListeners: () => {
-    ipcRenderer.removeAllListeners('worktreeRemove:data');
-    ipcRenderer.removeAllListeners('worktreeRemove:exit');
-  }
+  ...makeApi('worktreeRemove:data', 'worktreeRemove:exit', 'worktreeRemove:start', 'worktreeRemove:ready'),
 });
 
 contextBridge.exposeInMainWorld('worktreeSwitchAPI', {
-  start: (opts) => ipcRenderer.invoke('worktreeSwitch:start', opts),
-  ready: () => ipcRenderer.send('worktreeSwitch:ready'),
-  onData: (cb) => ipcRenderer.on('worktreeSwitch:data', (_, data) => cb(data)),
-  onExit: (cb) => ipcRenderer.on('worktreeSwitch:exit', (_, info) => cb(info)),
-  removeListeners: () => {
-    ipcRenderer.removeAllListeners('worktreeSwitch:data');
-    ipcRenderer.removeAllListeners('worktreeSwitch:exit');
-  }
+  ...makeApi('worktreeSwitch:data', 'worktreeSwitch:exit', 'worktreeSwitch:start', 'worktreeSwitch:ready'),
 });
 
 contextBridge.exposeInMainWorld('commitPushAPI', {
-  start: (opts) => ipcRenderer.invoke('commitPush:start', opts),
-  ready: () => ipcRenderer.send('commitPush:ready'),
-  onData: (cb) => ipcRenderer.on('commitPush:data', (_, data) => cb(data)),
-  onExit: (cb) => ipcRenderer.on('commitPush:exit', (_, info) => cb(info)),
-  removeListeners: () => {
-    ipcRenderer.removeAllListeners('commitPush:data');
-    ipcRenderer.removeAllListeners('commitPush:exit');
-  }
+  ...makeApi('commitPush:data', 'commitPush:exit', 'commitPush:start', 'commitPush:ready'),
 });
 
 contextBridge.exposeInMainWorld('prCreateAPI', {
-  start: (opts) => ipcRenderer.invoke('prCreate:start', opts),
-  ready: () => ipcRenderer.send('prCreate:ready'),
-  onData: (cb) => ipcRenderer.on('prCreate:data', (_, data) => cb(data)),
-  onExit: (cb) => ipcRenderer.on('prCreate:exit', (_, info) => cb(info)),
-  removeListeners: () => {
-    ipcRenderer.removeAllListeners('prCreate:data');
-    ipcRenderer.removeAllListeners('prCreate:exit');
-  }
+  ...makeApi('prCreate:data', 'prCreate:exit', 'prCreate:start', 'prCreate:ready'),
 });
 
 contextBridge.exposeInMainWorld('azInstallAPI', {
   check: () => ipcRenderer.invoke('azInstall:check'),
-  start: () => ipcRenderer.invoke('azInstall:start'),
-  ready: () => ipcRenderer.send('azInstall:ready'),
-  onData: (cb) => ipcRenderer.on('azInstall:data', (_, data) => cb(data)),
-  onExit: (cb) => ipcRenderer.on('azInstall:exit', (_, info) => cb(info)),
-  removeListeners: () => {
-    ipcRenderer.removeAllListeners('azInstall:data');
-    ipcRenderer.removeAllListeners('azInstall:exit');
-  }
+  ...makeApi('azInstall:data', 'azInstall:exit', 'azInstall:start', 'azInstall:ready'),
 });
 
 contextBridge.exposeInMainWorld('claudeAPI', {
@@ -149,14 +132,7 @@ contextBridge.exposeInMainWorld('shellAPI', {
 });
 
 contextBridge.exposeInMainWorld('setupInstallAPI', {
-  start: (opts) => ipcRenderer.invoke('setupInstall:start', opts),
-  ready: () => ipcRenderer.send('setupInstall:ready'),
-  onData: (cb) => ipcRenderer.on('setupInstall:data', (_, data) => cb(data)),
-  onExit: (cb) => ipcRenderer.on('setupInstall:exit', (_, info) => cb(info)),
-  removeListeners: () => {
-    ipcRenderer.removeAllListeners('setupInstall:data');
-    ipcRenderer.removeAllListeners('setupInstall:exit');
-  }
+  ...makeApi('setupInstall:data', 'setupInstall:exit', 'setupInstall:start', 'setupInstall:ready'),
 });
 
 contextBridge.exposeInMainWorld('windowAPI', {

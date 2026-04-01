@@ -1,4 +1,4 @@
-import { createTerminal, showTerminal, showCloseButton, setTitle } from '../terminal-panel.js';
+import { terminal } from '../terminal-service.js';
 import { getCachedBranchesFromState, saveBranchCache } from '../storage.js';
 import { toast } from '../toast.js';
 import { createCombobox } from './combobox.js';
@@ -21,7 +21,6 @@ let rebaseSelectedBranch = null;
 let rebaseCommits = []; // { action, hash, message }
 let selectedIndices = new Set();
 let lastClickedIndex = null;
-let _activeForcePushXterm = null;
 
 // ---- Branch combobox ----
 
@@ -364,26 +363,24 @@ export async function confirmRebase() {
 
   hideRebaseDialog();
 
-  showTerminal(`Rebasing onto ${sourceBranch}...`);
-  const xterm = createTerminal();
+  terminal.show(`Rebasing onto ${sourceBranch}...`);
 
-  window.rebaseAPI.removeListeners();
-  window.rebaseAPI.onData((data) => { xterm.write(data); });
+  const disposeData = window.rebaseAPI.onData((data) => { terminal.write(data); });
 
   window.rebaseAPI.onExit(({ exitCode }) => {
+    disposeData();
     if (exitCode === 0) {
-      xterm.writeln('');
-      xterm.writeln('\x1b[32mRebase completed successfully!\x1b[0m');
-      setTitle('Rebase complete');
-      _activeForcePushXterm = xterm;
+      terminal.writeln('');
+      terminal.writeln('\x1b[32mRebase completed successfully!\x1b[0m');
+      terminal.setTitle('Rebase complete');
       _forcePushWtPath = wtPath;
       rebasePushConfirmOverlay.classList.add('visible');
     } else {
-      xterm.writeln('');
-      xterm.writeln('\x1b[31mRebase failed — aborting...\x1b[0m');
-      setTitle('Rebase failed');
+      terminal.writeln('');
+      terminal.writeln('\x1b[31mRebase failed — aborting...\x1b[0m');
+      terminal.setTitle('Rebase failed');
       toast.error('Rebase failed — aborted');
-      showCloseButton();
+      terminal.showCloseButton();
     }
   });
 
@@ -391,10 +388,11 @@ export async function confirmRebase() {
     await window.rebaseAPI.start({ wtPath, sourceBranch, commits });
     window.rebaseAPI.ready();
   } catch (err) {
-    xterm.writeln(`\x1b[31m${err.message || err}\x1b[0m`);
-    setTitle('Rebase failed');
+    disposeData();
+    terminal.writeln(`\x1b[31m${err.message || err}\x1b[0m`);
+    terminal.setTitle('Rebase failed');
     toast.error('Rebase failed — see terminal');
-    showCloseButton();
+    terminal.showCloseButton();
   }
 }
 
@@ -417,27 +415,29 @@ document.getElementById('rebase-push-confirm-btn').addEventListener('click', asy
   hidePushConfirm();
   setTitle('Force pushing...');
 
-  window.rebaseAPI.onForcePushData((data) => { _activeForcePushXterm?.write(data); });
+  const disposeForceData = window.rebaseAPI.onForcePushData((data) => { terminal.write(data); });
   window.rebaseAPI.onForcePushExit(({ exitCode }) => {
+    disposeForceData();
     if (exitCode === 0) {
-      _activeForcePushXterm?.writeln('\x1b[32mForce push complete!\x1b[0m');
-      setTitle('Force push complete');
+      terminal.writeln('\x1b[32mForce push complete!\x1b[0m');
+      terminal.setTitle('Force push complete');
     } else {
-      _activeForcePushXterm?.writeln('\x1b[31mForce push failed.\x1b[0m');
-      setTitle('Force push failed');
+      terminal.writeln('\x1b[31mForce push failed.\x1b[0m');
+      terminal.setTitle('Force push failed');
       toast.error('Force push failed — see terminal');
     }
-    showCloseButton();
+    terminal.showCloseButton();
   });
 
   try {
     await window.rebaseAPI.forcePushStart({ wtPath });
     window.rebaseAPI.forcePushReady();
   } catch (err) {
-    _activeForcePushXterm?.writeln(`\x1b[31m${err.message || err}\x1b[0m`);
-    setTitle('Force push failed');
+    disposeForceData();
+    terminal.writeln(`\x1b[31m${err.message || err}\x1b[0m`);
+    terminal.setTitle('Force push failed');
     toast.error('Force push failed — see terminal');
-    showCloseButton();
+    terminal.showCloseButton();
   }
 });
 

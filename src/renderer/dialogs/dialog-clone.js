@@ -1,4 +1,4 @@
-import { createTerminal, showTerminal, showCloseButton, setTitle, closeTerminal } from '../terminal-panel.js';
+import { terminal } from '../terminal-service.js';
 import { toast } from '../toast.js';
 
 const cloneDialogOverlay = document.getElementById('clone-dialog-overlay');
@@ -48,20 +48,18 @@ async function startClone() {
   }
   const repoName = parseRepoName(url);
 
-  showTerminal(`Cloning ${repoName}...`);
-  const xterm = createTerminal();
+  terminal.show(`Cloning ${repoName}...`);
 
-
-  window.cloneAPI.removeListeners();
-  window.cloneAPI.onData((data) => {
-    xterm.write(data);
+  const disposeData = window.cloneAPI.onData((data) => {
+    terminal.write(data);
   });
 
   window.cloneAPI.onExit(async ({ exitCode, repoName: name, repoDir, bareDir, reposDir: rDir }) => {
+    disposeData();
     if (exitCode === 0) {
-      xterm.writeln('');
-      xterm.writeln('\x1b[32mRepository cloned successfully!\x1b[0m');
-      setTitle(`Clone complete: ${name}`);
+      terminal.writeln('');
+      terminal.writeln('\x1b[32mRepository cloned successfully!\x1b[0m');
+      terminal.setTitle(`Clone complete: ${name}`);
       toast.success(`Cloned ${name}`);
 
       const repos = await window.reposAPI.scanDirectory(rDir);
@@ -71,21 +69,22 @@ async function startClone() {
       }
       if (_onCloneComplete) _onCloneComplete(rDir);
     } else {
-      xterm.writeln('');
-      xterm.writeln(`\x1b[31mClone failed with exit code ${exitCode}\x1b[0m`);
-      setTitle(`Clone failed: ${name}`);
+      terminal.writeln('');
+      terminal.writeln(`\x1b[31mClone failed with exit code ${exitCode}\x1b[0m`);
+      terminal.setTitle(`Clone failed: ${name}`);
       toast.error(`Clone failed for ${name}`);
     }
-    showCloseButton();
+    terminal.showCloseButton();
   });
 
   try {
     await window.cloneAPI.start(url, reposDir);
     window.cloneAPI.ready();
   } catch (err) {
-    xterm.writeln(`\x1b[31m${err.message || err}\x1b[0m`);
-    setTitle(`Clone failed: ${repoName}`);
-    showCloseButton();
+    disposeData();
+    terminal.writeln(`\x1b[31m${err.message || err}\x1b[0m`);
+    terminal.setTitle(`Clone failed: ${repoName}`);
+    terminal.showCloseButton();
   }
 }
 

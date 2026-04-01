@@ -1,4 +1,4 @@
-import { createTerminal, showTerminal, showCloseButton, setTitle, closeTerminal } from '../terminal-panel.js';
+import { terminal } from '../terminal-service.js';
 import { toast } from '../toast.js';
 import { _refreshTabStatus } from '../sidebar/registers.js';
 
@@ -306,28 +306,27 @@ async function confirmCommitPush() {
 
   hideCommitPushDialog();
 
-  showTerminal(`Commit & Push: ${branch}`);
-  const xterm = createTerminal();
+  terminal.show(`Commit & Push: ${branch}`);
 
-  window.commitPushAPI.removeListeners();
-  window.commitPushAPI.onData((data) => {
-    xterm.write(data);
+  const disposeData = window.commitPushAPI.onData((data) => {
+    terminal.write(data);
   });
 
   window.commitPushAPI.onExit(({ exitCode }) => {
+    disposeData();
     if (exitCode === 0) {
-      xterm.writeln('');
-      xterm.writeln('\x1b[32mCommit & push completed successfully!\x1b[0m');
-      setTitle('Commit & push complete');
+      terminal.writeln('');
+      terminal.writeln('\x1b[32mCommit & push completed successfully!\x1b[0m');
+      terminal.setTitle('Commit & push complete');
       toast.success(`Pushed ${branch} successfully`);
       if (_refreshTabStatus) _refreshTabStatus(tabEl);
-      setTimeout(() => closeTerminal(), 1200);
+      setTimeout(() => terminal.close(), 1200);
     } else {
-      xterm.writeln('');
-      xterm.writeln(`\x1b[31mCommit & push failed with exit code ${exitCode}\x1b[0m`);
-      setTitle('Commit & push failed');
+      terminal.writeln('');
+      terminal.writeln(`\x1b[31mCommit & push failed with exit code ${exitCode}\x1b[0m`);
+      terminal.setTitle('Commit & push failed');
       toast.error('Commit & push failed — see terminal for details');
-      showCloseButton();
+      terminal.showCloseButton();
     }
   });
 
@@ -335,9 +334,10 @@ async function confirmCommitPush() {
     await window.commitPushAPI.start({ wtPath, title, description: desc, branch, files: selectedFiles });
     window.commitPushAPI.ready();
   } catch (err) {
-    xterm.writeln(`\x1b[31m${err.message || err}\x1b[0m`);
-    setTitle('Commit & push failed');
-    showCloseButton();
+    disposeData();
+    terminal.writeln(`\x1b[31m${err.message || err}\x1b[0m`);
+    terminal.setTitle('Commit & push failed');
+    terminal.showCloseButton();
   }
 }
 

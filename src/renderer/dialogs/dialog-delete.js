@@ -1,4 +1,4 @@
-import { createTerminal, showTerminal, showCloseButton, setTitle, closeTerminal } from '../terminal-panel.js';
+import { terminal } from '../terminal-service.js';
 import { toast } from '../toast.js';
 
 const deleteDialogOverlay = document.getElementById('delete-dialog-overlay');
@@ -28,28 +28,26 @@ async function confirmDeleteRepo() {
   const repoName = groupEl.dataset.repoName;
   hideDeleteDialog();
 
-  showTerminal(`Deleting ${repoName}...`);
-  const xterm = createTerminal();
-
+  terminal.show(`Deleting ${repoName}...`);
 
   window.deleteAPI.removeListeners();
   window.deleteAPI.onData((data) => {
-    xterm.write(data);
+    terminal.write(data);
   });
 
   window.deleteAPI.onExit(({ exitCode }) => {
     if (exitCode === 0) {
-      xterm.writeln('');
-      xterm.writeln('\x1b[32mProject deleted successfully!\x1b[0m');
-      setTitle('Project deleted');
+      terminal.writeln('');
+      terminal.writeln('\x1b[32mProject deleted successfully!\x1b[0m');
+      terminal.setTitle('Project deleted');
       if (_removeRepoGroup) _removeRepoGroup(groupEl);
-      setTimeout(() => closeTerminal(), 1200);
+      setTimeout(() => terminal.close(), 1200);
     } else {
-      xterm.writeln('');
-      xterm.writeln(`\x1b[31mDelete failed with exit code ${exitCode}\x1b[0m`);
-      setTitle(`Delete failed: ${repoName}`);
+      terminal.writeln('');
+      terminal.writeln(`\x1b[31mDelete failed with exit code ${exitCode}\x1b[0m`);
+      terminal.setTitle(`Delete failed: ${repoName}`);
       toast.error('Delete failed — see terminal');
-      showCloseButton();
+      terminal.showCloseButton();
     }
   });
 
@@ -57,10 +55,10 @@ async function confirmDeleteRepo() {
     await window.deleteAPI.start(groupEl._repoDir);
     window.deleteAPI.ready();
   } catch (err) {
-    xterm.writeln(`\x1b[31m${err.message || err}\x1b[0m`);
-    setTitle(`Delete failed: ${repoName}`);
+    terminal.writeln(`\x1b[31m${err.message || err}\x1b[0m`);
+    terminal.setTitle(`Delete failed: ${repoName}`);
     toast.error('Delete failed — see terminal');
-    showCloseButton();
+    terminal.showCloseButton();
   }
 }
 

@@ -4,6 +4,7 @@ import {
   DOT_RESOLVE_TASK_SVG, DOT_OPEN_TASK_SVG, DOT_SWITCH_SVG, DOT_DONE_SWITCH_SVG,
   DOT_PIPELINE_SVG, DOT_COMPLETE_TASK_RUNNING_SVG, DOT_TASK_DONE_RUNNING_SVG, INSTALL_BTN_SVG,
 } from './worktree-tab-icons.js';
+import { getWtState } from '../worktree-state.js';
 
 export function formatBranchLabel(branch) {
   let name = branch.includes('/') ? branch.substring(branch.indexOf('/') + 1) : branch;
@@ -29,6 +30,7 @@ export function isButtonVisible(btn) {
  * Computes the collapsed-dot icon and color from the tab's current button state.
  */
 export function getTabDotState(tabEl) {
+  const ws = getWtState(tabEl._wtPath);
   const commitPushBtn = tabEl.querySelector('.workspace-tab-commit-push');
   const completePrBtn = tabEl.querySelector('.workspace-tab-complete-pr');
   const pipelineBtn = tabEl.querySelector('.workspace-tab-open-pipeline');
@@ -52,14 +54,14 @@ export function getTabDotState(tabEl) {
   }
   if (isButtonVisible(installBtn)) {
     let color = 'var(--green)';
-    if (tabEl._pipelineStatus === 'running') color = 'var(--accent)';
-    else if (tabEl._pipelineStatus === 'failed') color = 'var(--red)';
+    if (ws?.pipelineStatus === 'running') color = 'var(--accent)';
+    else if (ws?.pipelineStatus === 'failed') color = 'var(--red)';
     return { icon: INSTALL_BTN_SVG, color };
   }
   if (isButtonVisible(resolveTaskBtn)) {
     let color = 'var(--green)';
-    if (tabEl._pipelineStatus === 'running') color = 'var(--accent)';
-    else if (tabEl._pipelineStatus === 'failed') color = 'var(--red)';
+    if (ws?.pipelineStatus === 'running') color = 'var(--accent)';
+    else if (ws?.pipelineStatus === 'failed') color = 'var(--red)';
     return { icon: DOT_RESOLVE_TASK_SVG, color };
   }
   if (isButtonVisible(openPrBtn)) {
@@ -74,24 +76,25 @@ export function getTabDotState(tabEl) {
     return { icon: DOT_CREATE_PR_SVG, color: 'var(--green)' };
   }
   if (isButtonVisible(switchBtn)) {
-    if (tabEl._switchMode === 'open-task') return { icon: DOT_OPEN_TASK_SVG, color: 'var(--text-muted)' };
-    if (tabEl._taskResolved) {
+    if (ws?.switchMode === 'open-task') return { icon: DOT_OPEN_TASK_SVG, color: 'var(--text-muted)' };
+    if (ws?.taskResolved) {
       let color = 'var(--text-muted)';
-      if (tabEl._pipelineStatus === 'running') color = 'var(--yellow)';
-      else if (tabEl._pipelineStatus === 'failed') color = 'var(--red)';
+      if (ws?.pipelineStatus === 'running') color = 'var(--yellow)';
+      else if (ws?.pipelineStatus === 'failed') color = 'var(--red)';
       return { icon: DOT_DONE_SWITCH_SVG, color };
     }
     return { icon: DOT_SWITCH_SVG, color: 'var(--text-muted)' };
   }
-  if (tabEl._taskResolved) {
+  if (ws?.taskResolved) {
     let color = 'var(--text-muted)';
-    if (tabEl._pipelineStatus === 'failed') color = 'var(--red)';
+    if (ws?.pipelineStatus === 'failed') color = 'var(--red)';
     return { icon: DOT_DONE_SWITCH_SVG, color };
   }
   return { icon: DOT_SWITCH_SVG, color: 'var(--text-muted)' };
 }
 
 export function getTabActionTitle(tabEl) {
+  const ws = getWtState(tabEl._wtPath);
   const commitPushBtn = tabEl.querySelector('.workspace-tab-commit-push');
   const completePrBtn = tabEl.querySelector('.workspace-tab-complete-pr');
   const pipelineBtn = tabEl.querySelector('.workspace-tab-open-pipeline');
@@ -104,37 +107,37 @@ export function getTabActionTitle(tabEl) {
   if (isButtonVisible(commitPushBtn)) return 'Commit & Push';
   if (isButtonVisible(completePrBtn)) return 'Complete Pull Request';
   if (isButtonVisible(pipelineBtn)) {
-    const num = tabEl._pipelineBuildNumber ? ` ${tabEl._pipelineBuildNumber}` : '';
-    if (tabEl._pipelineStatus === 'running') return `Pipeline${num} running\u2026`;
-    if (tabEl._pipelineStatus === 'failed') return `Pipeline${num} failed`;
+    const num = ws?.pipelineBuildNumber ? ` ${ws.pipelineBuildNumber}` : '';
+    if (ws?.pipelineStatus === 'running') return `Pipeline${num} running\u2026`;
+    if (ws?.pipelineStatus === 'failed') return `Pipeline${num} failed`;
     return `Open Pipeline${num}`;
   }
   if (isButtonVisible(installBtn)) {
-    const num = tabEl._pipelineBuildNumber ? ` ${tabEl._pipelineBuildNumber}` : '';
-    if (tabEl._pipelineStatus === 'running') return `Pipeline${num} running \u2014 Download build`;
-    if (tabEl._pipelineStatus === 'failed') return `Pipeline${num} failed \u2014 Download build`;
+    const num = ws?.pipelineBuildNumber ? ` ${ws.pipelineBuildNumber}` : '';
+    if (ws?.pipelineStatus === 'running') return `Pipeline${num} running \u2014 Download build`;
+    if (ws?.pipelineStatus === 'failed') return `Pipeline${num} failed \u2014 Download build`;
     return `Download build${num}`;
   }
   if (isButtonVisible(resolveTaskBtn)) {
-    const num = tabEl._pipelineBuildNumber ? ` ${tabEl._pipelineBuildNumber}` : '';
-    if (tabEl._pipelineStatus === 'running') return `Pipeline${num} running \u2014 Complete Task`;
-    if (tabEl._pipelineStatus === 'failed') return `Pipeline${num} failed \u2014 Complete Task`;
+    const num = ws?.pipelineBuildNumber ? ` ${ws.pipelineBuildNumber}` : '';
+    if (ws?.pipelineStatus === 'running') return `Pipeline${num} running \u2014 Complete Task`;
+    if (ws?.pipelineStatus === 'failed') return `Pipeline${num} failed \u2014 Complete Task`;
     return 'Complete Azure Task';
   }
   if (isButtonVisible(openPrBtn)) return 'View Pull Request';
   if (isButtonVisible(createPrBtn)) return 'Create Pull Request';
   if (isButtonVisible(switchBtn)) {
-    if (tabEl._switchMode === 'open-task') return 'Open Task';
-    if (tabEl._taskResolved) {
-      if (tabEl._pipelineStatus === 'running') {
-        const num = tabEl._pipelineBuildNumber ? ` ${tabEl._pipelineBuildNumber}` : '';
+    if (ws?.switchMode === 'open-task') return 'Open Task';
+    if (ws?.taskResolved) {
+      if (ws?.pipelineStatus === 'running') {
+        const num = ws?.pipelineBuildNumber ? ` ${ws.pipelineBuildNumber}` : '';
         return `Pipeline${num} running \u2014 Task done`;
       }
       return 'Task Complete \u2014 Switch Worktree';
     }
     return 'Switch Worktree';
   }
-  if (tabEl._taskResolved) return 'Task Complete \u2014 Switch Worktree';
+  if (ws?.taskResolved) return 'Task Complete \u2014 Switch Worktree';
   return 'Switch Worktree';
 }
 

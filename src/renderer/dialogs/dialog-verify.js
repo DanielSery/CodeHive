@@ -1,5 +1,5 @@
 import { fetchBuildArtifacts, fetchContainerItems, fetchBuildsForDefinition } from '../azure-api.js';
-import { showTerminal, createTerminal, showCloseButton, setTitle } from '../terminal-panel.js';
+import { terminal } from '../terminal-service.js';
 
 const overlay = document.getElementById('verify-dialog-overlay');
 const titleEl = document.getElementById('verify-dialog-title');
@@ -118,20 +118,19 @@ export function showVerifyDialog(buildNumber) {
 }
 
 async function startSetupInstall(downloadUrl, auth, onSuccess, onFailure) {
-  showTerminal('Installing setup\u2026');
-  const xterm = createTerminal();
+  terminal.show('Installing setup\u2026');
   window.setupInstallAPI.removeListeners();
-  window.setupInstallAPI.onData(data => xterm.write(data));
+  window.setupInstallAPI.onData(data => terminal.write(data));
   window.setupInstallAPI.onExit(({ exitCode }) => {
     if (exitCode === 0) {
-      setTitle('Setup installed');
+      terminal.setTitle('Setup installed');
       onSuccess?.();
     } else {
-      xterm.writeln('\r\n\x1b[31mInstallation failed\x1b[0m');
-      setTitle('Installation failed');
+      terminal.writeln('\r\n\x1b[31mInstallation failed\x1b[0m');
+      terminal.setTitle('Installation failed');
       onFailure?.();
     }
-    showCloseButton();
+    terminal.showCloseButton();
   });
   await window.setupInstallAPI.start({ downloadUrl, auth });
   window.setupInstallAPI.ready();
