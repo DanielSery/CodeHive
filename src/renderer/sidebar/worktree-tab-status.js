@@ -122,12 +122,35 @@ export async function updatePipelineForTab(tabEl, { org, project, auth }) {
         installBtn.style.display = 'none';
       }
       if (tabEl._taskResolved) {
+        if (installBtn) installBtn.style.display = 'none';
         if (resolveTaskBtn) resolveTaskBtn.style.display = 'none';
         showFallbackSwitch(tabEl);
-      } else {
+      } else if (tabEl._pipelineInstalled) {
+        if (actionBtn) actionBtn.style.display = '';
         tabEl._canResolveTask = true;
         if (resolveTaskBtn && tabEl._wtTaskId) { resolveTaskBtn.style.display = 'inline-flex'; resolveTaskBtn.title = 'Complete Azure Task'; }
         if (switchBtn) switchBtn.style.display = 'none';
+      } else {
+        // Not yet installed — offer download first
+        tabEl._canResolveTask = false;
+        if (resolveTaskBtn) resolveTaskBtn.style.display = 'none';
+        const artifacts = await fetchBuildArtifacts(org, project, auth, build.id, build.definitionId);
+        if (artifacts.some(a => a.name === 'Setups')) {
+          if (installBtn) {
+            installBtn.innerHTML = INSTALL_BTN_SVG;
+            installBtn.classList.remove('pipeline-running');
+            installBtn.style.color = 'var(--accent)';
+            installBtn.style.display = 'inline-flex';
+            installBtn.title = `Download build ${build.buildNumber}`;
+          }
+          if (actionBtn) actionBtn.style.display = 'none';
+          if (switchBtn) switchBtn.style.display = 'none';
+        } else {
+          if (installBtn) installBtn.style.display = 'none';
+          tabEl._canResolveTask = true;
+          if (resolveTaskBtn && tabEl._wtTaskId) { resolveTaskBtn.style.display = 'inline-flex'; resolveTaskBtn.title = 'Complete Azure Task'; }
+          if (switchBtn) switchBtn.style.display = 'none';
+        }
       }
     } else {
       tabEl._pipelineStatus = 'failed';
