@@ -20,6 +20,7 @@
       <button class="titlebar-action-btn visible" id="btn-open-directory" title="Open Directory (Ctrl+O)"></button>
       <button class="titlebar-action-btn visible" id="btn-clone-repo" title="Clone Repository"></button>
       <button class="titlebar-action-btn visible" id="btn-azure-pat" title="Set Azure PAT"></button>
+      <button class="titlebar-action-btn visible" id="btn-check-updates" title="Check for Updates"></button>
     </div>
     <div class="titlebar-drag">
       <span class="titlebar-title">CodeHive</span>
@@ -353,6 +354,24 @@
     <button class="context-menu-item" data-action="add-worktree">Add Worktree<span class="context-menu-shortcut">Alt+N</span></button>
     <hr class="context-menu-separator">
     <button class="context-menu-item context-menu-item-danger" data-action="delete-project">Delete Project</button>
+  </div>
+
+  <!-- Update dialog -->
+  <div id="update-dialog-overlay" class="dialog-overlay">
+    <div class="dialog-box">
+      <h3 class="dialog-title" id="update-dialog-title">Check for Updates</h3>
+      <div id="update-dialog-body" class="dialog-desc">Checking for updates...</div>
+      <div id="update-progress-wrap" style="display:none;margin-bottom:14px;">
+        <div class="update-progress-bar">
+          <div id="update-progress-fill" class="update-progress-fill"></div>
+        </div>
+        <div id="update-progress-label" style="font-size:11px;color:var(--text-muted);margin-top:4px;text-align:center"></div>
+      </div>
+      <div class="dialog-buttons">
+        <button id="update-close-btn" class="dialog-btn dialog-btn-cancel" tabindex="-1">Close</button>
+        <button id="update-action-btn" class="dialog-btn dialog-btn-confirm" style="display:none">Download &amp; Install</button>
+      </div>
+    </div>
   </div>
 
   <!-- Toast notifications -->

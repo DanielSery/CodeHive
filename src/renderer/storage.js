@@ -67,4 +67,16 @@ export function getDeleteBranchPref(key) {
   return !!(state.prefs && state.prefs[key]);
 }
 
+export function getCheckUpdatesOnStartup() {
+  const state = getState();
+  return state.prefs?.checkUpdatesOnStartup !== false;
+}
+
+export function saveCheckUpdatesOnStartup(value) {
+  const state = getState();
+  if (!state.prefs) state.prefs = {};
+  state.prefs.checkUpdatesOnStartup = value;
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+}
+
 export { STORAGE_KEY };

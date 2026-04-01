@@ -92,6 +92,8 @@ function makeTabEl(overrides = {}) {
     _workspaceId: null,
     _pipelineTargetBranch: 'refs/heads/master',
     _pipelineMergeTime: null,
+    _refreshInFlight: false,
+    _refreshPending: false,
     ...overrides,
   });
   return tab;
@@ -230,16 +232,16 @@ describe('updatePipelineForTab', () => {
       expect(tab._pipelineStatus).toBe('running');
     });
 
-    it('Setups artifact ready → install button appears with running style', async () => {
+    it('Setups artifact ready → action shows install icon; install-btn shown as semantic target', async () => {
       fetchBuildArtifacts.mockResolvedValue([{ name: 'Setups' }]);
       const tab = makeTabEl();
       await updatePipelineForTab(tab, CTX);
       assertButtons(tab,
-        ['install-btn'],
-        ['action', 'switch'],
+        ['action', 'install-btn'],
+        ['switch'],
       );
-      expect(btn(tab, 'install-btn').classList.contains('pipeline-running')).toBe(true);
-      expect(btn(tab, 'install-btn').title).toMatch(/download/i);
+      expect(btn(tab, 'action').style.color).toBe('var(--accent)');
+      expect(btn(tab, 'action').title).toMatch(/download/i);
     });
 
     it('non-Setups artifact (e.g. Symbols, Logs) → install button stays hidden', async () => {
@@ -282,14 +284,15 @@ describe('updatePipelineForTab', () => {
       );
     });
 
-    it('task resolved + Setups artifact → install shown (pipeline continues in background)', async () => {
+    it('task resolved + Setups artifact → action shows install icon; install-btn shown as semantic target', async () => {
       fetchBuildArtifacts.mockResolvedValue([{ name: 'Setups' }]);
       const tab = makeTabEl({ _taskResolved: true });
       await updatePipelineForTab(tab, CTX);
       assertButtons(tab,
-        ['install-btn'],
-        ['action', 'switch', 'resolve-task'],
+        ['action', 'install-btn'],
+        ['switch', 'resolve-task'],
       );
+      expect(btn(tab, 'action').style.color).toBe('var(--accent)');
     });
   });
 
@@ -759,6 +762,56 @@ describe('refreshTabStatus', () => {
       await refreshTabStatus(tab);
       expect(global.fetch).toHaveBeenCalledTimes(1);
       expect(global.fetch.mock.calls[0][0]).not.toContain('status=completed');
+    });
+  });
+
+  describe('concurrency guard', () => {
+    it('second call while first is in-flight is deferred, not run immediately', async () => {
+      // Create the hanging promise eagerly so resolveFirst is assigned before async code runs
+      let resolveFirst;
+      const hang = new Promise(r => { resolveFirst = r; });
+      fetchLatestBuild.mockImplementationOnce(() => hang);
+      fetchLatestBuild.mockResolvedValue(null);
+
+      const tab = makeTabEl({ _canOpenPipeline: true, _taskResolved: true });
+
+      const p1 = refreshTabStatus(tab);
+      expect(tab._refreshInFlight).toBe(true);
+      expect(tab._refreshPending).toBe(false);
+
+      refreshTabStatus(tab); // second call — should be deferred
+      expect(tab._refreshPending).toBe(true);
+
+      refreshTabStatus(tab); // third call — deduped into the single pending slot
+      expect(tab._refreshPending).toBe(true);
+
+      resolveFirst(null);
+      await p1;
+      await new Promise(r => setTimeout(r, 0)); // let deferred call complete
+
+      // fetchLatestBuild called once for the first run, once for the deferred run
+      expect(fetchLatestBuild).toHaveBeenCalledTimes(2);
+      expect(tab._refreshInFlight).toBe(false);
+      expect(tab._refreshPending).toBe(false);
+    });
+
+    it('no call is dropped: after the guard releases, exactly one deferred run executes', async () => {
+      let resolveFirst;
+      const hang = new Promise(r => { resolveFirst = r; });
+      fetchLatestBuild.mockImplementationOnce(() => hang);
+      fetchLatestBuild.mockResolvedValue(SUCCEEDED_BUILD);
+
+      const tab = makeTabEl({ _canOpenPipeline: true, _taskResolved: true });
+
+      refreshTabStatus(tab); // first — hangs at fetchLatestBuild
+      refreshTabStatus(tab); // second — deferred
+      refreshTabStatus(tab); // third — deduped
+
+      resolveFirst(null);
+      await new Promise(r => setTimeout(r, 10));
+
+      // Pipeline succeeds in the deferred run → switch button shown
+      assertButtons(tab, ['switch'], []);
     });
   });
 });

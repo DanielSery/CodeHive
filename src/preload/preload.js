@@ -164,3 +164,12 @@ contextBridge.exposeInMainWorld('startupAPI', {
 contextBridge.exposeInMainWorld('appSession', {
   getPartition: () => ipcRenderer.invoke('startup:getPartition')
 });
+
+contextBridge.exposeInMainWorld('updaterAPI', {
+  getVersion: () => ipcRenderer.invoke('updater:getVersion'),
+  check: () => ipcRenderer.invoke('updater:check'),
+  download: (url) => ipcRenderer.invoke('updater:download', url),
+  install: (zipPath) => ipcRenderer.invoke('updater:install', zipPath),
+  onProgress: (cb) => ipcRenderer.on('updater:progress', (_, pct) => cb(pct)),
+  removeProgressListener: () => ipcRenderer.removeAllListeners('updater:progress'),
+});

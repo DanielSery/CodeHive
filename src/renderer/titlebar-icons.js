@@ -2,13 +2,14 @@ import {
   DOT_COMMIT_PUSH_SVG, DOT_CREATE_PR_SVG, DOT_OPEN_PR_SVG, DOT_COMPLETE_PR_SVG,
   DOT_RESOLVE_TASK_SVG, DOT_PIPELINE_SVG, DOT_OPEN_TASK_SVG, DOT_SWITCH_SVG,
   OPEN_DIRECTORY_SVG, CLONE_REPO_SVG, AZURE_PAT_SVG,
-  GIT_APP_SVG, THEME_DARK_SVG, THEME_LIGHT_SVG, TERMINAL_SVG,
+  GIT_APP_SVG, THEME_DARK_SVG, THEME_LIGHT_SVG, TERMINAL_SVG, UPDATE_SVG,
 } from './sidebar/worktree-tab-icons.js';
 
 const BUTTON_ICONS = {
   'btn-open-directory': OPEN_DIRECTORY_SVG,
   'btn-clone-repo': CLONE_REPO_SVG,
   'btn-azure-pat': AZURE_PAT_SVG,
+  'btn-check-updates': UPDATE_SVG,
   'btn-titlebar-commit': DOT_COMMIT_PUSH_SVG,
   'btn-titlebar-create-pr': DOT_CREATE_PR_SVG,
   'btn-titlebar-open-pr': DOT_OPEN_PR_SVG,

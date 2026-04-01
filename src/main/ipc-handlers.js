@@ -299,6 +299,25 @@ function register(mainWindow, getServerPort) {
     else mainWindow.maximize();
   });
   ipcMain.on('window:close', () => mainWindow.close());
+
+  // Updater
+  const updater = require('./updater');
+
+  ipcMain.handle('updater:getVersion', () => app.getVersion());
+
+  ipcMain.handle('updater:check', () => updater.checkForUpdates());
+
+  ipcMain.handle('updater:download', async (event, downloadUrl) => {
+    return updater.downloadUpdate(downloadUrl, (pct) => {
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send('updater:progress', pct);
+      }
+    });
+  });
+
+  ipcMain.handle('updater:install', (event, zipPath) => {
+    updater.installUpdate(zipPath);
+  });
 }
 
 function killAllPtys() {

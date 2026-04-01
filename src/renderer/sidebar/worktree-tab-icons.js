@@ -24,5 +24,7 @@ export const THEME_DARK_SVG = '<svg id="theme-icon-dark" width="14" height="14" 
 export const THEME_LIGHT_SVG = '<svg id="theme-icon-light" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:none"><path d="M14 8.5A6 6 0 1 1 7.5 2 4.7 4.7 0 0 0 14 8.5z"/></svg>';
 export const TERMINAL_SVG = '<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 6 8 10 4 14"/><line x1="10" y1="14" x2="14" y2="14"/></svg>';
 
+export const UPDATE_SVG = '<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="6"/><path d="M8 5.5v4"/><path d="M5.5 7.5L8 10l2.5-2.5"/></svg>';
+
 export const PIPELINE_STATUS_CLASSES = ['pipeline-running', 'pipeline-failed', 'pipeline-succeeded'];
 export const PR_STATUS_CLASSES = ['has-pr', 'has-pr-succeeded', 'has-pr-approved', 'has-pr-failed', 'has-pr-comments'];

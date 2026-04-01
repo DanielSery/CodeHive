@@ -42,14 +42,7 @@ export function showTabRemoveButton(tabEl) {
   if (openPrBtn) openPrBtn.style.display = 'none';
   if (completePrBtn) completePrBtn.style.display = 'none';
   if (pipelineBtn) pipelineBtn.style.display = 'none';
-  if (installBtn) {
-    installBtn.innerHTML = INSTALL_BTN_SVG;
-    installBtn.classList.remove('pipeline-running');
-    installBtn.style.color = '';
-    installBtn.style.display = 'none';
-  }
-  const actionBtnReset = tabEl.querySelector('.workspace-tab-action');
-  if (actionBtnReset) actionBtnReset.style.display = '';
+  if (installBtn) installBtn.style.display = 'none';
   if (resolveTaskBtn) resolveTaskBtn.style.display = 'none';
   if (closeBtn) closeBtn.style.display = 'none';
   tabEl._hasUncommittedChanges = false;
@@ -117,6 +110,8 @@ export function createWorktreeTab(wt) {
   tabEl._pipelineStatus = null;
   tabEl._pipelineUrl = null;
   tabEl._pipelineInstalled = false;
+  tabEl._refreshInFlight = false;
+  tabEl._refreshPending = false;
 
   const dotEl = document.createElement('button');
   dotEl.className = 'collapsed-dot';
@@ -132,6 +127,7 @@ export function createWorktreeTab(wt) {
       '.workspace-tab-complete-pr',
       '.workspace-tab-resolve-task',
       '.workspace-tab-open-pipeline',
+      '.workspace-tab-install-btn',
       '.workspace-tab-create-pr',
       '.workspace-tab-open-pr',
       '.workspace-tab-switch'
@@ -159,6 +155,7 @@ export function createWorktreeTab(wt) {
       '.workspace-tab-complete-pr',
       '.workspace-tab-resolve-task',
       '.workspace-tab-open-pipeline',
+      '.workspace-tab-install-btn',
       '.workspace-tab-open-pr',
       '.workspace-tab-create-pr',
       '.workspace-tab-switch'
@@ -351,7 +348,7 @@ setInterval(() => {
     const isOpen = tab._workspaceId !== null;
     const openPrBtn = tab.querySelector('.workspace-tab-open-pr');
     const hasPrStatus = openPrBtn && hasPrStatusClass(openPrBtn);
-    const watchingPipeline = tab._canOpenPipeline && !tab._taskResolved;
+    const watchingPipeline = tab._canOpenPipeline && tab._pipelineStatus !== 'succeeded' && tab._pipelineStatus !== 'failed';
     if (isOpen || hasPrStatus || watchingPipeline) {
       refreshTabStatus(tab);
     }

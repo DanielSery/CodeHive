@@ -3,6 +3,7 @@ import {
   DOT_COMMIT_PUSH_SVG, DOT_CREATE_PR_SVG, DOT_OPEN_PR_SVG, DOT_COMPLETE_PR_SVG,
   DOT_RESOLVE_TASK_SVG, DOT_OPEN_TASK_SVG, DOT_SWITCH_SVG, DOT_DONE_SWITCH_SVG,
   DOT_PIPELINE_SVG, DOT_COMPLETE_TASK_RUNNING_SVG, DOT_TASK_DONE_RUNNING_SVG,
+  INSTALL_BTN_SVG, INSTALL_PIPELINE_RUNNING_SVG,
 } from './worktree-tab-icons.js';
 
 export function formatBranchLabel(branch) {
@@ -32,6 +33,7 @@ export function getTabDotState(tabEl) {
   const commitPushBtn = tabEl.querySelector('.workspace-tab-commit-push');
   const completePrBtn = tabEl.querySelector('.workspace-tab-complete-pr');
   const pipelineBtn = tabEl.querySelector('.workspace-tab-open-pipeline');
+  const installBtn = tabEl.querySelector('.workspace-tab-install-btn');
   const resolveTaskBtn = tabEl.querySelector('.workspace-tab-resolve-task');
   const openPrBtn = tabEl.querySelector('.workspace-tab-open-pr');
   const createPrBtn = tabEl.querySelector('.workspace-tab-create-pr');
@@ -55,6 +57,10 @@ export function getTabDotState(tabEl) {
       return { icon: DOT_TASK_DONE_RUNNING_SVG, color: pipelineColor };
     }
     return { icon: DOT_PIPELINE_SVG, color: pipelineColor };
+  }
+  if (isButtonVisible(installBtn)) {
+    const icon = tabEl._pipelineStatus === 'running' ? INSTALL_PIPELINE_RUNNING_SVG : INSTALL_BTN_SVG;
+    return { icon, color: 'var(--accent)' };
   }
   if (isButtonVisible(resolveTaskBtn)) {
     return { icon: DOT_RESOLVE_TASK_SVG, color: 'var(--green)' };
@@ -95,11 +101,15 @@ export function getTabActionTitle(tabEl) {
     const num = tabEl._pipelineBuildNumber ? ` ${tabEl._pipelineBuildNumber}` : '';
     if (tabEl._pipelineStatus === 'running') {
       if (isButtonVisible(resolveTaskBtn)) return `Pipeline${num} running \u2014 Complete Task`;
-      if (isButtonVisible(installBtn)) return `Pipeline${num} running \u2014 Download build`;
       return `Pipeline${num} running\u2026`;
     }
     if (tabEl._pipelineStatus === 'failed') return `Pipeline${num} failed`;
     return `Open Pipeline${num}`;
+  }
+  if (isButtonVisible(installBtn)) {
+    const num = tabEl._pipelineBuildNumber ? ` ${tabEl._pipelineBuildNumber}` : '';
+    if (tabEl._pipelineStatus === 'running') return `Pipeline${num} running \u2014 Download build`;
+    return `Download build${num}`;
   }
   if (isButtonVisible(resolveTaskBtn)) return 'Complete Azure Task';
   if (isButtonVisible(openPrBtn)) return 'View Pull Request';

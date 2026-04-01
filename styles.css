@@ -1,4 +1,4 @@
-* {
+b* {
   margin: 0;
   padding: 0;
   box-sizing: border-box;
@@ -135,6 +135,10 @@ html, body {
 .titlebar-action-btn:hover {
   background: var(--tab-bg);
   color: var(--text);
+}
+
+.titlebar-action-btn.update-available {
+  color: var(--accent);
 }
 
 .titlebar-controls {
@@ -659,7 +663,8 @@ html, body {
 .workspace-tab-resolve-task,
 .workspace-tab-open-pr,
 .workspace-tab-create-pr,
-.workspace-tab-switch {
+.workspace-tab-switch,
+.workspace-tab-install-btn {
   position: absolute;
   width: 0;
   height: 0;
@@ -721,8 +726,7 @@ html, body {
   color: var(--text);
 }
 
-.workspace-tab-action,
-.workspace-tab-install-btn {
+.workspace-tab-action {
   width: 18px;
   height: 18px;
   flex-shrink: 0;
@@ -739,8 +743,7 @@ html, body {
   line-height: 0;
 }
 
-.workspace-tab-action:hover,
-.workspace-tab-install-btn:hover {
+.workspace-tab-action:hover {
   opacity: 1;
   background: color-mix(in srgb, currentColor 20%, transparent);
 }
@@ -1358,6 +1361,23 @@ html, body {
 #clone-terminal-xterm {
   flex: 1;
   padding: 8px;
+}
+
+/* ===== Update Progress Bar ===== */
+.update-progress-bar {
+  width: 100%;
+  height: 6px;
+  background: var(--border);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.update-progress-fill {
+  height: 100%;
+  width: 0%;
+  background: var(--accent);
+  border-radius: 3px;
+  transition: width 0.2s;
 }
 
 /* ===== Context Menu ===== */

@@ -6,6 +6,7 @@ import { getActive } from './state.js';
 import { toggleTerminal, createTerminal, showTerminal, showCloseButton } from './terminal-panel.js';
 import { getState, saveDirectories, resetDirectories, STORAGE_KEY } from './storage.js';
 import { showPatDialog } from './dialogs/dialog-pat.js';
+import { showUpdateDialog } from './dialogs/dialog-update.js';
 import { loadStoredPat } from './dialogs/utils.js';
 import { toast } from './toast.js';
 
@@ -250,6 +251,12 @@ const btnAzurePat = document.getElementById('btn-azure-pat');
 loadStoredPat().then(pat => { if (pat) btnAzurePat.style.display = 'none'; });
 btnAzurePat.addEventListener('click', showPatDialog);
 
+// ===== Check for Updates button =====
+
+document.getElementById('btn-check-updates').addEventListener('click', () => showUpdateDialog(false));
+
 // ===== Restore on startup =====
 
-restoreState().then(() => checkAndInstallAz());
+restoreState().then(() => {
+  checkAndInstallAz();
+});
