@@ -3,6 +3,7 @@ const path = require('path');
 const os = require('os');
 const { spawnProc } = require('./pty-spawn.js');
 const { buildWorktreeCmd, buildCloneCmd, buildDeleteScript, buildWorktreeRemoveScript, buildWorktreeSwitchScript, buildCommitPushScript, buildPrCreateScript } = require('./pty-scripts.js');
+const { createPackagesJunction } = require('./repo-scanner.js');
 
 function createWorktreePty(mainWindow, { barePath, repoDir, branchName, sourceBranch }) {
   const { cmd, cwd, wtPath, dirName } = buildWorktreeCmd(barePath, { repoDir, branchName, sourceBranch });
@@ -15,6 +16,7 @@ function createWorktreePty(mainWindow, { barePath, repoDir, branchName, sourceBr
   });
 
   proc.onExit(({ exitCode }) => {
+    if (exitCode === 0) createPackagesJunction(wtPath, barePath);
     if (mainWindow && !mainWindow.isDestroyed()) {
       mainWindow.webContents.send('worktree:exit', { exitCode, wtPath, branchName, dirName });
     }

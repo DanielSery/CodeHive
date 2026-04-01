@@ -53,7 +53,7 @@ export function getTabDotState(tabEl) {
     if (isButtonVisible(resolveTaskBtn)) {
       return { icon: DOT_COMPLETE_TASK_RUNNING_SVG, color: pipelineColor };
     }
-    if (tabEl._taskResolved) {
+    if (tabEl._taskResolved && tabEl._wtTaskId) {
       return { icon: DOT_TASK_DONE_RUNNING_SVG, color: pipelineColor };
     }
     return { icon: DOT_PIPELINE_SVG, color: pipelineColor };

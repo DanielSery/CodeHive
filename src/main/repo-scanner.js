@@ -6,6 +6,59 @@ const { execSync } = require('child_process');
 const { checkClaudeActive } = require('./claude-status');
 const { getCachedBranches, fetchAndListBranches, getGitUser, getRemoteUrl, getLaunchConfigs, gitDiffStat, gitFileDiff, getFirstBranchCommit, hasUncommittedChanges, hasPushedCommits, gitRevertFile } = require('./git-operations');
 
+function createPackagesJunction(wtPath, barePath) {
+  const packagesSource = path.join(barePath, 'Packages');
+  fs.mkdirSync(packagesSource, { recursive: true });
+
+  const junctionTarget = path.join(wtPath, 'Packages');
+  const jWin = junctionTarget.replace(/\//g, '\\');
+  const sWin = packagesSource.replace(/\//g, '\\');
+
+  let lstat;
+  try { lstat = fs.lstatSync(junctionTarget); } catch {}
+
+  if (lstat) {
+    if (lstat.isSymbolicLink()) {
+      // Junction exists — skip if already pointing at Bare\Packages
+      try {
+        const current = path.normalize(fs.readlinkSync(junctionTarget));
+        const expected = path.normalize(packagesSource);
+        if (current.toLowerCase() === expected.toLowerCase()) return;
+      } catch {}
+      // Wrong target — remove junction only (no /s so contents are untouched)
+      try {
+        if (process.platform === 'win32') execSync(`cmd /c rmdir "${jWin}"`, { stdio: 'pipe' });
+        else fs.unlinkSync(junctionTarget);
+      } catch (e) {
+        console.error('[CodeHive] Failed to remove wrong Packages junction:', e.message);
+        return;
+      }
+    } else {
+      // Real directory — migrate each entry to Bare\Packages then remove the dir
+      try {
+        for (const entry of fs.readdirSync(junctionTarget)) {
+          const src = path.join(junctionTarget, entry);
+          const dst = path.join(packagesSource, entry);
+          try { fs.lstatSync(dst); } catch { fs.renameSync(src, dst); }
+        }
+        if (process.platform === 'win32') execSync(`cmd /c rd /s /q "${jWin}"`, { stdio: 'pipe' });
+        else fs.rmSync(junctionTarget, { recursive: true, force: true });
+      } catch (e) {
+        console.error('[CodeHive] Failed to migrate Packages directory:', e.message);
+        return;
+      }
+    }
+  }
+
+  try {
+    if (process.platform === 'win32') execSync(`cmd /c mklink /J "${jWin}" "${sWin}"`, { stdio: 'pipe' });
+    else fs.symlinkSync(packagesSource, junctionTarget, 'dir');
+    console.log(`[CodeHive] Created Packages junction: ${junctionTarget} -> ${packagesSource}`);
+  } catch (e) {
+    console.error('[CodeHive] Failed to create Packages junction:', e.message);
+  }
+}
+
 function scanDirectory(dirPath) {
   const repos = [];
   let children;
@@ -25,6 +78,7 @@ function scanDirectory(dirPath) {
     if (!bareStat.isDirectory()) continue;
 
     const worktrees = listWorktrees(barePath);
+    for (const wt of worktrees) createPackagesJunction(wt.path, barePath);
     repos.push({ name: child.name, barePath, worktrees });
   }
 
@@ -68,4 +122,4 @@ function listWorktrees(barePath) {
   return worktrees;
 }
 
-module.exports = { scanDirectory, checkClaudeActive, getCachedBranches, fetchAndListBranches, getGitUser, getRemoteUrl, getLaunchConfigs, gitDiffStat, gitFileDiff, getFirstBranchCommit, hasUncommittedChanges, hasPushedCommits, gitRevertFile };
+module.exports = { scanDirectory, createPackagesJunction, checkClaudeActive, getCachedBranches, fetchAndListBranches, getGitUser, getRemoteUrl, getLaunchConfigs, gitDiffStat, gitFileDiff, getFirstBranchCommit, hasUncommittedChanges, hasPushedCommits, gitRevertFile };
