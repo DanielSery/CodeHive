@@ -1,6 +1,6 @@
 import { syncTitlebarToTab } from '../workspace-manager.js';
 import { parseAzureRemoteUrl, fetchPolicyEvaluations, fetchPrUnresolvedThreadCount, fetchWorkItemById, fetchLatestBuild, fetchBuildArtifacts } from '../azure-api.js';
-import { PIPELINE_STATUS_CLASSES, PR_STATUS_CLASSES, INSTALL_BTN_SVG, INSTALL_PIPELINE_RUNNING_SVG, DOT_SWITCH_SVG } from './worktree-tab-icons.js';
+import { PIPELINE_STATUS_CLASSES, PR_STATUS_CLASSES, INSTALL_BTN_SVG, DOT_SWITCH_SVG } from './worktree-tab-icons.js';
 import { updateDotState } from './worktree-tab-dot-state.js';
 
 /**
@@ -10,7 +10,8 @@ function computePrStatusClass(reviewers, evaluations, unresolvedCount) {
   const reviewerRejected = (reviewers || []).some(r => r.vote <= -10);
 
   if (evaluations.length > 0 || reviewerRejected) {
-    const hasFailed = reviewerRejected || evaluations.some(e => e.status === 'rejected' || e.status === 'broken');
+    const nonCommentEvals = evaluations.filter(e => e.configuration?.type?.displayName !== 'Comment requirements');
+    const hasFailed = reviewerRejected || nonCommentEvals.some(e => e.status === 'rejected' || e.status === 'broken');
     if (hasFailed) return 'has-pr-failed';
 
     const buildEvals = evaluations.filter(e => e.context?.buildId);
@@ -93,6 +94,14 @@ function resetActionState(tabEl) {
   setActionState(tabEl, DOT_SWITCH_SVG, '', '');
 }
 
+async function findSetupsArtifactBuild(allBuilds, org, project, auth) {
+  for (const b of allBuilds) {
+    const artifacts = await fetchBuildArtifacts(org, project, auth, b.id, b.definitionId);
+    if (artifacts.some(a => a.name === 'Setups')) return b;
+  }
+  return null;
+}
+
 export async function updatePipelineForTab(tabEl, { org, project, auth }) {
   const targetBranch = tabEl._pipelineTargetBranch;
   if (!targetBranch) return;
@@ -127,9 +136,23 @@ export async function updatePipelineForTab(tabEl, { org, project, auth }) {
       if (pipelineBtn) pipelineBtn.style.display = 'none';
       if (installBtn) installBtn.style.display = 'none';
       if (tabEl._taskResolved) {
-        resetActionState(tabEl);
         if (resolveTaskBtn) resolveTaskBtn.style.display = 'none';
-        showFallbackSwitch(tabEl);
+        if (!tabEl._pipelineInstalled) {
+          const ab = await findSetupsArtifactBuild(build.allBuilds, org, project, auth);
+          if (ab) {
+            tabEl._pipelineBuildId = ab.id;
+            tabEl._pipelineDefinitionId = ab.definitionId;
+            setActionState(tabEl, INSTALL_BTN_SVG, 'var(--green)', `Download build ${ab.buildNumber}`);
+            if (installBtn) installBtn.style.display = 'inline-flex';
+            if (switchBtn) switchBtn.style.display = 'none';
+          } else {
+            resetActionState(tabEl);
+            showFallbackSwitch(tabEl);
+          }
+        } else {
+          resetActionState(tabEl);
+          showFallbackSwitch(tabEl);
+        }
       } else if (tabEl._pipelineInstalled) {
         resetActionState(tabEl);
         tabEl._canResolveTask = true;
@@ -139,9 +162,11 @@ export async function updatePipelineForTab(tabEl, { org, project, auth }) {
         // Not yet installed — offer download first
         tabEl._canResolveTask = false;
         if (resolveTaskBtn) resolveTaskBtn.style.display = 'none';
-        const artifacts = await fetchBuildArtifacts(org, project, auth, build.id, build.definitionId);
-        if (artifacts.some(a => a.name === 'Setups')) {
-          setActionState(tabEl, INSTALL_BTN_SVG, 'var(--accent)', `Download build ${build.buildNumber}`);
+        const ab = await findSetupsArtifactBuild(build.allBuilds, org, project, auth);
+        if (ab) {
+          tabEl._pipelineBuildId = ab.id;
+          tabEl._pipelineDefinitionId = ab.definitionId;
+          setActionState(tabEl, INSTALL_BTN_SVG, 'var(--green)', `Download build ${ab.buildNumber}`);
           if (installBtn) installBtn.style.display = 'inline-flex';
           if (switchBtn) switchBtn.style.display = 'none';
         } else {
@@ -155,46 +180,91 @@ export async function updatePipelineForTab(tabEl, { org, project, auth }) {
       tabEl._pipelineStatus = 'failed';
       if (pipelineBtn) {
         pipelineBtn.classList.add('pipeline-failed');
-        pipelineBtn.style.display = 'inline-flex';
         pipelineBtn.title = `Pipeline ${build.buildNumber} failed`;
       }
-      if (installBtn) installBtn.style.display = 'none';
-      resetActionState(tabEl);
-      if (resolveTaskBtn) resolveTaskBtn.style.display = 'none';
+      if (tabEl._taskResolved) {
+        if (resolveTaskBtn) resolveTaskBtn.style.display = 'none';
+        if (!tabEl._pipelineInstalled) {
+          const ab = await findSetupsArtifactBuild(build.allBuilds, org, project, auth);
+          if (ab) {
+            tabEl._pipelineBuildId = ab.id;
+            tabEl._pipelineDefinitionId = ab.definitionId;
+            setActionState(tabEl, INSTALL_BTN_SVG, 'var(--red)', `Download build ${ab.buildNumber}`);
+            if (pipelineBtn) pipelineBtn.style.display = 'none';
+            if (installBtn) installBtn.style.display = 'inline-flex';
+            if (switchBtn) switchBtn.style.display = 'none';
+          } else {
+            if (pipelineBtn) pipelineBtn.style.display = 'none';
+            if (installBtn) installBtn.style.display = 'none';
+            resetActionState(tabEl);
+            showFallbackSwitch(tabEl);
+          }
+        } else {
+          if (pipelineBtn) pipelineBtn.style.display = 'none';
+          if (installBtn) installBtn.style.display = 'none';
+          resetActionState(tabEl);
+          showFallbackSwitch(tabEl);
+        }
+      } else if (tabEl._pipelineInstalled) {
+        if (pipelineBtn) pipelineBtn.style.display = 'none';
+        resetActionState(tabEl);
+        tabEl._canResolveTask = true;
+        if (resolveTaskBtn && tabEl._wtTaskId) { resolveTaskBtn.style.display = 'inline-flex'; resolveTaskBtn.title = 'Complete Azure Task'; }
+        if (switchBtn) switchBtn.style.display = 'none';
+      } else {
+        tabEl._canResolveTask = false;
+        if (resolveTaskBtn) resolveTaskBtn.style.display = 'none';
+        const ab = await findSetupsArtifactBuild(build.allBuilds, org, project, auth);
+        if (ab) {
+          tabEl._pipelineBuildId = ab.id;
+          tabEl._pipelineDefinitionId = ab.definitionId;
+          setActionState(tabEl, INSTALL_BTN_SVG, 'var(--red)', `Download build ${ab.buildNumber}`);
+          if (pipelineBtn) pipelineBtn.style.display = 'none';
+          if (installBtn) installBtn.style.display = 'inline-flex';
+          if (switchBtn) switchBtn.style.display = 'none';
+        } else {
+          if (pipelineBtn) pipelineBtn.style.display = 'inline-flex';
+          if (installBtn) installBtn.style.display = 'none';
+          resetActionState(tabEl);
+          if (switchBtn) switchBtn.style.display = 'none';
+        }
+      }
     }
   } else {
     // Pipeline is running
     tabEl._pipelineStatus = 'running';
-    let pipelineColor = 'var(--accent)';
     if (pipelineBtn) {
       pipelineBtn.classList.add('pipeline-running');
-      pipelineBtn.style.display = 'inline-flex';
       pipelineBtn.title = `Pipeline ${build.buildNumber} running\u2026`;
-      if (pipelineBtn.classList.contains('pipeline-running')) pipelineColor = 'var(--yellow)';
-      else if (pipelineBtn.classList.contains('pipeline-failed')) pipelineColor = 'var(--red)';
-      else if (pipelineBtn.classList.contains('pipeline-succeeded')) pipelineColor = 'var(--green)';
     }
 
     if (tabEl._taskResolved) {
-      // Task already completed (or no task linked) — keep monitoring pipeline
+      // Task already completed — keep monitoring; pipeline status shown via button color
       if (resolveTaskBtn) resolveTaskBtn.style.display = 'none';
-      if (!tabEl._wtTaskId && !tabEl._pipelineInstalled) {
-        // No task linked — still offer install if artifact is available
-        const artifacts = await fetchBuildArtifacts(org, project, auth, build.id, build.definitionId);
-        if (artifacts.some(a => a.name === 'Setups')) {
-          setActionState(tabEl, INSTALL_PIPELINE_RUNNING_SVG, 'var(--accent)', `Download build ${build.buildNumber}`);
+      if (!tabEl._pipelineInstalled) {
+        const ab = await findSetupsArtifactBuild(build.allBuilds, org, project, auth);
+        if (ab) {
+          tabEl._pipelineBuildId = ab.id;
+          tabEl._pipelineDefinitionId = ab.definitionId;
+          setActionState(tabEl, INSTALL_BTN_SVG, 'var(--yellow)', `Download build ${ab.buildNumber}`);
           if (pipelineBtn) pipelineBtn.style.display = 'none';
           if (installBtn) installBtn.style.display = 'inline-flex';
+          if (switchBtn) switchBtn.style.display = 'none';
         } else {
+          if (pipelineBtn) pipelineBtn.style.display = 'none';
           if (installBtn) installBtn.style.display = 'none';
           resetActionState(tabEl);
+          showFallbackSwitch(tabEl);
         }
       } else {
+        if (pipelineBtn) pipelineBtn.style.display = 'none';
         if (installBtn) installBtn.style.display = 'none';
         resetActionState(tabEl);
+        showFallbackSwitch(tabEl);
       }
     } else if (tabEl._pipelineInstalled) {
-      // Installed — show complete task alongside running pipeline
+      // Installed — show complete task; pipeline status shown via button color
+      if (pipelineBtn) pipelineBtn.style.display = 'none';
       if (installBtn) installBtn.style.display = 'none';
       resetActionState(tabEl);
       tabEl._canResolveTask = true;
@@ -203,19 +273,22 @@ export async function updatePipelineForTab(tabEl, { org, project, auth }) {
     } else {
       // Not yet installed — check for artifact
       if (resolveTaskBtn) resolveTaskBtn.style.display = 'none';
-      const artifacts = await fetchBuildArtifacts(org, project, auth, build.id, build.definitionId);
-      if (artifacts.some(a => a.name === 'Setups')) {
-        setActionState(tabEl, INSTALL_PIPELINE_RUNNING_SVG, 'var(--accent)', `Download build ${build.buildNumber}`);
+      const ab = await findSetupsArtifactBuild(build.allBuilds, org, project, auth);
+      if (ab) {
+        tabEl._pipelineBuildId = ab.id;
+        tabEl._pipelineDefinitionId = ab.definitionId;
+        setActionState(tabEl, INSTALL_BTN_SVG, 'var(--yellow)', `Download build ${ab.buildNumber}`);
         if (pipelineBtn) pipelineBtn.style.display = 'none';
         if (installBtn) installBtn.style.display = 'inline-flex';
+        if (switchBtn) switchBtn.style.display = 'none';
       } else {
+        if (pipelineBtn) pipelineBtn.style.display = 'inline-flex';
         if (installBtn) installBtn.style.display = 'none';
         resetActionState(tabEl);
+        if (switchBtn) switchBtn.style.display = 'none';
       }
     }
   }
-
-  if (switchBtn && !(tabEl._pipelineStatus === 'succeeded' && tabEl._taskResolved)) switchBtn.style.display = 'none';
 }
 
 async function _refreshTabStatusInner(tabEl) {

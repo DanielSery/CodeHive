@@ -1,6 +1,6 @@
 import { setTabStatus } from '../claude-poll.js';
 import { openWorktree, closeWorkspace } from '../workspace-manager.js';
-import { getSourceBranch, getTaskId } from '../storage.js';
+import { getSourceBranch, getTaskId, getPipelineInstalled, savePipelineInstalled } from '../storage.js';
 import { rebuildCollapsedDots, collapsedDotsEl } from './collapsed-dots.js';
 import { showContextMenu } from './context-menu.js';
 import { _showWorktreeSwitchDialog, _showWorktreeRemoveDialog, _showCommitPushDialog, _showCreatePrDialog, _onStateChange } from './registers.js';
@@ -109,7 +109,7 @@ export function createWorktreeTab(wt) {
   tabEl._pipelineBuildNumber = null;
   tabEl._pipelineStatus = null;
   tabEl._pipelineUrl = null;
-  tabEl._pipelineInstalled = false;
+  tabEl._pipelineInstalled = getPipelineInstalled(wt.path);
   tabEl._refreshInFlight = false;
   tabEl._refreshPending = false;
 
@@ -265,6 +265,7 @@ export function createWorktreeTab(wt) {
     const result = await showInstallDialog(d.org, d.project, d.auth, tabEl._pipelineBuildId, tabEl._pipelineBuildNumber, tabEl._pipelineStatus === 'succeeded', tabEl._pipelineDefinitionId);
     if (result === 'installed' || result === 'skipped') {
       tabEl._pipelineInstalled = true;
+      savePipelineInstalled(tabEl._wtPath, true);
     }
     refreshTabStatus(tabEl);
   });

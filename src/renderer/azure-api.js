@@ -329,20 +329,20 @@ export async function resolveWorkItem(ctx, id, { integrationBuild, releaseNote }
  * result (when completed): 'succeeded' | 'failed' | 'partiallySucceeded' | 'canceled' | 'none'
  */
 export async function fetchLatestBuild(org, project, auth, branchName, minTime) {
-  let url = `https://dev.azure.com/${encodeURIComponent(org)}/${encodeURIComponent(project)}/_apis/build/builds?branchName=${encodeURIComponent(branchName)}&$top=1&api-version=7.0`;
-  if (minTime) {
-    url += `&minTime=${encodeURIComponent(minTime)}&queryOrder=queueTimeAscending`;
-  } else {
-    url += `&queryOrder=queueTimeDescending`;
-  }
+  const order = minTime ? 'queueTimeAscending' : 'queueTimeDescending';
+  let url = `https://dev.azure.com/${encodeURIComponent(org)}/${encodeURIComponent(project)}/_apis/build/builds?branchName=${encodeURIComponent(branchName)}&$top=10&queryOrder=${order}&api-version=7.0`;
+  if (minTime) url += `&minTime=${encodeURIComponent(minTime)}`;
   try {
     const resp = await fetch(url, { headers: { Authorization: `Basic ${auth}` } });
     if (!resp.ok) return null;
     const data = await resp.json();
-    const builds = data.value || [];
-    if (builds.length === 0) return null;
-    const b = builds[0];
-    return { id: b.id, buildNumber: b.buildNumber, status: b.status, result: b.result, webUrl: b._links?.web?.href || null, definitionId: b.definition?.id || null };
+    const rawBuilds = data.value || [];
+    if (rawBuilds.length === 0) return null;
+    const mapBuild = b => ({ id: b.id, buildNumber: b.buildNumber, status: b.status, result: b.result, webUrl: b._links?.web?.href || null, definitionId: b.definition?.id || null });
+    const allBuilds = rawBuilds.map(mapBuild);
+    const isSuccess = b => b.status === 'completed' && (b.result === 'succeeded' || b.result === 'partiallySucceeded');
+    const primary = allBuilds.find(isSuccess) || allBuilds[0];
+    return { ...primary, allBuilds };
   } catch {
     return null;
   }

@@ -79,4 +79,30 @@ export function saveCheckUpdatesOnStartup(value) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
 }
 
+export function savePipelineInstalled(wtPath, installed) {
+  const state = getState();
+  if (!state.pipelineInstalled) state.pipelineInstalled = {};
+  const key = wtPath.replace(/\\/g, '/');
+  if (installed) {
+    state.pipelineInstalled[key] = true;
+  } else {
+    delete state.pipelineInstalled[key];
+  }
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+}
+
+export function getPipelineInstalled(wtPath) {
+  const state = getState();
+  return !!(state.pipelineInstalled && state.pipelineInstalled[wtPath.replace(/\\/g, '/')]);
+}
+
+export function clearWorktreeStorage(wtPath) {
+  const state = getState();
+  const key = wtPath.replace(/\\/g, '/');
+  if (state.sourceBranches) delete state.sourceBranches[key];
+  if (state.taskIds) delete state.taskIds[key];
+  if (state.pipelineInstalled) delete state.pipelineInstalled[key];
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+}
+
 export { STORAGE_KEY };

@@ -1,6 +1,6 @@
 import { createTerminal, showTerminal, showCloseButton, setTitle, closeTerminal } from '../terminal-panel.js';
 import { toast } from '../toast.js';
-import { saveDeleteBranchPref, getDeleteBranchPref } from '../storage.js';
+import { saveDeleteBranchPref, getDeleteBranchPref, clearWorktreeStorage } from '../storage.js';
 
 const wtRemoveDialogOverlay = document.getElementById('wt-remove-dialog-overlay');
 const wtRemoveDialogPath = document.getElementById('wt-remove-dialog-path');
@@ -47,6 +47,7 @@ async function confirmRemoveWorktree() {
       xterm.writeln('');
       xterm.writeln('\x1b[32mWorktree removed successfully!\x1b[0m');
       setTitle('Worktree removed');
+      clearWorktreeStorage(wtPath);
       if (tabEl._dotEl) tabEl._dotEl.remove();
       tabEl.remove();
       setTimeout(() => closeTerminal(), 1200);

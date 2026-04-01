@@ -1,6 +1,6 @@
 import { openWorktree } from '../workspace-manager.js';
 import { createTerminal, showTerminal, showCloseButton, setTitle, closeTerminal } from '../terminal-panel.js';
-import { getCachedBranchesFromState, saveBranchCache, saveSourceBranch, saveTaskId, saveDeleteBranchPref, getDeleteBranchPref } from '../storage.js';
+import { getCachedBranchesFromState, saveBranchCache, saveSourceBranch, saveTaskId, saveDeleteBranchPref, getDeleteBranchPref, clearWorktreeStorage } from '../storage.js';
 import { fetchAzureTasks, createAzureWorkItem, buildAzureTaskUrl, fetchWorkItemById, updateWorkItemState } from '../azure-api.js';
 import { inferWorkItemType, sanitizePathPart, userToPrefix, nameToBranch, loadStoredPat, getCachedTasks, saveTaskCache, stripHtml } from './utils.js';
 import { toast } from '../toast.js';
@@ -406,6 +406,7 @@ export async function confirmSwitchWorktree() {
       xterm.writeln('');
       xterm.writeln('\x1b[32mWorktree switched successfully!\x1b[0m');
       setTitle('Worktree switched');
+      clearWorktreeStorage(oldWtPath);
       if (tabEl._dotEl) tabEl._dotEl.remove();
       tabEl.remove();
       const wt = { path: wtPath, branch, name: dir, sourceBranch: switchSource, taskId };

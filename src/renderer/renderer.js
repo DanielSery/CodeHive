@@ -155,7 +155,7 @@ document.getElementById('btn-titlebar-open-task').addEventListener('click', () =
 document.getElementById('btn-titlebar-git-app').addEventListener('click', () => {
   const ws = getActive();
   if (ws) window.shellAPI.openInGitApp(ws.tabEl._wtPath).then(result => {
-    if (!result || !result.app) toast.error('No Git app found (Fork, SourceTree, GitKraken)');
+    if (!result || !result.app) toast.error('No Git app found (Fork, SourceTree, GitKraken, Git Bash)');
   });
 });
 document.getElementById('btn-titlebar-switch').addEventListener('click', () => {

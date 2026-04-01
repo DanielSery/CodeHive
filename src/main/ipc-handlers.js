@@ -216,6 +216,16 @@ function register(mainWindow, getServerPort) {
       }
     }
 
+    // Git Bash fallback
+    for (const base of [process.env['ProgramFiles'], process.env['ProgramFiles(x86)']]) {
+      if (!base) continue;
+      const gitBashExe = path.join(base, 'Git', 'git-bash.exe');
+      if (fs.existsSync(gitBashExe)) {
+        spawn(gitBashExe, [`--cd=${repoPath}`], { detached: true, stdio: 'ignore' }).unref();
+        return { app: 'Git Bash' };
+      }
+    }
+
     return { app: null };
   });
 

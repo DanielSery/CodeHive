@@ -77,7 +77,7 @@ contextMenu.addEventListener('click', (e) => {
     window.shellAPI.openInExplorer(tabEl._wtPath);
   } else if (action === 'open-git-app') {
     window.shellAPI.openInGitApp(tabEl._wtPath).then(result => {
-      if (!result || !result.app) toast.error('No Git app found (Fork, SourceTree, GitKraken)');
+      if (!result || !result.app) toast.error('No Git app found (Fork, SourceTree, GitKraken, Git Bash)');
     });
   } else if (action === 'open-task') {
     const taskId = tabEl._wtTaskId;
