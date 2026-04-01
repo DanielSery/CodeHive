@@ -342,4 +342,177 @@ function buildPrCreateScript(wtPath, { sourceBranch, targetBranch, title, descri
   return { cmd, cwd: wtPath, scriptPath, env };
 }
 
-module.exports = { buildWorktreeCmd, buildCloneCmd, buildDeleteScript, buildWorktreeRemoveScript, buildWorktreeSwitchScript, buildCommitPushScript, buildPrCreateScript, shellQuote, assertSafeRef };
+/**
+ * Transform commits into todo lines, converting reword/squash into pick/fixup
+ * plus exec-amend lines so git never opens an interactive editor.
+ * Returns { todoLines, msgFiles: [{path, content}] }
+ */
+function transformCommitsForTodo(commits, timestamp) {
+  const todoLines = [];
+  const msgFiles = [];
+
+  let i = 0;
+  while (i < commits.length) {
+    const c = commits[i];
+
+    if (c.action === 'reword') {
+      const msgPath = path.join(os.tmpdir(), `codehive-rebase-msg-${timestamp}-${i}.txt`).replace(/\\/g, '/');
+      msgFiles.push({ path: msgPath, content: c.message });
+      todoLines.push(`pick ${c.hash} ${c.message}`);
+      todoLines.push(`exec git commit --amend -F ${shellQuote(msgPath)}`);
+      i++;
+      continue;
+    }
+
+    if (c.action === 'pick') {
+      todoLines.push(`pick ${c.hash} ${c.message}`);
+      i++;
+
+      // Absorb any following squash commits into this group
+      const squashGroup = [];
+      while (i < commits.length && commits[i].action === 'squash') {
+        squashGroup.push(commits[i]);
+        todoLines.push(`fixup ${commits[i].hash} ${commits[i].message}`);
+        i++;
+      }
+
+      if (squashGroup.length > 0) {
+        const combined = [c.message, ...squashGroup.map(s => s.message)].join('\n\n');
+        const msgPath = path.join(os.tmpdir(), `codehive-rebase-msg-${timestamp}-${i}.txt`).replace(/\\/g, '/');
+        msgFiles.push({ path: msgPath, content: combined });
+        todoLines.push(`exec git commit --amend -F ${shellQuote(msgPath)}`);
+      }
+      continue;
+    }
+
+    // fixup, drop — pass through as-is; stray squash (no preceding pick) → fixup
+    todoLines.push(`${c.action === 'squash' ? 'fixup' : c.action} ${c.hash} ${c.message}`);
+    i++;
+  }
+
+  return { todoLines, msgFiles };
+}
+
+/**
+ * Build a script that performs a non-interactive git rebase -i by injecting
+ * the user-composed todo list via GIT_SEQUENCE_EDITOR.
+ *
+ * @param {string} wtPath - worktree directory
+ * @param {{ sourceBranch: string, commits: Array<{action:string, hash:string, message:string}> }} opts
+ */
+function buildRebaseScript(wtPath, { sourceBranch, commits }) {
+  assertSafeRef(sourceBranch);
+
+  const timestamp = Date.now();
+  const isWin = process.platform === 'win32';
+  const scriptExt = isWin ? '.cmd' : '.sh';
+
+  const { todoLines, msgFiles } = transformCommitsForTodo(commits, timestamp);
+  for (const f of msgFiles) fs.writeFileSync(f.path, f.content, { encoding: 'utf8' });
+  const todoContent = todoLines.join('\n') + '\n';
+
+  const todoPath = path.join(os.tmpdir(), `codehive-rebase-todo-${timestamp}.txt`);
+  const editorPath = path.join(os.tmpdir(), `codehive-rebase-editor-${timestamp}${scriptExt}`);
+  const scriptPath = path.join(os.tmpdir(), `codehive-rebase-${timestamp}${scriptExt}`);
+
+  fs.writeFileSync(todoPath, todoContent, { encoding: 'utf8' });
+
+  const startPoint = `origin/${sourceBranch}`;
+
+  if (isWin) {
+    const todoWin = todoPath.replace(/\//g, '\\');
+    const editorWin = editorPath.replace(/\//g, '\\');
+
+    // Editor script: copy our todo over the git-rebase-todo file git passes as %1
+    fs.writeFileSync(editorPath, `@echo off\r\ncopy /y "${todoWin}" "%~1"\r\n`, { encoding: 'utf8' });
+
+    const lines = [
+      '@echo off',
+      `echo Starting interactive rebase onto ${sourceBranch}...`,
+      `set "GIT_SEQUENCE_EDITOR="${editorWin}""`,
+      `git rebase -i ${shellQuote(startPoint)}`,
+      'if %errorlevel% neq 0 (',
+      `  del "${todoWin}" 2>nul`,
+      `  del "${editorWin}" 2>nul`,
+      '  echo.',
+      '  echo Rebase failed. Aborting...',
+      '  git rebase --abort',
+      '  exit /b 1',
+      ')',
+      `del "${todoWin}" 2>nul`,
+      `del "${editorWin}" 2>nul`,
+      'echo.',
+      'echo === REBASE COMPLETE ===',
+    ];
+    fs.writeFileSync(scriptPath, lines.join('\r\n'), { encoding: 'utf8' });
+  } else {
+    // Editor script: cp our todo over the git-rebase-todo file git passes as $1
+    fs.writeFileSync(editorPath, `#!/bin/sh\ncp ${shellQuote(todoPath)} "$1"\n`, { encoding: 'utf8' });
+    fs.chmodSync(editorPath, 0o755);
+
+    const lines = [
+      '#!/bin/sh',
+      `echo "Starting interactive rebase onto ${sourceBranch}..."`,
+      `export GIT_SEQUENCE_EDITOR=${shellQuote(editorPath)}`,
+      `git rebase -i ${shellQuote(startPoint)}`,
+      'REBASE_STATUS=$?',
+      `rm -f ${shellQuote(todoPath)} ${shellQuote(editorPath)}`,
+      'if [ "$REBASE_STATUS" -ne 0 ]; then',
+      '  echo ""',
+      '  echo "Rebase failed. Aborting..."',
+      '  git rebase --abort',
+      '  exit 1',
+      'fi',
+      'echo ""',
+      'echo "=== REBASE COMPLETE ==="',
+    ];
+    fs.writeFileSync(scriptPath, lines.join('\n'), { encoding: 'utf8' });
+    fs.chmodSync(scriptPath, 0o755);
+  }
+
+  const cmd = isWin ? scriptPath : `sh ${shellQuote(scriptPath)}`;
+  return { cmd, cwd: wtPath, scriptPath, editorPath, todoPath, msgFiles };
+}
+
+function buildForcePushScript(wtPath) {
+  const isWin = process.platform === 'win32';
+  const scriptExt = isWin ? '.cmd' : '.sh';
+  const scriptPath = path.join(os.tmpdir(), `codehive-force-push-${Date.now()}${scriptExt}`);
+
+  if (isWin) {
+    const lines = [
+      '@echo off',
+      'echo Force pushing...',
+      'git push --force-with-lease',
+      'if %errorlevel% neq 0 (',
+      '  echo.',
+      '  echo Force push failed.',
+      '  exit /b 1',
+      ')',
+      'echo.',
+      'echo === FORCE PUSH COMPLETE ===',
+    ];
+    fs.writeFileSync(scriptPath, lines.join('\r\n'), { encoding: 'utf8' });
+  } else {
+    const lines = [
+      '#!/bin/sh',
+      'echo "Force pushing..."',
+      'git push --force-with-lease',
+      'PUSH_STATUS=$?',
+      'if [ "$PUSH_STATUS" -ne 0 ]; then',
+      '  echo ""',
+      '  echo "Force push failed."',
+      '  exit 1',
+      'fi',
+      'echo ""',
+      'echo "=== FORCE PUSH COMPLETE ==="',
+    ];
+    fs.writeFileSync(scriptPath, lines.join('\n'), { encoding: 'utf8' });
+    fs.chmodSync(scriptPath, 0o755);
+  }
+
+  const cmd = isWin ? scriptPath : `sh ${shellQuote(scriptPath)}`;
+  return { cmd, cwd: wtPath, scriptPath };
+}
+
+module.exports = { buildWorktreeCmd, buildCloneCmd, buildDeleteScript, buildWorktreeRemoveScript, buildWorktreeSwitchScript, buildCommitPushScript, buildPrCreateScript, buildRebaseScript, buildForcePushScript, shellQuote, assertSafeRef };

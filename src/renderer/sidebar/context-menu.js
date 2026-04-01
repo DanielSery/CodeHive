@@ -1,5 +1,5 @@
 import { openWorktree, closeWorkspace } from '../workspace-manager.js';
-import { _showWorktreeSwitchDialog, _showWorktreeRemoveDialog, _showCommitPushDialog, _showCreatePrDialog, _showWorktreeDialog, _showDeleteDialog, _showSetTaskDialog } from './registers.js';
+import { _showWorktreeSwitchDialog, _showWorktreeRemoveDialog, _showCommitPushDialog, _showCreatePrDialog, _showWorktreeDialog, _showDeleteDialog, _showSetTaskDialog, _showRebaseDialog } from './registers.js';
 import { toast } from '../toast.js';
 
 const contextMenu = document.getElementById('wt-context-menu');
@@ -145,6 +145,11 @@ contextMenu.addEventListener('click', (e) => {
     if (btn) btn.click();
   } else if (action === 'set-task') {
     if (_showSetTaskDialog) _showSetTaskDialog(tabEl);
+  } else if (action === 'rebase') {
+    if (_showRebaseDialog) {
+      const groupEl = tabEl.closest('.repo-group');
+      _showRebaseDialog(tabEl, groupEl);
+    }
   }
 });
 

@@ -1,6 +1,6 @@
-import { addRepoGroup, clearAllGroups, createWorktreeTab, rebuildCollapsedDots, registerWorktreeDialog, registerDeleteDialog, registerWorktreeRemoveDialog, registerWorktreeSwitchDialog, registerCommitPushDialog, registerCreatePrDialog, registerSetTaskDialog, registerToggleTerminal, registerOnStateChange, registerRefreshTabStatus, removeRepoGroup, showTabCloseButton, showTabRemoveButton, getRepoOrder, getWorktreeOrders, refreshTabStatus } from './sidebar/index.js';
+import { addRepoGroup, clearAllGroups, createWorktreeTab, rebuildCollapsedDots, registerWorktreeDialog, registerDeleteDialog, registerWorktreeRemoveDialog, registerWorktreeSwitchDialog, registerCommitPushDialog, registerCreatePrDialog, registerSetTaskDialog, registerRebaseDialog, registerToggleTerminal, registerOnStateChange, registerRefreshTabStatus, removeRepoGroup, showTabCloseButton, showTabRemoveButton, getRepoOrder, getWorktreeOrders, refreshTabStatus } from './sidebar/index.js';
 import './titlebar-icons.js';
-import { showWorktreeDialog, showCloneDialog, showDeleteDialog, showWorktreeRemoveDialog, showWorktreeSwitchDialog, showCommitPushDialog, showCreatePrDialog, showSetTaskDialog, setCloneReposDir, registerSidebarFns, registerRemoveRepoGroup, registerOnCloneComplete } from './dialogs/index.js';
+import { showWorktreeDialog, showCloneDialog, showDeleteDialog, showWorktreeRemoveDialog, showWorktreeSwitchDialog, showCommitPushDialog, showCreatePrDialog, showSetTaskDialog, showRebaseDialog, setCloneReposDir, registerSidebarFns, registerRemoveRepoGroup, registerOnCloneComplete } from './dialogs/index.js';
 import { cycleWorkspace, registerTabButtonFns } from './workspace-manager.js';
 import { getActive } from './state.js';
 import { toggleTerminal, createTerminal, showTerminal, showCloseButton } from './terminal-panel.js';
@@ -18,6 +18,7 @@ registerWorktreeSwitchDialog(showWorktreeSwitchDialog);
 registerCommitPushDialog(showCommitPushDialog);
 registerCreatePrDialog(showCreatePrDialog);
 registerSetTaskDialog(showSetTaskDialog);
+registerRebaseDialog(showRebaseDialog);
 registerToggleTerminal(toggleTerminal);
 registerRefreshTabStatus(refreshTabStatus);
 registerTabButtonFns(showTabCloseButton, showTabRemoveButton);

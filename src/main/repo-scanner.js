@@ -4,7 +4,7 @@ const { execSync } = require('child_process');
 
 // Re-export from focused modules for backward compatibility with ipc-handlers.js
 const { checkClaudeActive } = require('./claude-status');
-const { getCachedBranches, fetchAndListBranches, getGitUser, getRemoteUrl, getLaunchConfigs, gitDiffStat, gitFileDiff, getFirstBranchCommit, hasUncommittedChanges, hasPushedCommits, gitRevertFile } = require('./git-operations');
+const { getCachedBranches, fetchAndListBranches, getGitUser, getRemoteUrl, getLaunchConfigs, gitDiffStat, gitFileDiff, getFirstBranchCommit, hasUncommittedChanges, hasPushedCommits, gitRevertFile, getRebaseCommits } = require('./git-operations');
 
 function createPackagesJunction(wtPath, barePath) {
   const packagesSource = path.join(barePath, 'Packages');
@@ -122,4 +122,4 @@ function listWorktrees(barePath) {
   return worktrees;
 }
 
-module.exports = { scanDirectory, createPackagesJunction, checkClaudeActive, getCachedBranches, fetchAndListBranches, getGitUser, getRemoteUrl, getLaunchConfigs, gitDiffStat, gitFileDiff, getFirstBranchCommit, hasUncommittedChanges, hasPushedCommits, gitRevertFile };
+module.exports = { scanDirectory, createPackagesJunction, checkClaudeActive, getCachedBranches, fetchAndListBranches, getGitUser, getRemoteUrl, getLaunchConfigs, gitDiffStat, gitFileDiff, getFirstBranchCommit, hasUncommittedChanges, hasPushedCommits, gitRevertFile, getRebaseCommits };

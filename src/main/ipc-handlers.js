@@ -4,9 +4,9 @@ const fs = require('fs');
 const path = require('path');
 const { app } = require('electron');
 const vscode = require('./vscode-server');
-const { scanDirectory, checkClaudeActive, getCachedBranches, fetchAndListBranches, getGitUser, getRemoteUrl, getLaunchConfigs, gitDiffStat, gitFileDiff, getFirstBranchCommit, hasUncommittedChanges, hasPushedCommits, gitRevertFile } = require('./repo-scanner');
+const { scanDirectory, checkClaudeActive, getCachedBranches, fetchAndListBranches, getGitUser, getRemoteUrl, getLaunchConfigs, gitDiffStat, gitFileDiff, getFirstBranchCommit, hasUncommittedChanges, hasPushedCommits, gitRevertFile, getRebaseCommits } = require('./repo-scanner');
 const { watchClaude, unwatchClaude } = require('./claude-status');
-const { createWorktreePty, createClonePty, createDeletePty, createWorktreeRemovePty, createWorktreeSwitchPty, createCommitPushPty, createPrCreatePty, createAzInstallPty, createSetupInstallPty } = require('./pty-manager');
+const { createWorktreePty, createClonePty, createDeletePty, createWorktreeRemovePty, createWorktreeSwitchPty, createCommitPushPty, createPrCreatePty, createAzInstallPty, createSetupInstallPty, createRebasePty, createForcePushPty } = require('./pty-manager');
 
 let worktreePty = null;
 let clonePty = null;
@@ -17,6 +17,8 @@ let commitPushPty = null;
 let prCreatePty = null;
 let azInstallPty = null;
 let setupInstallPty = null;
+let rebasePty = null;
+let forcePushPty = null;
 
 
 function register(mainWindow, getServerPort) {
@@ -97,6 +99,9 @@ function register(mainWindow, getServerPort) {
     return gitFileDiff(wtPath, filePath);
   });
 
+  ipcMain.handle('repos:rebaseCommits', (event, { wtPath, sourceBranch }) => {
+    return getRebaseCommits(wtPath, sourceBranch);
+  });
 
   // Worktree PTY
   ipcMain.handle('worktree:start', (event, opts) => {
@@ -160,6 +165,24 @@ function register(mainWindow, getServerPort) {
   });
 
   ipcMain.on('prCreate:ready', () => { if (prCreatePty) prCreatePty.flush(); });
+
+  // Rebase PTY
+  ipcMain.handle('rebase:start', (event, opts) => {
+    const result = createRebasePty(mainWindow, opts);
+    rebasePty = result.proc;
+    return {};
+  });
+
+  ipcMain.on('rebase:ready', () => { if (rebasePty) rebasePty.flush(); });
+
+  // Force push PTY
+  ipcMain.handle('rebase:forcePushStart', (event, opts) => {
+    const result = createForcePushPty(mainWindow, opts);
+    forcePushPty = result.proc;
+    return {};
+  });
+
+  ipcMain.on('rebase:forcePushReady', () => { if (forcePushPty) forcePushPty.flush(); });
 
   // AZ CLI check & install
   ipcMain.handle('azInstall:check', () => {
@@ -331,7 +354,7 @@ function register(mainWindow, getServerPort) {
 }
 
 function killAllPtys() {
-  for (const pty of [worktreePty, clonePty, deletePty, worktreeRemovePty, worktreeSwitchPty, commitPushPty, prCreatePty, azInstallPty]) {
+  for (const pty of [worktreePty, clonePty, deletePty, worktreeRemovePty, worktreeSwitchPty, commitPushPty, prCreatePty, azInstallPty, rebasePty, forcePushPty]) {
     if (pty) pty.kill();
   }
 }

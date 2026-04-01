@@ -23,6 +23,24 @@ contextBridge.exposeInMainWorld('reposAPI', {
   hasPushedCommits: (wtPath, branch, sourceBranch) => ipcRenderer.invoke('repos:hasPushedCommits', { wtPath, branch, sourceBranch }),
   gitRevertFile: (wtPath, filePath, isNew) => ipcRenderer.invoke('repos:gitRevertFile', { wtPath, filePath, isNew }),
   gitFileDiff: (wtPath, filePath) => ipcRenderer.invoke('repos:gitFileDiff', { wtPath, filePath }),
+  rebaseCommits: (wtPath, sourceBranch) => ipcRenderer.invoke('repos:rebaseCommits', { wtPath, sourceBranch }),
+});
+
+contextBridge.exposeInMainWorld('rebaseAPI', {
+  start: (opts) => ipcRenderer.invoke('rebase:start', opts),
+  ready: () => ipcRenderer.send('rebase:ready'),
+  onData: (cb) => ipcRenderer.on('rebase:data', (_, data) => cb(data)),
+  onExit: (cb) => ipcRenderer.on('rebase:exit', (_, info) => cb(info)),
+  forcePushStart: (opts) => ipcRenderer.invoke('rebase:forcePushStart', opts),
+  forcePushReady: () => ipcRenderer.send('rebase:forcePushReady'),
+  onForcePushData: (cb) => ipcRenderer.on('rebase:forcePushData', (_, data) => cb(data)),
+  onForcePushExit: (cb) => ipcRenderer.on('rebase:forcePushExit', (_, info) => cb(info)),
+  removeListeners: () => {
+    ipcRenderer.removeAllListeners('rebase:data');
+    ipcRenderer.removeAllListeners('rebase:exit');
+    ipcRenderer.removeAllListeners('rebase:forcePushData');
+    ipcRenderer.removeAllListeners('rebase:forcePushExit');
+  }
 });
 
 contextBridge.exposeInMainWorld('worktreeAPI', {

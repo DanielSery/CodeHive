@@ -191,4 +191,26 @@ function gitRevertFile(wtPath, filePath, isNew) {
   }
 }
 
-module.exports = { getCachedBranches, fetchAndListBranches, getGitUser, getRemoteUrl, getLaunchConfigs, gitDiffStat, gitFileDiff, getFirstBranchCommit, hasUncommittedChanges, hasPushedCommits, gitRevertFile };
+function getRebaseCommits(wtPath, sourceBranch) {
+  try {
+    assertSafeRef(sourceBranch);
+    // Use %x09 (tab) to separate hash from subject — avoids shell quoting issues with spaces
+    const out = execSync(`git log --format=%H%x09%s --reverse origin/${sourceBranch}..HEAD`, {
+      cwd: wtPath,
+      encoding: 'utf8',
+      timeout: 5000
+    });
+    const lines = out.trim().split('\n').filter(Boolean);
+    return lines.map(line => {
+      const tabIdx = line.indexOf('\t');
+      return {
+        hash: line.substring(0, tabIdx),
+        message: line.substring(tabIdx + 1).trim()
+      };
+    });
+  } catch {
+    return [];
+  }
+}
+
+module.exports = { getCachedBranches, fetchAndListBranches, getGitUser, getRemoteUrl, getLaunchConfigs, gitDiffStat, gitFileDiff, getFirstBranchCommit, hasUncommittedChanges, hasPushedCommits, gitRevertFile, getRebaseCommits };

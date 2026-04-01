@@ -1474,6 +1474,174 @@ html, body {
   margin: 4px 8px;
 }
 
+/* ===== Interactive Rebase Dialog ===== */
+#rebase-dialog-box {
+  width: 580px;
+  height: 540px;
+  min-width: 420px;
+  min-height: 300px;
+  max-width: 95vw;
+  max-height: 95vh;
+  display: flex;
+  flex-direction: column;
+  resize: both;
+  overflow: hidden;
+}
+
+#rebase-commits-container {
+  flex: 1 1 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.rebase-commits-list {
+  flex: 1 1 0;
+  overflow-y: auto;
+  min-height: 0;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--bg);
+}
+
+.rebase-bulk-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 6px;
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent) 30%, transparent);
+  border-radius: 4px;
+  margin-bottom: 4px;
+  flex-shrink: 0;
+}
+
+.rebase-bulk-count {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-right: 2px;
+  white-space: nowrap;
+}
+
+.rebase-bulk-btn {
+  font-size: 11px;
+  font-family: 'Consolas', 'Courier New', monospace;
+  padding: 2px 7px;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  background: var(--sidebar-bg);
+  color: var(--text);
+  cursor: pointer;
+}
+
+.rebase-bulk-btn:hover { background: var(--hover-bg, var(--border)); }
+.rebase-bulk-btn[data-action="reword"] { color: var(--accent); }
+.rebase-bulk-btn[data-action="squash"] { color: var(--yellow); }
+.rebase-bulk-btn[data-action="fixup"]  { color: var(--yellow); }
+.rebase-bulk-btn[data-action="drop"]   { color: var(--red); }
+
+.rebase-commit-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 8px;
+  border-bottom: 1px solid var(--border);
+  cursor: default;
+  user-select: none;
+  transition: background 0.1s;
+}
+
+.rebase-commit-item:last-child {
+  border-bottom: none;
+}
+
+.rebase-commit-item.selected {
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+}
+
+.rebase-commit-item.drag-over {
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  border-top: 2px solid var(--accent);
+}
+
+.rebase-commit-item.dragging {
+  opacity: 0.4;
+}
+
+.rebase-drag-handle {
+  color: var(--text-muted);
+  font-size: 13px;
+  cursor: grab;
+  padding: 0 2px;
+  flex-shrink: 0;
+  line-height: 1;
+}
+
+.rebase-drag-handle:active {
+  cursor: grabbing;
+}
+
+.rebase-action-select {
+  flex-shrink: 0;
+  width: 95px;
+  padding: 3px 6px;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  background: var(--sidebar-bg);
+  color: var(--text);
+  font-size: 11px;
+  font-family: 'Consolas', 'Courier New', monospace;
+  cursor: pointer;
+  outline: none;
+}
+
+.rebase-action-select:focus {
+  border-color: var(--accent);
+}
+
+.rebase-action-select[data-action="pick"]   { color: var(--text); }
+.rebase-action-select[data-action="reword"] { color: var(--accent); }
+.rebase-action-select[data-action="squash"] { color: var(--yellow); }
+.rebase-action-select[data-action="fixup"]  { color: var(--yellow); }
+.rebase-action-select[data-action="drop"]   { color: var(--red); }
+
+.rebase-commit-hash {
+  font-size: 11px;
+  font-family: 'Consolas', 'Courier New', monospace;
+  color: var(--text-muted);
+  flex-shrink: 0;
+  min-width: 52px;
+}
+
+.rebase-commit-message {
+  font-size: 12px;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+}
+
+.rebase-commit-message-input {
+  flex: 1;
+  font-size: 12px;
+  font-family: inherit;
+  color: var(--text);
+  background: var(--input-bg, var(--sidebar-bg));
+  border: 1px solid var(--accent);
+  border-radius: 3px;
+  padding: 1px 5px;
+  outline: none;
+  min-width: 0;
+}
+
+.rebase-commit-item[data-action="drop"] .rebase-commit-message,
+.rebase-commit-item[data-action="drop"] .rebase-commit-hash {
+  opacity: 0.4;
+  text-decoration: line-through;
+}
+
 /* ===== Toast Notifications ===== */
 
 #toast-container {

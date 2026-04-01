@@ -2,7 +2,7 @@ const fs = require('fs');
 const path = require('path');
 const os = require('os');
 const { spawnProc } = require('./pty-spawn.js');
-const { buildWorktreeCmd, buildCloneCmd, buildDeleteScript, buildWorktreeRemoveScript, buildWorktreeSwitchScript, buildCommitPushScript, buildPrCreateScript } = require('./pty-scripts.js');
+const { buildWorktreeCmd, buildCloneCmd, buildDeleteScript, buildWorktreeRemoveScript, buildWorktreeSwitchScript, buildCommitPushScript, buildPrCreateScript, buildRebaseScript, buildForcePushScript } = require('./pty-scripts.js');
 const { createPackagesJunction } = require('./repo-scanner.js');
 
 function createWorktreePty(mainWindow, { barePath, repoDir, branchName, sourceBranch }) {
@@ -221,4 +221,43 @@ Remove-Item $extractDir -Recurse -Force -ErrorAction SilentlyContinue
   return { proc };
 }
 
-module.exports = { createWorktreePty, createClonePty, createDeletePty, createWorktreeRemovePty, createWorktreeSwitchPty, createCommitPushPty, createPrCreatePty, createAzInstallPty, createSetupInstallPty };
+function createRebasePty(mainWindow, { wtPath, sourceBranch, commits }) {
+  const { cmd, cwd, scriptPath, editorPath, todoPath, msgFiles } = buildRebaseScript(wtPath, { sourceBranch, commits });
+  const proc = spawnProc(cmd, cwd);
+
+  proc.onData((data) => {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('rebase:data', data);
+    }
+  });
+
+  proc.onExit(({ exitCode }) => {
+    try { fs.unlinkSync(scriptPath); } catch {}
+    try { fs.unlinkSync(editorPath); } catch {}
+    try { fs.unlinkSync(todoPath); } catch {}
+    for (const f of msgFiles) { try { fs.unlinkSync(f.path); } catch {} }
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('rebase:exit', { exitCode });
+    }
+  });
+
+  return { proc };
+}
+
+function createForcePushPty(mainWindow, { wtPath }) {
+  const { cmd, cwd, scriptPath } = buildForcePushScript(wtPath);
+  const proc = spawnProc(cmd, cwd);
+
+  proc.onData((data) => {
+    if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send('rebase:forcePushData', data);
+  });
+
+  proc.onExit(({ exitCode }) => {
+    try { fs.unlinkSync(scriptPath); } catch {}
+    if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send('rebase:forcePushExit', { exitCode });
+  });
+
+  return { proc };
+}
+
+module.exports = { createWorktreePty, createClonePty, createDeletePty, createWorktreeRemovePty, createWorktreeSwitchPty, createCommitPushPty, createPrCreatePty, createAzInstallPty, createSetupInstallPty, createRebasePty, createForcePushPty };
