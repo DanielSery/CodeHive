@@ -748,6 +748,17 @@ describe('refreshTabStatus', () => {
       expect(global.fetch.mock.calls[0][0]).toContain('status=active');
     });
 
+    it('complete-pr button hidden even when stale refresh had re-shown it', async () => {
+      // Regression: a stale in-flight poll can re-show completePrBtn via applyActionButtonVisibility.
+      // The next fast-path refresh must hide it regardless.
+      fetchLatestBuild.mockResolvedValue(RUNNING_BUILD);
+      fetchBuildArtifacts.mockResolvedValue([]);
+      const tab = makeTabEl({ _canOpenPipeline: true, _wtTaskId: 99 });
+      btn(tab, 'complete-pr').style.display = 'inline-flex'; // simulates stale poll re-showing it
+      await refreshTabStatus(tab);
+      assertButtons(tab, ['open-pipeline'], ['complete-pr', 'open-pr', 'switch']);
+    });
+
     it('uncommitted changes while in pipeline mode → hides pipeline and install buttons', async () => {
       window.reposAPI.hasUncommittedChanges = vi.fn().mockResolvedValue({ value: true });
       const tab = makeTabEl({ _canOpenPipeline: true, _taskResolved: true });

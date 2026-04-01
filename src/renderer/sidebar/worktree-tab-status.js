@@ -290,6 +290,7 @@ async function _refreshTabStatusInner(tabEl) {
   // Reset PR-related buttons
   tabEl._existingPrUrl = null;
   if (openPrBtn) { openPrBtn.style.display = 'none'; openPrBtn.classList.remove(...PR_STATUS_CLASSES); }
+  if (completePrBtn) completePrBtn.style.display = 'none';
 
   if (!data.value || data.value.length === 0) {
     // No active PR — check for completed PR (resolve task / pipeline flow)
