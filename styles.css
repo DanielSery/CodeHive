@@ -1182,6 +1182,38 @@ html, body {
   min-height: 14px;
 }
 
+/* Verify dialog build selector */
+.verify-build-selector {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 8px 0 4px;
+}
+
+.verify-build-selector-label {
+  color: var(--text-muted);
+  font-size: 11px;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.verify-build-select {
+  flex: 1;
+  padding: 4px 6px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--bg);
+  color: var(--text);
+  font-size: 12px;
+  font-family: 'Consolas', 'Courier New', monospace;
+  outline: none;
+  cursor: pointer;
+}
+
+.verify-build-select:focus {
+  border-color: var(--accent);
+}
+
 /* Verify dialog artifacts list */
 .verify-artifacts-list {
   margin: 8px 0;

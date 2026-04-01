@@ -349,6 +349,22 @@ export async function fetchLatestBuild(org, project, auth, branchName, minTime) 
 }
 
 /**
+ * Fetch recent succeeded builds for a pipeline definition.
+ * Returns array of { id, buildNumber, finishTime } ordered newest first.
+ */
+export async function fetchBuildsForDefinition(org, project, auth, definitionId, top = 10) {
+  try {
+    const url = `https://dev.azure.com/${encodeURIComponent(org)}/${encodeURIComponent(project)}/_apis/build/builds?definitions=${definitionId}&statusFilter=completed&resultFilter=succeeded&$top=${top}&queryOrder=queueTimeDescending&api-version=7.0`;
+    const resp = await fetch(url, { headers: { Authorization: `Basic ${auth}` } });
+    if (!resp.ok) return [];
+    const data = await resp.json();
+    return (data.value || []).map(b => ({ id: b.id, buildNumber: b.buildNumber, finishTime: b.finishTime }));
+  } catch {
+    return [];
+  }
+}
+
+/**
  * Fetch artifacts for a given build — checks both legacy build artifacts and modern pipeline artifacts.
  * Returns array of { name, downloadUrl } or [].
  */
