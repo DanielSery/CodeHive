@@ -8,6 +8,7 @@ export { showCreatePrDialog } from './dialog-create-pr.js';
 export { showResolveTaskDialog } from './dialog-resolve.js';
 export { showInstallDialog, showVerifyDialog } from './dialog-verify.js';
 export { showCompletePrDialog } from './dialog-complete-pr.js';
+export { showSetTaskDialog } from './dialog-set-task.js';
 
 import { registerWorktreeSidebarFns } from './dialog-worktree.js';
 import { registerSwitchSidebarFns } from './dialog-switch.js';

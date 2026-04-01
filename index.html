@@ -140,6 +140,36 @@
     </div>
   </div>
 
+  <!-- Set task dialog -->
+  <div id="st-dialog-overlay" class="dialog-overlay">
+    <div class="dialog-box">
+      <h3 class="dialog-title">Set Task</h3>
+      <p class="dialog-desc">Link this worktree to an Azure DevOps task</p>
+      <label class="dialog-label">Task</label>
+      <div class="combobox" id="st-task-combobox">
+        <input id="st-task-search" type="text" class="dialog-input combobox-input" placeholder="Loading tasks..." spellcheck="false" autocomplete="off" disabled />
+        <span class="combobox-arrow" tabindex="-1">&#x25BC;</span>
+        <div id="st-task-list" class="combobox-list" tabindex="-1"></div>
+      </div>
+      <div id="st-task-desc-row" style="display:none">
+        <label class="dialog-label">Task Description <span style="color: var(--text-muted); font-weight: 400;">(optional)</span></label>
+        <textarea id="st-task-desc" class="dialog-input" placeholder="What needs to be done..." spellcheck="false" rows="3" style="resize:vertical;min-height:60px;font-family:inherit"></textarea>
+      </div>
+      <div id="st-task-type-row" style="display:none">
+        <label class="dialog-label">Work Item Type</label>
+        <select id="st-task-type" class="dialog-input" style="cursor:pointer">
+          <option value="User Story">User Story</option>
+          <option value="Bug">Bug</option>
+          <option value="Task">Task</option>
+        </select>
+      </div>
+      <div class="dialog-buttons">
+        <button id="st-cancel-btn" class="dialog-btn dialog-btn-cancel" tabindex="-1">Cancel</button>
+        <button id="st-confirm-btn" class="dialog-btn dialog-btn-confirm" disabled>Set Task</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Worktree switch dialog -->
   <div id="wt-switch-dialog-overlay" class="dialog-overlay">
     <div class="dialog-box">
@@ -343,6 +373,7 @@
     <button class="context-menu-item" data-action="open-pipeline">Open Pipeline</button>
     <button class="context-menu-item" data-action="install">Install Build</button>
     <button class="context-menu-item" data-action="resolve-task">Resolve Task</button>
+    <button class="context-menu-item" data-action="set-task">Set Task</button>
     <button class="context-menu-item" data-action="open-task">Open Task</button>
     <button class="context-menu-item" data-action="open-pr">Open Pull Request</button>
     <button class="context-menu-item" data-action="open-merged-pr">View Merged PR</button>

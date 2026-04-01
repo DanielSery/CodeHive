@@ -1,5 +1,5 @@
 import { openWorktree, closeWorkspace } from '../workspace-manager.js';
-import { _showWorktreeSwitchDialog, _showWorktreeRemoveDialog, _showCommitPushDialog, _showCreatePrDialog, _showWorktreeDialog, _showDeleteDialog } from './registers.js';
+import { _showWorktreeSwitchDialog, _showWorktreeRemoveDialog, _showCommitPushDialog, _showCreatePrDialog, _showWorktreeDialog, _showDeleteDialog, _showSetTaskDialog } from './registers.js';
 import { toast } from '../toast.js';
 
 const contextMenu = document.getElementById('wt-context-menu');
@@ -33,6 +33,7 @@ export function showContextMenu(x, y, tabEl) {
   contextMenu.querySelector('[data-action="open-pipeline"]').style.display = !hasChanges && canOpenPipeline ? '' : 'none';
   contextMenu.querySelector('[data-action="install"]').style.display = !hasChanges && canInstall ? '' : 'none';
   contextMenu.querySelector('[data-action="resolve-task"]').style.display = !hasChanges && canResolve ? '' : 'none';
+  contextMenu.querySelector('[data-action="set-task"]').style.display = !hasTask ? '' : 'none';
   contextMenu.querySelector('[data-action="open-task"]').style.display = hasTask ? '' : 'none';
   contextMenu.querySelector('[data-action="open-pr"]').style.display = hasPr ? '' : 'none';
   contextMenu.querySelector('[data-action="open-merged-pr"]').style.display = hasMergedPr ? '' : 'none';
@@ -142,6 +143,8 @@ contextMenu.addEventListener('click', (e) => {
   } else if (action === 'resolve-task') {
     const btn = tabEl.querySelector('.workspace-tab-resolve-task');
     if (btn) btn.click();
+  } else if (action === 'set-task') {
+    if (_showSetTaskDialog) _showSetTaskDialog(tabEl);
   }
 });
 

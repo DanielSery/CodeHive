@@ -94,7 +94,7 @@ export function createWorktreeTab(wt) {
   tabEl._wtPath = wt.path;
   tabEl._wtBranch = wt.branch;
   tabEl._wtSourceBranch = wt.sourceBranch || getSourceBranch(wt.path);
-  tabEl._wtTaskId = wt.taskId || getTaskId(wt.path) || extractTaskIdFromBranch(wt.branch);
+  tabEl._wtTaskId = wt.taskId !== undefined ? wt.taskId : (getTaskId(wt.path) || extractTaskIdFromBranch(wt.branch));
   tabEl._workspaceId = null;
   tabEl._pollTimer = null;
   tabEl._wasWorking = false;
