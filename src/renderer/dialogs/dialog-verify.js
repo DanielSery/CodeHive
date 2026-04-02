@@ -8,6 +8,7 @@ const overlay = document.getElementById('verify-dialog-overlay');
 const titleEl = document.getElementById('verify-dialog-title');
 const buildDesc = document.getElementById('verify-build-desc');
 const subtitleEl = document.getElementById('verify-dialog-subtitle');
+const taskLink = document.getElementById('verify-task-link');
 const artifactsList = document.getElementById('verify-artifacts-list');
 const buildSelectorEl = document.getElementById('verify-build-selector');
 const buildSelectEl = document.getElementById('verify-build-select');
@@ -58,7 +59,7 @@ async function loadArtifactsForBuild(buildId, definitionId) {
   }
 }
 
-export function showInstallDialog(org, project, auth, buildId, buildNumber, pipelineCompleted = true, definitionId = null) {
+export function showInstallDialog(org, project, auth, buildId, buildNumber, pipelineCompleted = true, definitionId = null, taskUrl = null) {
   _auth = auth;
   _org = org;
   _project = project;
@@ -70,6 +71,12 @@ export function showInstallDialog(org, project, auth, buildId, buildNumber, pipe
     : (pipelineCompleted ? 'Build completed successfully' : 'Build in progress');
   subtitleEl.textContent = 'Download and install the setup';
   subtitleEl.style.display = '';
+  if (taskUrl) {
+    taskLink.href = taskUrl;
+    taskLink.style.display = '';
+  } else {
+    taskLink.style.display = 'none';
+  }
   artifactsList.style.display = '';
   buildSelectorEl.style.display = 'none';
   buildSelectEl.innerHTML = '';
@@ -109,6 +116,7 @@ export function showVerifyDialog(buildNumber) {
   buildDesc.textContent = buildNumber ? `Build ${buildNumber}` : 'Build completed';
   subtitleEl.textContent = 'Confirm you have tested the application';
   subtitleEl.style.display = '';
+  taskLink.style.display = 'none';
   artifactsList.style.display = 'none';
   artifactsList.innerHTML = '';
   confirmBtn.style.display = '';
@@ -139,6 +147,8 @@ function hide(result) {
   overlay.classList.remove('visible');
   if (_resolve) { _resolve(result); _resolve = null; }
 }
+
+taskLink.addEventListener('click', (e) => { e.preventDefault(); window.shellAPI.openExternal(taskLink.href); });
 
 buildSelectEl.addEventListener('change', () => {
   const selectedId = Number(buildSelectEl.value);

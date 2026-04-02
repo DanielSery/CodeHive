@@ -245,7 +245,7 @@ export function createWorktreeTab(wt) {
     const ws = getWtState(tabEl._wtPath);
     const d = ws?.prData;
     if (!d || !ws?.pipelineBuildId) return;
-    const result = await showInstallDialog(d.org, d.project, d.auth, ws.pipelineBuildId, ws.pipelineBuildNumber, ws.pipelineStatus === 'succeeded', ws.pipelineDefinitionId);
+    const result = await showInstallDialog(d.org, d.project, d.auth, ws.pipelineBuildId, ws.pipelineBuildNumber, ws.pipelineStatus === 'succeeded', ws.pipelineDefinitionId, ws.taskUrl || null);
     if (result === 'installed' || result === 'skipped') {
       pipeline.markInstalled(tabEl);
     }
