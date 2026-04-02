@@ -4,6 +4,7 @@ const overlay = document.getElementById('resolve-task-dialog-overlay');
 const buildInput = document.getElementById('resolve-task-build-input');
 const releaseInput = document.getElementById('resolve-task-release-input');
 const commentInput = document.getElementById('resolve-task-comment-input');
+const taskLink = document.getElementById('resolve-task-link');
 let _resolve = null;
 let _ctx = null;
 let _taskId = null;
@@ -15,6 +16,11 @@ export function showResolveTaskDialog(ctx, taskId, { org, project, auth, targetB
   buildInput.placeholder = 'Loading build number...';
   releaseInput.value = 'internal';
   commentInput.value = '';
+
+  const taskUrl = `https://dev.azure.com/${encodeURIComponent(org)}/${encodeURIComponent(project)}/_workitems/edit/${taskId}`;
+  taskLink.href = taskUrl;
+  taskLink.style.display = '';
+
   overlay.classList.add('visible');
   commentInput.focus();
 
@@ -66,6 +72,7 @@ async function commentOnly() {
   hide('commented');
 }
 
+taskLink.addEventListener('click', (e) => { e.preventDefault(); window.shellAPI.openExternal(taskLink.href); });
 document.getElementById('resolve-task-confirm-btn').addEventListener('click', confirm);
 document.getElementById('resolve-task-comment-btn').addEventListener('click', commentOnly);
 document.getElementById('resolve-task-cancel-btn').addEventListener('click', () => hide(false));

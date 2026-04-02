@@ -298,7 +298,7 @@
   <div id="resolve-task-dialog-overlay" class="dialog-overlay">
     <div class="dialog-box">
       <h3 class="dialog-title">Resolve Task</h3>
-      <p class="dialog-desc">Set the task to Resolved with build and release info</p>
+      <p class="dialog-desc">Set the task to Resolved with build and release info &mdash; <a id="resolve-task-link" href="#" style="display:none">Open Task</a></p>
       <p class="dialog-desc resolve-task-test-reminder">Before resolving, ensure you have installed the build and tested your changes in the application.</p>
       <label class="dialog-label">Comment <span style="color: var(--text-muted); font-weight: 400;">(optional)</span></label>
       <textarea id="resolve-task-comment-input" class="dialog-input dialog-textarea" placeholder="Add a comment to the task..." spellcheck="false" rows="3"></textarea>
@@ -339,6 +339,7 @@
       <h3 class="dialog-title">Complete Pull Request</h3>
       <p id="complete-pr-dialog-title" class="dialog-preview" style="margin-bottom: 4px;"></p>
       <p id="complete-pr-dialog-branch" class="dialog-desc" style="margin-top:0;color:var(--text-muted);font-size:11px"></p>
+      <a id="complete-pr-link" href="#" style="display:none;font-size:12px;margin-bottom:14px">Open Pull Request</a>
       <div class="dialog-buttons">
         <button id="complete-pr-cancel-btn" class="dialog-btn dialog-btn-cancel" tabindex="-1">Cancel</button>
         <button id="complete-pr-confirm-btn" class="dialog-btn dialog-btn-confirm">Complete</button>
@@ -409,7 +410,6 @@
     <button class="context-menu-item" data-action="open-explorer">Open in Explorer</button>
     <button class="context-menu-item" data-action="open-git-app">Open in Git App</button>
     <hr class="context-menu-separator">
-    <button class="context-menu-item" data-action="open-workspace">Open Workspace</button>
     <button class="context-menu-item" data-action="switch">Switch Worktree<span class="context-menu-shortcut">Alt+R</span></button>
     <button class="context-menu-item" data-action="commit-push">Commit &amp; Push</button>
     <button class="context-menu-item" data-action="create-pr">Create Pull Request</button>
@@ -423,7 +423,6 @@
     <button class="context-menu-item" data-action="open-pr">Open Pull Request</button>
     <button class="context-menu-item" data-action="open-merged-pr">View Merged PR</button>
     <hr class="context-menu-separator">
-    <button class="context-menu-item context-menu-item-danger" data-action="close-editor">Close Editor<span class="context-menu-shortcut">Alt+W</span></button>
     <button class="context-menu-item context-menu-item-danger" data-action="remove">Remove Worktree</button>
   </div>
 

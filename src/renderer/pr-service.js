@@ -18,7 +18,7 @@ export const pr = {
     const ws = getWtState(tabEl._wtPath);
     if (!ws?.prData) return null;
     const d = ws.prData;
-    const confirmed = await showCompletePrDialog(d.title, d.targetRefName);
+    const confirmed = await showCompletePrDialog(d.title, d.targetRefName, ws.existingPrUrl);
     if (!confirmed) return null;
     const result = await completePullRequest(d.org, d.project, d.auth, d.repoId, d.id, d.lastCommitId);
     if (result) {

@@ -1,8 +1,8 @@
-import { openWorktree, closeWorkspace } from '../workspace-manager.js';
 import { _showWorktreeSwitchDialog, _showWorktreeRemoveDialog, _showCommitPushDialog, _showCreatePrDialog, _showWorktreeDialog, _showDeleteDialog, _showSetTaskDialog, _showRebaseDialog } from './registers.js';
 import { toast } from '../toast.js';
 import { pr } from '../pr-service.js';
 import { pipeline } from '../pipeline-service.js';
+import { getWtState } from '../worktree-state.js';
 
 const contextMenu = document.getElementById('wt-context-menu');
 const projectContextMenu = document.getElementById('project-context-menu');
@@ -13,21 +13,20 @@ export function showContextMenu(x, y, tabEl) {
   hideProjectContextMenu();
   _contextMenuTabEl = tabEl;
 
-  const isOpen = tabEl._workspaceId !== null;
+  const ws = getWtState(tabEl._wtPath);
   const hasTask = !!tabEl._wtTaskId;
-  const hasPr = !!tabEl._existingPrUrl;
-  const hasMergedPr = !!tabEl._mergedPrUrl;
-  const canComplete = !!tabEl._canCompletePr;
-  const canResolve = !!tabEl._canResolveTask;
-  const hasChanges = !!tabEl._hasUncommittedChanges;
-  const hasPushed = !!tabEl._hasPushedCommits;
-  const canOpenPipeline = !!tabEl._canOpenPipeline && !!tabEl._pipelineUrl && tabEl._pipelineStatus !== 'succeeded';
+  const hasPr = !!ws?.existingPrUrl;
+  const hasMergedPr = !!ws?.mergedPrUrl;
+  const canComplete = !!ws?.canCompletePr;
+  const canResolve = !!ws?.canResolveTask;
+  const hasChanges = !!ws?.hasUncommittedChanges;
+  const hasPushed = !!ws?.hasPushedCommits;
+  const canOpenPipeline = !!ws?.canOpenPipeline && !!ws?.pipelineUrl && ws?.pipelineStatus !== 'succeeded';
   const installBtn = tabEl.querySelector('.workspace-tab-install-btn');
   const canInstall = !!installBtn && installBtn.style.display !== 'none';
   // Create PR only when no uncommitted changes, pushed commits exist, no active PR or completion state
   const showCreatePr = !hasChanges && hasPushed && !hasPr && !canComplete && !canResolve;
 
-  contextMenu.querySelector('[data-action="open-workspace"]').style.display = isOpen ? 'none' : '';
   contextMenu.querySelector('[data-action="switch"]').style.display = '';
   contextMenu.querySelector('[data-action="commit-push"]').style.display = hasChanges ? '' : 'none';
   contextMenu.querySelector('[data-action="create-pr"]').style.display = showCreatePr ? '' : 'none';
@@ -39,8 +38,6 @@ export function showContextMenu(x, y, tabEl) {
   contextMenu.querySelector('[data-action="open-task"]').style.display = hasTask ? '' : 'none';
   contextMenu.querySelector('[data-action="open-pr"]').style.display = hasPr ? '' : 'none';
   contextMenu.querySelector('[data-action="open-merged-pr"]').style.display = hasMergedPr ? '' : 'none';
-  contextMenu.querySelector('[data-action="close-editor"]').style.display = isOpen ? '' : 'none';
-  contextMenu.querySelector('[data-action="remove"]').style.display = isOpen ? 'none' : '';
 
   contextMenu.style.left = x + 'px';
   contextMenu.style.top = y + 'px';
@@ -74,9 +71,7 @@ contextMenu.addEventListener('click', (e) => {
   const action = item.dataset.action;
   hideContextMenu();
 
-  if (action === 'open-workspace') {
-    openWorktree(tabEl, { path: tabEl._wtPath, branch: tabEl._wtBranch });
-  } else if (action === 'open-explorer') {
+  if (action === 'open-explorer') {
     window.shellAPI.openInExplorer(tabEl._wtPath);
   } else if (action === 'open-git-app') {
     window.shellAPI.openInGitApp(tabEl._wtPath).then(result => {
@@ -110,10 +105,6 @@ contextMenu.addEventListener('click', (e) => {
     pr.open(tabEl);
   } else if (action === 'open-merged-pr') {
     pr.openMerged(tabEl);
-  } else if (action === 'close-editor') {
-    if (tabEl._workspaceId !== null) {
-      closeWorkspace(tabEl._workspaceId);
-    }
   } else if (action === 'switch') {
     if (_showWorktreeSwitchDialog) {
       const groupEl = tabEl.closest('.repo-group');

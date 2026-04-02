@@ -123,11 +123,15 @@ export async function updatePipelineForTab(tabEl, { org, project, auth }) {
   if (!build) {
     ws.pipelineStatus = null;
     ws.pipelineUrl = null;
-    if (pipelineBtn) { pipelineBtn.style.display = 'inline-flex'; pipelineBtn.title = 'Waiting for pipeline\u2026'; }
     if (installBtn) installBtn.style.display = 'none';
-    resetActionState(tabEl);
     if (resolveTaskBtn) resolveTaskBtn.style.display = 'none';
-    if (switchBtn) switchBtn.style.display = 'none';
+    resetActionState(tabEl);
+    if (ws.taskResolved) {
+      showFallbackSwitch(tabEl);
+    } else {
+      if (pipelineBtn) { pipelineBtn.style.display = 'inline-flex'; pipelineBtn.title = 'Waiting for pipeline\u2026'; }
+      if (switchBtn) switchBtn.style.display = 'none';
+    }
     return;
   }
 
@@ -143,22 +147,8 @@ export async function updatePipelineForTab(tabEl, { org, project, auth }) {
       if (installBtn) installBtn.style.display = 'none';
       if (ws.taskResolved) {
         if (resolveTaskBtn) resolveTaskBtn.style.display = 'none';
-        if (!ws.pipelineInstalled) {
-          const ab = await findSetupsArtifactBuild(build.allBuilds, org, project, auth);
-          if (ab) {
-            ws.pipelineBuildId = ab.id;
-            ws.pipelineDefinitionId = ab.definitionId;
-            setActionState(tabEl, INSTALL_BTN_SVG, 'var(--green)', `Download build ${ab.buildNumber}`);
-            if (installBtn) installBtn.style.display = 'inline-flex';
-            if (switchBtn) switchBtn.style.display = 'none';
-          } else {
-            resetActionState(tabEl);
-            showFallbackSwitch(tabEl);
-          }
-        } else {
-          resetActionState(tabEl);
-          showFallbackSwitch(tabEl);
-        }
+        resetActionState(tabEl);
+        showFallbackSwitch(tabEl);
       } else if (ws.pipelineInstalled) {
         resetActionState(tabEl);
         ws.canResolveTask = true;
@@ -190,27 +180,10 @@ export async function updatePipelineForTab(tabEl, { org, project, auth }) {
       }
       if (ws.taskResolved) {
         if (resolveTaskBtn) resolveTaskBtn.style.display = 'none';
-        if (!ws.pipelineInstalled) {
-          const ab = await findSetupsArtifactBuild(build.allBuilds, org, project, auth);
-          if (ab) {
-            ws.pipelineBuildId = ab.id;
-            ws.pipelineDefinitionId = ab.definitionId;
-            setActionState(tabEl, INSTALL_BTN_SVG, 'var(--red)', `Download build ${ab.buildNumber}`);
-            if (pipelineBtn) pipelineBtn.style.display = 'none';
-            if (installBtn) installBtn.style.display = 'inline-flex';
-            if (switchBtn) switchBtn.style.display = 'none';
-          } else {
-            if (pipelineBtn) pipelineBtn.style.display = 'none';
-            if (installBtn) installBtn.style.display = 'none';
-            resetActionState(tabEl);
-            showFallbackSwitch(tabEl);
-          }
-        } else {
-          if (pipelineBtn) pipelineBtn.style.display = 'none';
-          if (installBtn) installBtn.style.display = 'none';
-          resetActionState(tabEl);
-          showFallbackSwitch(tabEl);
-        }
+        if (pipelineBtn) pipelineBtn.style.display = 'none';
+        if (installBtn) installBtn.style.display = 'none';
+        resetActionState(tabEl);
+        showFallbackSwitch(tabEl);
       } else if (ws.pipelineInstalled) {
         if (pipelineBtn) pipelineBtn.style.display = 'none';
         resetActionState(tabEl);
@@ -245,29 +218,11 @@ export async function updatePipelineForTab(tabEl, { org, project, auth }) {
     }
 
     if (ws.taskResolved) {
-      // Task already completed — keep monitoring; pipeline status shown via button color
       if (resolveTaskBtn) resolveTaskBtn.style.display = 'none';
-      if (!ws.pipelineInstalled) {
-        const ab = await findSetupsArtifactBuild(build.allBuilds, org, project, auth);
-        if (ab) {
-          ws.pipelineBuildId = ab.id;
-          ws.pipelineDefinitionId = ab.definitionId;
-          setActionState(tabEl, INSTALL_BTN_SVG, 'var(--yellow)', `Download build ${ab.buildNumber}`);
-          if (pipelineBtn) pipelineBtn.style.display = 'none';
-          if (installBtn) installBtn.style.display = 'inline-flex';
-          if (switchBtn) switchBtn.style.display = 'none';
-        } else {
-          if (pipelineBtn) pipelineBtn.style.display = 'none';
-          if (installBtn) installBtn.style.display = 'none';
-          resetActionState(tabEl);
-          showFallbackSwitch(tabEl);
-        }
-      } else {
-        if (pipelineBtn) pipelineBtn.style.display = 'none';
-        if (installBtn) installBtn.style.display = 'none';
-        resetActionState(tabEl);
-        showFallbackSwitch(tabEl);
-      }
+      if (pipelineBtn) pipelineBtn.style.display = 'none';
+      if (installBtn) installBtn.style.display = 'none';
+      resetActionState(tabEl);
+      showFallbackSwitch(tabEl);
     } else if (ws.pipelineInstalled) {
       // Installed — show complete task; pipeline status shown via button color
       if (pipelineBtn) pipelineBtn.style.display = 'none';
@@ -430,7 +385,17 @@ async function _refreshTabStatusInner(tabEl) {
         }
       } catch (err) { console.warn('[refreshTabStatus] completed PR check error:', err); }
     }
-    // No active PR, no completed PR — show Create PR only if pushed commits exist and no uncommitted changes
+    // No active PR, no completed PR — check if task was resolved directly in Azure DevOps
+    if (tabEl._wtTaskId && !ws.taskResolved && !ws.canOpenPipeline) {
+      try {
+        const taskCtx = { org, project, auth, apiBase: `https://dev.azure.com/${encodeURIComponent(org)}/${encodeURIComponent(project)}/_apis` };
+        const wi = await fetchWorkItemById(taskCtx, tabEl._wtTaskId);
+        if (wi && ['Resolved', 'Closed', 'Done', 'Removed'].includes(wi.state)) {
+          ws.taskResolved = true;
+        }
+      } catch {}
+    }
+    // Show Create PR only if pushed commits exist and no uncommitted changes
     const canShowCreatePr = !ws.hasUncommittedChanges && ws.hasPushedCommits;
     if (!ws.canResolveTask) {
       if (completePrBtn) completePrBtn.style.display = 'none';
