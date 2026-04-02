@@ -1,5 +1,7 @@
 const STORAGE_KEY = 'codehive-state';
 
+export function normalizePath(p) { return p.replace(/\\/g, '/'); }
+
 export function getState() {
   try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}'); } catch { return {}; }
 }
@@ -7,25 +9,25 @@ export function getState() {
 export function saveSourceBranch(wtPath, sourceBranch) {
   const state = getState();
   if (!state.sourceBranches) state.sourceBranches = {};
-  state.sourceBranches[wtPath.replace(/\\/g, '/')] = sourceBranch;
+  state.sourceBranches[normalizePath(wtPath)] = sourceBranch;
   localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
 }
 
 export function getSourceBranch(wtPath) {
   const state = getState();
-  return (state.sourceBranches && state.sourceBranches[wtPath.replace(/\\/g, '/')]) || null;
+  return (state.sourceBranches && state.sourceBranches[normalizePath(wtPath)]) || null;
 }
 
 export function saveTaskId(wtPath, taskId) {
   const state = getState();
   if (!state.taskIds) state.taskIds = {};
-  state.taskIds[wtPath.replace(/\\/g, '/')] = taskId;
+  state.taskIds[normalizePath(wtPath)] = taskId;
   localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
 }
 
 export function getTaskId(wtPath) {
   const state = getState();
-  return (state.taskIds && state.taskIds[wtPath.replace(/\\/g, '/')]) || null;
+  return (state.taskIds && state.taskIds[normalizePath(wtPath)]) || null;
 }
 
 export function saveBranchCache(repoName, branches) {
@@ -82,7 +84,7 @@ export function saveCheckUpdatesOnStartup(value) {
 export function savePipelineInstalled(wtPath, installed) {
   const state = getState();
   if (!state.pipelineInstalled) state.pipelineInstalled = {};
-  const key = wtPath.replace(/\\/g, '/');
+  const key = normalizePath(wtPath);
   if (installed) {
     state.pipelineInstalled[key] = true;
   } else {
@@ -93,12 +95,12 @@ export function savePipelineInstalled(wtPath, installed) {
 
 export function getPipelineInstalled(wtPath) {
   const state = getState();
-  return !!(state.pipelineInstalled && state.pipelineInstalled[wtPath.replace(/\\/g, '/')]);
+  return !!(state.pipelineInstalled && state.pipelineInstalled[normalizePath(wtPath)]);
 }
 
 export function clearWorktreeStorage(wtPath) {
   const state = getState();
-  const key = wtPath.replace(/\\/g, '/');
+  const key = normalizePath(wtPath);
   if (state.sourceBranches) delete state.sourceBranches[key];
   if (state.taskIds) delete state.taskIds[key];
   if (state.pipelineInstalled) delete state.pipelineInstalled[key];

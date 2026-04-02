@@ -11,6 +11,11 @@ const collapsedTerminalBtn = document.getElementById('collapsed-terminal-btn');
 
 let xterm = null;
 let fitAddon = null;
+const _registeredPtyApis = [];
+
+export function registerPtyApi(api) {
+  _registeredPtyApis.push(api);
+}
 
 function createTerminal() {
   if (xterm) {
@@ -49,6 +54,10 @@ function setTitle(title) {
   titleEl.textContent = title;
 }
 
+function hideTerminal() {
+  terminalEl.classList.remove('active');
+}
+
 function deactivateTerminalTab() {
   sidebarTab.classList.remove('active');
   collapsedTerminalBtn.classList.remove('active');
@@ -58,15 +67,7 @@ function closeTerminal() {
   terminalEl.classList.remove('active');
   sidebarTab.classList.remove('active');
   collapsedTerminalBtn.classList.remove('active');
-  window.cloneAPI.removeListeners();
-  window.worktreeAPI.removeListeners();
-  window.deleteAPI.removeListeners();
-  window.worktreeRemoveAPI.removeListeners();
-  window.worktreeSwitchAPI.removeListeners();
-  window.commitPushAPI.removeListeners();
-  window.prCreateAPI.removeListeners();
-  window.azInstallAPI.removeListeners();
-  window.setupInstallAPI.removeListeners();
+  for (const api of _registeredPtyApis) api.removeListeners();
 
   // Restore previous view
   const ws = getActive();
@@ -134,4 +135,20 @@ window.addEventListener('resize', () => {
   fit();
 });
 
-export { createTerminal, showTerminal, showCloseButton, setTitle, deactivateTerminalTab, closeTerminal, toggleTerminal, getXterm, fit };
+export const terminal = {
+  show(title) {
+    showTerminal(title);
+    createTerminal();
+  },
+  write(data) {
+    xterm?.write(data);
+  },
+  writeln(text) {
+    xterm?.writeln(text);
+  },
+  setTitle,
+  showCloseButton,
+  close: closeTerminal,
+};
+
+export { createTerminal, showTerminal, showCloseButton, setTitle, hideTerminal, deactivateTerminalTab, closeTerminal, toggleTerminal, getXterm, fit };

@@ -1,4 +1,7 @@
-import { terminal } from '../terminal-service.js';
+import { terminal, registerPtyApi } from '../terminal-panel.js';
+import { runPty } from './pty-runner.js';
+
+registerPtyApi(window.prCreateAPI);
 import { getCachedBranchesFromState, saveBranchCache } from '../storage.js';
 import { parseAzureRemoteUrl, buildAzureContext, fetchWorkItemTitle } from '../azure-api.js';
 import { loadStoredPat, AZURE_PAT_KEY } from './utils.js';
@@ -178,31 +181,22 @@ async function confirmCreatePr() {
   terminal.show(`Creating PR: ${sourceBranch} → ${targetBranch}`);
 
   window.prCreateAPI.removeListeners();
-  window.prCreateAPI.onData((data) => {
-    terminal.write(data);
-  });
-
-  window.prCreateAPI.onExit(({ exitCode }) => {
-    if (exitCode === 0) {
-      terminal.writeln('');
-      terminal.writeln('\x1b[32mPull request created successfully!\x1b[0m');
+  const disposeData = runPty(window.prCreateAPI, {
+    successMsg: 'Pull request created successfully',
+    failMsg: 'Pull request creation failed — check your PAT and try again',
+    onSuccess: () => {
       terminal.setTitle('Pull request created');
-      toast.success('Pull request created');
       if (_refreshTabStatus) _refreshTabStatus(tabEl);
       setTimeout(() => terminal.close(), 1200);
-    } else {
-      terminal.writeln('');
-      terminal.writeln(`\x1b[31mPull request creation failed with exit code ${exitCode}\x1b[0m`);
-      terminal.setTitle('Pull request creation failed');
-      toast.error('Pull request creation failed — check your PAT and try again');
-      terminal.showCloseButton();
-    }
+    },
+    onError: () => terminal.setTitle('Pull request creation failed'),
   });
 
   try {
     await window.prCreateAPI.start({ wtPath, sourceBranch, targetBranch, title, description: desc, pat, workItemId });
     window.prCreateAPI.ready();
   } catch (err) {
+    disposeData();
     terminal.writeln(`\x1b[31m${err.message || err}\x1b[0m`);
     terminal.setTitle('Pull request creation failed');
     toast.error('Pull request creation failed — see terminal');

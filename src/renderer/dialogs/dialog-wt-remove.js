@@ -1,5 +1,8 @@
-import { terminal } from '../terminal-service.js';
+import { terminal, registerPtyApi } from '../terminal-panel.js';
 import { toast } from '../toast.js';
+import { runPty } from './pty-runner.js';
+
+registerPtyApi(window.worktreeRemoveAPI);
 import { saveDeleteBranchPref, getDeleteBranchPref, clearWorktreeStorage } from '../storage.js';
 import { removeWtState } from '../worktree-state.js';
 
@@ -36,28 +39,18 @@ async function confirmRemoveWorktree() {
 
   terminal.show(`Removing worktree: ${branchLabel}`);
 
-  const disposeData = window.worktreeRemoveAPI.onData((data) => {
-    terminal.write(data);
-  });
-
-  window.worktreeRemoveAPI.onExit(({ exitCode }) => {
-    disposeData();
-    if (exitCode === 0) {
-      terminal.writeln('');
-      terminal.writeln('\x1b[32mWorktree removed successfully!\x1b[0m');
+  const disposeData = runPty(window.worktreeRemoveAPI, {
+    successMsg: 'Worktree removed successfully',
+    failMsg: 'Worktree removal failed',
+    onSuccess: () => {
       terminal.setTitle('Worktree removed');
       clearWorktreeStorage(wtPath);
       removeWtState(wtPath);
       if (tabEl._dotEl) tabEl._dotEl.remove();
       tabEl.remove();
       setTimeout(() => terminal.close(), 1200);
-    } else {
-      terminal.writeln('');
-      terminal.writeln(`\x1b[31mWorktree removal failed with exit code ${exitCode}\x1b[0m`);
-      terminal.setTitle('Worktree removal failed');
-      toast.error('Worktree removal failed — see terminal');
-      terminal.showCloseButton();
-    }
+    },
+    onError: () => terminal.setTitle('Worktree removal failed'),
   });
 
   try {

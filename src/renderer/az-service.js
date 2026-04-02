@@ -1,4 +1,7 @@
-import { terminal } from './terminal-service.js';
+import { terminal, registerPtyApi } from './terminal-panel.js';
+import { runPty } from './dialogs/pty-runner.js';
+
+registerPtyApi(window.azInstallAPI);
 import { loadStoredPat } from './dialogs/utils.js';
 import { showPatDialog } from './dialogs/dialog-pat.js';
 
@@ -8,15 +11,12 @@ export async function checkAndInstallAz() {
 
   terminal.show('Installing Azure CLI...');
 
-  const disposeData = window.azInstallAPI.onData((data) => { terminal.write(data); });
-  window.azInstallAPI.onExit(({ exitCode }) => {
-    disposeData();
-    if (exitCode === 0) {
-      terminal.write('\r\n\x1b[32mAzure CLI installed successfully.\x1b[0m\r\n');
-    } else {
-      terminal.write(`\r\n\x1b[31mAzure CLI installation failed (exit code ${exitCode}).\x1b[0m\r\n`);
-    }
-    terminal.showCloseButton();
+  const disposeData = runPty(window.azInstallAPI, {
+    successMsg: 'Azure CLI installed successfully',
+    onSuccess: () => terminal.showCloseButton(),
+    onError: ({ exitCode }) => {
+      terminal.writeln(`\x1b[31mAzure CLI installation failed (exit code ${exitCode}).\x1b[0m`);
+    },
   });
 
   try {
@@ -24,7 +24,7 @@ export async function checkAndInstallAz() {
     window.azInstallAPI.ready();
   } catch (err) {
     disposeData();
-    terminal.write(`\r\n\x1b[31mAzure CLI installation failed: ${err.message || err}\x1b[0m\r\n`);
+    terminal.writeln(`\x1b[31mAzure CLI installation failed: ${err.message || err}\x1b[0m`);
     terminal.showCloseButton();
   }
 }

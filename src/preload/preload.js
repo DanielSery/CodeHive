@@ -41,6 +41,10 @@ function makeApi(dataChannel, exitChannel, startChannel, readyChannel) {
       ipcRenderer.once(exitChannel, handler);
       return () => ipcRenderer.removeListener(exitChannel, handler);
     },
+    removeListeners: () => {
+      ipcRenderer.removeAllListeners(dataChannel);
+      ipcRenderer.removeAllListeners(exitChannel);
+    },
   };
 }
 

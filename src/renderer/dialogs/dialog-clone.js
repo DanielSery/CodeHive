@@ -1,5 +1,8 @@
-import { terminal } from '../terminal-service.js';
+import { terminal, registerPtyApi } from '../terminal-panel.js';
 import { toast } from '../toast.js';
+import { runPty } from './pty-runner.js';
+
+registerPtyApi(window.cloneAPI);
 
 const cloneDialogOverlay = document.getElementById('clone-dialog-overlay');
 const cloneUrlInput = document.getElementById('clone-url-input');
@@ -50,31 +53,22 @@ async function startClone() {
 
   terminal.show(`Cloning ${repoName}...`);
 
-  const disposeData = window.cloneAPI.onData((data) => {
-    terminal.write(data);
-  });
-
-  window.cloneAPI.onExit(async ({ exitCode, repoName: name, repoDir, bareDir, reposDir: rDir }) => {
-    disposeData();
-    if (exitCode === 0) {
-      terminal.writeln('');
+  const disposeData = runPty(window.cloneAPI, {
+    onSuccess: async ({ repoName: name, reposDir: rDir }) => {
       terminal.writeln('\x1b[32mRepository cloned successfully!\x1b[0m');
       terminal.setTitle(`Clone complete: ${name}`);
       toast.success(`Cloned ${name}`);
-
       const repos = await window.reposAPI.scanDirectory(rDir);
       const newRepo = repos.find(r => r.name === name);
-      if (newRepo && _addRepoGroup) {
-        _addRepoGroup(newRepo);
-      }
+      if (newRepo && _addRepoGroup) _addRepoGroup(newRepo);
       if (_onCloneComplete) _onCloneComplete(rDir);
-    } else {
-      terminal.writeln('');
-      terminal.writeln(`\x1b[31mClone failed with exit code ${exitCode}\x1b[0m`);
+      terminal.showCloseButton();
+    },
+    onError: ({ repoName: name }) => {
+      terminal.writeln(`\x1b[31mClone failed for ${name}\x1b[0m`);
       terminal.setTitle(`Clone failed: ${name}`);
       toast.error(`Clone failed for ${name}`);
-    }
-    terminal.showCloseButton();
+    },
   });
 
   try {

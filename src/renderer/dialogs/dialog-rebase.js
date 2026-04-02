@@ -1,4 +1,7 @@
-import { terminal } from '../terminal-service.js';
+import { terminal, registerPtyApi } from '../terminal-panel.js';
+import { runPty } from './pty-runner.js';
+
+registerPtyApi(window.rebaseAPI);
 import { getCachedBranchesFromState, saveBranchCache } from '../storage.js';
 import { toast } from '../toast.js';
 import { createCombobox } from './combobox.js';
@@ -365,23 +368,18 @@ export async function confirmRebase() {
 
   terminal.show(`Rebasing onto ${sourceBranch}...`);
 
-  const disposeData = window.rebaseAPI.onData((data) => { terminal.write(data); });
-
-  window.rebaseAPI.onExit(({ exitCode }) => {
-    disposeData();
-    if (exitCode === 0) {
-      terminal.writeln('');
+  const disposeData = runPty(window.rebaseAPI, {
+    onSuccess: () => {
       terminal.writeln('\x1b[32mRebase completed successfully!\x1b[0m');
       terminal.setTitle('Rebase complete');
       _forcePushWtPath = wtPath;
       rebasePushConfirmOverlay.classList.add('visible');
-    } else {
-      terminal.writeln('');
+    },
+    onError: () => {
       terminal.writeln('\x1b[31mRebase failed — aborting...\x1b[0m');
       terminal.setTitle('Rebase failed');
       toast.error('Rebase failed — aborted');
-      terminal.showCloseButton();
-    }
+    },
   });
 
   try {

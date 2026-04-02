@@ -1,5 +1,8 @@
 import { openWorktree } from '../workspace-manager.js';
-import { terminal } from '../terminal-service.js';
+import { terminal, registerPtyApi } from '../terminal-panel.js';
+import { runPty } from './pty-runner.js';
+
+registerPtyApi(window.worktreeSwitchAPI);
 import { getCachedBranchesFromState, saveBranchCache, saveSourceBranch, saveTaskId, saveDeleteBranchPref, getDeleteBranchPref, clearWorktreeStorage } from '../storage.js';
 import { removeWtState } from '../worktree-state.js';
 import { fetchAzureTasks, createAzureWorkItem, buildAzureTaskUrl, fetchWorkItemById, updateWorkItemState } from '../azure-api.js';
@@ -404,13 +407,10 @@ export async function confirmSwitchWorktree() {
 
   terminal.show(`Switching worktree: ${branchName}`);
 
-  const disposeData = window.worktreeSwitchAPI.onData((data) => { terminal.write(data); });
-
   const switchSource = wtSwitchSelectedBranch;
-  window.worktreeSwitchAPI.onExit(({ exitCode, wtPath, branchName: branch, dirName: dir }) => {
-    disposeData();
-    if (exitCode === 0) {
-      terminal.writeln('');
+  const disposeData = runPty(window.worktreeSwitchAPI, {
+    failMsg: 'Worktree switch failed',
+    onSuccess: ({ wtPath, branchName: branch, dirName: dir }) => {
       terminal.writeln('\x1b[32mWorktree switched successfully!\x1b[0m');
       terminal.setTitle('Worktree switched');
       clearWorktreeStorage(oldWtPath);
@@ -428,13 +428,8 @@ export async function confirmSwitchWorktree() {
         terminal.close();
         try { await openWorktree(newTabEl, wt); } catch (err) { console.error('Failed to open switched worktree:', err); }
       }, 800);
-    } else {
-      terminal.writeln('');
-      terminal.writeln(`\x1b[31mWorktree switch failed with exit code ${exitCode}\x1b[0m`);
-      terminal.setTitle('Worktree switch failed');
-      toast.error('Worktree switch failed — see terminal');
-      terminal.showCloseButton();
-    }
+    },
+    onError: () => terminal.setTitle('Worktree switch failed'),
   });
 
   try {

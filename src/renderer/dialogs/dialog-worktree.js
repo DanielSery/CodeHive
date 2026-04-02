@@ -1,5 +1,8 @@
 import { openWorktree } from '../workspace-manager.js';
-import { terminal } from '../terminal-service.js';
+import { terminal, registerPtyApi } from '../terminal-panel.js';
+import { runPty } from './pty-runner.js';
+
+registerPtyApi(window.worktreeAPI);
 import { getCachedBranchesFromState, saveBranchCache, saveSourceBranch, saveTaskId } from '../storage.js';
 import { fetchAzureTasks, createAzureWorkItem, buildAzureTaskUrl, fetchWorkItemById, updateWorkItemState } from '../azure-api.js';
 import { inferWorkItemType, sanitizePathPart, userToPrefix, nameToBranch, loadStoredPat, getCachedTasks, saveTaskCache, stripHtml } from './utils.js';
@@ -394,13 +397,10 @@ export async function confirmCreateWorktree() {
 
   terminal.show(`Creating worktree: ${branchName}`);
 
-  const disposeData = window.worktreeAPI.onData((data) => { terminal.write(data); });
-
   const sourceBranch = wtSelectedBranch;
-  window.worktreeAPI.onExit(({ exitCode, wtPath, branchName: branch, dirName: dir }) => {
-    disposeData();
-    if (exitCode === 0) {
-      terminal.writeln('');
+  const disposeData = runPty(window.worktreeAPI, {
+    failMsg: 'Worktree creation failed — see terminal',
+    onSuccess: ({ wtPath, branchName: branch, dirName: dir }) => {
       terminal.writeln('\x1b[32mWorktree created successfully!\x1b[0m');
       terminal.setTitle('Worktree created');
       const wt = { path: wtPath, branch, name: dir, sourceBranch, taskId };
@@ -414,13 +414,8 @@ export async function confirmCreateWorktree() {
         terminal.close();
         try { await openWorktree(tabEl, wt); } catch (err) { toast.error(`Worktree created but failed to open: ${err.message || err}`); }
       }, 800);
-    } else {
-      terminal.writeln('');
-      terminal.writeln(`\x1b[31mWorktree creation failed with exit code ${exitCode}\x1b[0m`);
-      terminal.setTitle('Worktree creation failed');
-      toast.error('Worktree creation failed — see terminal');
-      terminal.showCloseButton();
-    }
+    },
+    onError: () => terminal.setTitle('Worktree creation failed'),
   });
 
   try {

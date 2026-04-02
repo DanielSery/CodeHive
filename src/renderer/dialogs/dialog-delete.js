@@ -1,5 +1,8 @@
-import { terminal } from '../terminal-service.js';
+import { terminal, registerPtyApi } from '../terminal-panel.js';
 import { toast } from '../toast.js';
+import { runPty } from './pty-runner.js';
+
+registerPtyApi(window.deleteAPI);
 
 const deleteDialogOverlay = document.getElementById('delete-dialog-overlay');
 const deleteDialogPath = document.getElementById('delete-dialog-path');
@@ -31,30 +34,22 @@ async function confirmDeleteRepo() {
   terminal.show(`Deleting ${repoName}...`);
 
   window.deleteAPI.removeListeners();
-  window.deleteAPI.onData((data) => {
-    terminal.write(data);
-  });
-
-  window.deleteAPI.onExit(({ exitCode }) => {
-    if (exitCode === 0) {
-      terminal.writeln('');
-      terminal.writeln('\x1b[32mProject deleted successfully!\x1b[0m');
+  const disposeData = runPty(window.deleteAPI, {
+    successMsg: 'Project deleted successfully',
+    failMsg: 'Delete failed',
+    onSuccess: () => {
       terminal.setTitle('Project deleted');
       if (_removeRepoGroup) _removeRepoGroup(groupEl);
       setTimeout(() => terminal.close(), 1200);
-    } else {
-      terminal.writeln('');
-      terminal.writeln(`\x1b[31mDelete failed with exit code ${exitCode}\x1b[0m`);
-      terminal.setTitle(`Delete failed: ${repoName}`);
-      toast.error('Delete failed — see terminal');
-      terminal.showCloseButton();
-    }
+    },
+    onError: () => terminal.setTitle(`Delete failed: ${repoName}`),
   });
 
   try {
     await window.deleteAPI.start(groupEl._repoDir);
     window.deleteAPI.ready();
   } catch (err) {
+    disposeData();
     terminal.writeln(`\x1b[31m${err.message || err}\x1b[0m`);
     terminal.setTitle(`Delete failed: ${repoName}`);
     toast.error('Delete failed — see terminal');

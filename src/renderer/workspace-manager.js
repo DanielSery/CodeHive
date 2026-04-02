@@ -1,6 +1,6 @@
 import { getWorkspace, getActive, getActiveId, setActiveId, nextId, addWorkspace, removeWorkspace, getAllIds } from './state.js';
 import { setTabStatus, startClaudePoll, stopClaudePoll } from './claude-poll.js';
-import { deactivateTerminalTab } from './terminal-panel.js';
+import { hideTerminal, deactivateTerminalTab } from './terminal-panel.js';
 import { getWtState } from './worktree-state.js';
 
 let _showTabCloseButton = null;
@@ -281,10 +281,7 @@ async function openWorktree(tabEl, wt) {
 
 function switchWorkspace(id) {
   // Always hide terminal and deactivate its tab
-  const terminalPanel = document.getElementById('clone-terminal');
-  if (terminalPanel.classList.contains('active')) {
-    terminalPanel.classList.remove('active');
-  }
+  hideTerminal();
   deactivateTerminalTab();
 
   const activeId = getActiveId();
