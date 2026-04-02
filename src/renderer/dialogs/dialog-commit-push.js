@@ -42,12 +42,13 @@ let _fileTree = null;
 
 export async function showCommitPushDialog(tabEl, _groupEl) {
   _commitPushTabEl = tabEl;
-  commitPushTitleInput.value = '';
+  const prefix = tabEl._wtTaskId ? `${tabEl._wtTaskId}: ` : '';
+  commitPushTitleInput.value = prefix;
   commitPushDescInput.value = '';
   commitPushFileList.innerHTML = '<span class="commit-file-list-empty">Loading...</span>';
   restoreDialogSize();
   commitPushDialogOverlay.classList.add('visible');
-  setTimeout(() => commitPushTitleInput.focus(), 50);
+  setTimeout(() => { commitPushTitleInput.focus(); commitPushTitleInput.setSelectionRange(prefix.length, prefix.length); }, 50);
 
   const files = await window.reposAPI.gitDiffStat(tabEl._wtPath);
   _fileTree = renderCommitFileList(commitPushFileList, files, tabEl._wtPath);

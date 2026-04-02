@@ -399,6 +399,40 @@ export async function fetchBuildArtifacts(org, project, auth, buildId, definitio
 }
 
 /**
+ * Fetch active pull requests for a branch. Returns array of PR objects, or null on error.
+ * Accepts a pre-encoded auth header (Basic base64) rather than a raw PAT.
+ */
+export async function fetchActivePrsForBranch(org, project, auth, branch) {
+  const sourceRef = `refs/heads/${branch}`;
+  const url = `https://dev.azure.com/${encodeURIComponent(org)}/${encodeURIComponent(project)}/_apis/git/pullrequests?searchCriteria.sourceRefName=${encodeURIComponent(sourceRef)}&searchCriteria.status=active&api-version=7.0`;
+  try {
+    const resp = await fetch(url, { headers: { Authorization: `Basic ${auth}` } });
+    if (!resp.ok) return null;
+    const data = await resp.json();
+    return data.value || [];
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Fetch the most recently completed pull request for a branch. Returns the PR object or null.
+ * Accepts a pre-encoded auth header (Basic base64) rather than a raw PAT.
+ */
+export async function fetchLatestCompletedPrForBranch(org, project, auth, branch) {
+  const sourceRef = `refs/heads/${branch}`;
+  const url = `https://dev.azure.com/${encodeURIComponent(org)}/${encodeURIComponent(project)}/_apis/git/pullrequests?searchCriteria.sourceRefName=${encodeURIComponent(sourceRef)}&searchCriteria.status=completed&$top=1&api-version=7.0`;
+  try {
+    const resp = await fetch(url, { headers: { Authorization: `Basic ${auth}` } });
+    if (!resp.ok) return null;
+    const data = await resp.json();
+    return (data.value && data.value.length > 0) ? data.value[0] : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Fetch the individual file items within a build artifact container.
  * Returns array of { name, downloadUrl } or [].
  */
