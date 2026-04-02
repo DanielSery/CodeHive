@@ -1089,23 +1089,133 @@ html, body {
 .commit-file-path-expanded { color: var(--accent); }
 
 .commit-diff-panel {
+  position: relative;
   border-top: 1px solid var(--border);
   border-bottom: 1px solid var(--border);
   background: color-mix(in srgb, var(--bg) 60%, transparent);
   overflow-x: auto;
+  overflow-y: visible;
   font-size: 11px;
   font-family: 'Consolas', 'Courier New', monospace;
+  scrollbar-width: none;
 }
-.commit-diff-line {
+.commit-diff-panel::-webkit-scrollbar { display: none; }
+.commit-diff-empty { padding: 4px 10px; color: var(--text-muted); }
+.commit-diff-float-bar {
+  position: absolute;
+  right: 6px;
+  display: flex;
+  gap: 4px;
+  z-index: 10;
+  pointer-events: all;
+}
+.commit-diff-float-btn {
+  padding: 1px 7px;
+  font-size: 11px;
+  border-radius: 3px;
+  cursor: pointer;
+  border: 1px solid;
+}
+.commit-diff-float-revert {
+  background: color-mix(in srgb, var(--red) 15%, var(--bg));
+  color: var(--red);
+  border-color: color-mix(in srgb, var(--red) 50%, transparent);
+}
+.commit-diff-float-revert:hover { background: color-mix(in srgb, var(--red) 28%, var(--bg)); }
+.commit-diff-table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+.commit-diff-cell {
+  width: 50%;
   padding: 1px 10px;
   white-space: pre;
   line-height: 1.5;
   color: var(--text);
+  overflow: hidden;
 }
-.commit-diff-add { background: color-mix(in srgb, var(--green) 15%, transparent); color: var(--green); }
-.commit-diff-del { background: color-mix(in srgb, var(--red) 15%, transparent); color: var(--red); }
-.commit-diff-hunk { color: var(--accent); background: color-mix(in srgb, var(--accent) 8%, transparent); }
-.commit-diff-meta { color: var(--text-muted); }
+.commit-diff-panel--split .commit-diff-cell:last-child { border-left: 1px solid var(--border); }
+.commit-diff-add { background: color-mix(in srgb, var(--green) 10%, transparent); color: var(--green); }
+.commit-diff-del { background: color-mix(in srgb, var(--red) 10%, transparent); color: var(--red); }
+.commit-diff-add-hl { background: color-mix(in srgb, var(--green) 20%, transparent); border-radius: 2px; }
+.commit-diff-del-hl { background: color-mix(in srgb, var(--red) 20%, transparent); border-radius: 2px; }
+.commit-diff-controls {
+  display: flex;
+  gap: 6px;
+  padding: 4px 0;
+  margin-bottom: 4px;
+}
+.commit-diff-ctrl-btn {
+  padding: 2px 8px;
+  font-size: 11px;
+  background: color-mix(in srgb, var(--text) 6%, transparent);
+  color: var(--text-muted);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  cursor: pointer;
+  font-family: inherit;
+}
+.commit-diff-ctrl-btn:hover {
+  background: color-mix(in srgb, var(--text) 12%, transparent);
+  color: var(--text);
+}
+.commit-diff-ctrl-btn.active {
+  background: color-mix(in srgb, var(--text) 18%, transparent);
+  color: var(--text);
+}
+.commit-diff-sep-row { height: 28px; }
+.commit-diff-sep-cell {
+  background: color-mix(in srgb, var(--border) 40%, transparent);
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  padding: 0;
+  position: relative;
+}
+.commit-diff-edge-row { height: 28px; }
+.commit-diff-edge-cell {
+  background: color-mix(in srgb, var(--border) 18%, transparent);
+  border-top: 1px solid color-mix(in srgb, var(--border) 60%, transparent);
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 60%, transparent);
+  padding: 0;
+  position: relative;
+}
+.commit-diff-expand-bar {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  display: inline-flex;
+  align-items: center;
+  gap: 1px;
+}
+.commit-diff-expand-sep {
+  width: 1px;
+  height: 12px;
+  background: var(--border);
+  margin: 0 4px;
+  flex-shrink: 0;
+}
+.commit-diff-expand-btn {
+  all: unset;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  color: var(--text-muted);
+  font-size: 10px;
+  font-family: inherit;
+  cursor: pointer;
+  white-space: nowrap;
+  padding: 2px 5px;
+  border-radius: 3px;
+  line-height: 1;
+}
+.commit-diff-expand-btn:hover:not(:disabled) {
+  color: var(--text);
+  background: color-mix(in srgb, var(--text) 8%, transparent);
+}
+.commit-diff-expand-btn:disabled { opacity: 0.4; cursor: default; }
+.commit-diff-expand-icon {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+}
 
 .dialog-buttons {
   display: flex;

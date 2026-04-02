@@ -11,6 +11,7 @@ const commitPushDialogBox = document.getElementById('commit-push-dialog-box');
 const commitPushTitleInput = document.getElementById('commit-push-title-input');
 const commitPushDescInput = document.getElementById('commit-push-desc-input');
 const commitPushFileList = document.getElementById('commit-push-file-list');
+const commitPushDiffToolbar = document.getElementById('commit-push-diff-toolbar');
 
 const DIALOG_SIZE_KEY = 'commitPushDialogSize';
 
@@ -51,7 +52,7 @@ export async function showCommitPushDialog(tabEl, _groupEl) {
   setTimeout(() => { commitPushTitleInput.focus(); commitPushTitleInput.setSelectionRange(prefix.length, prefix.length); }, 50);
 
   const files = await window.reposAPI.gitDiffStat(tabEl._wtPath);
-  _fileTree = renderCommitFileList(commitPushFileList, files, tabEl._wtPath);
+  _fileTree = renderCommitFileList(commitPushFileList, files, tabEl._wtPath, { toolbar: commitPushDiffToolbar });
 }
 
 function hideCommitPushDialog() {

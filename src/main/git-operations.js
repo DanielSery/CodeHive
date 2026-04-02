@@ -108,13 +108,33 @@ function gitDiffStat(wtPath) {
   return result;
 }
 
-function gitFileDiff(wtPath, filePath) {
+function gitFileDiff(wtPath, filePath, context = 3) {
   try {
+    const ctx = Math.min(Math.max(0, parseInt(context, 10) || 3), 9999);
     const escaped = filePath.replace(/"/g, '\\"');
-    const out = execSync(`git diff HEAD -- "${escaped}"`, { cwd: wtPath, encoding: 'utf8', timeout: 5000 });
+    const out = execSync(`git diff HEAD -U${ctx} -- "${escaped}"`, { cwd: wtPath, encoding: 'utf8', timeout: 5000 });
     return { ok: true, diff: out };
   } catch {
     return { ok: false, diff: '' };
+  }
+}
+
+function gitRevertLines(wtPath, filePath, changes) {
+  // changes: [{ newLineNum: 1-based, newCount, oldLines: string[] }]
+  const abs = path.join(wtPath, filePath);
+  try {
+    const raw = fs.readFileSync(abs, 'utf8');
+    const eol = raw.includes('\r\n') ? '\r\n' : '\n';
+    const lines = raw.split(eol);
+    // Apply in descending line order so earlier splices don't shift later indices
+    const sorted = [...changes].sort((a, b) => b.newLineNum - a.newLineNum);
+    for (const { newLineNum, newCount, oldLines } of sorted) {
+      lines.splice(newLineNum - 1, newCount, ...oldLines);
+    }
+    fs.writeFileSync(abs, lines.join(eol), 'utf8');
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, message: err.message };
   }
 }
 
@@ -213,4 +233,18 @@ function getRebaseCommits(wtPath, sourceBranch) {
   }
 }
 
-module.exports = { getCachedBranches, fetchAndListBranches, getGitUser, getRemoteUrl, getLaunchConfigs, gitDiffStat, gitFileDiff, getFirstBranchCommit, hasUncommittedChanges, hasPushedCommits, gitRevertFile, getRebaseCommits };
+function gitGetFileLines(wtPath, filePath, startLine, endLine) {
+  try {
+    const abs = path.join(wtPath, filePath);
+    const raw = fs.readFileSync(abs, 'utf8');
+    const lines = raw.split('\n');
+    if (lines.length > 0 && lines[lines.length - 1] === '') lines.pop();
+    const start = Math.max(0, (startLine || 1) - 1);
+    const end = endLine != null ? Math.min(lines.length, endLine) : lines.length;
+    return { ok: true, lines: lines.slice(start, end) };
+  } catch (e) {
+    return { ok: false, lines: [], error: e.message };
+  }
+}
+
+module.exports = { getCachedBranches, fetchAndListBranches, getGitUser, getRemoteUrl, getLaunchConfigs, gitDiffStat, gitFileDiff, gitRevertLines, getFirstBranchCommit, hasUncommittedChanges, hasPushedCommits, gitRevertFile, getRebaseCommits, gitGetFileLines };

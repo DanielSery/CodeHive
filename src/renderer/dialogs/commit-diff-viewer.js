@@ -1,27 +1,394 @@
 /**
- * Renders a unified diff string into a container element with syntax highlighting.
+ * Renders a unified diff as a side-by-side table with context controls and line-level revert.
+ * @param {HTMLElement} panel
+ * @param {string} diff - unified diff text (from git diff -U<n>)
+ * @param {object} opts
+ * @param {'split'|'inline'} [opts.mode='split'] - 'split' for side-by-side, 'inline' for unified single column
+ * @param {function(Array)} [opts.onRevertLines] - called with [{newLineNum,newCount,oldLines}]
+ * @param {function(number,number|null):Promise<string[]>} [opts.onExpandGap] - called with (startLine, endLine|null), returns lines
  */
-export function renderFileDiff(panel, diff) {
+export function renderFileDiff(panel, diff, { onRevertLines, onExpandGap, mode = 'split' } = {}) {
   panel.innerHTML = '';
+  panel.className = panel.className.replace(/\bcommit-diff-panel--(split|inline)\b/g, '');
+  panel.classList.add(`commit-diff-panel--${mode}`);
   if (!diff || !diff.trim()) {
-    panel.innerHTML = '<div class="commit-diff-line commit-diff-meta">No diff available</div>';
+    panel.innerHTML = '<div class="commit-diff-empty">No diff available</div>';
     return;
   }
-  const fragment = document.createDocumentFragment();
+
+  // --- Parse unified diff into hunks ---
+  const hunks = [];
+  let hunk = null;
   for (const line of diff.split('\n')) {
-    const el = document.createElement('div');
-    el.className = 'commit-diff-line';
-    if (line.startsWith('+++') || line.startsWith('---') || line.startsWith('diff ') || line.startsWith('index ') || line.startsWith('Binary')) {
-      el.classList.add('commit-diff-meta');
-    } else if (line.startsWith('+')) {
-      el.classList.add('commit-diff-add');
-    } else if (line.startsWith('-')) {
-      el.classList.add('commit-diff-del');
-    } else if (line.startsWith('@@')) {
-      el.classList.add('commit-diff-hunk');
+    if (line.startsWith('+++') || line.startsWith('---') ||
+        line.startsWith('diff ') || line.startsWith('index ') || line.startsWith('Binary')) {
+      continue;
     }
-    el.textContent = line;
-    fragment.appendChild(el);
+    if (line.startsWith('@@')) {
+      const m = line.match(/@@ -(\d+)(?:,(\d+))? \+(\d+)(?:,(\d+))? @@/);
+      if (m) {
+        hunk = { newStart: parseInt(m[3]), lines: [] };
+        hunks.push(hunk);
+      }
+      continue;
+    }
+    if (!hunk) continue;
+    if (line.startsWith('+')) hunk.lines.push({ type: 'add', text: line.slice(1) });
+    else if (line.startsWith('-')) hunk.lines.push({ type: 'del', text: line.slice(1) });
+    else hunk.lines.push({ type: 'ctx', text: line.slice(1) });
   }
-  panel.appendChild(fragment);
+
+  // Compute the last new-file line number covered by each hunk
+  for (const h of hunks) {
+    let n = h.newStart;
+    for (const l of h.lines) { if (l.type !== 'del') n++; }
+    h.newEnd = n - 1;
+  }
+
+  // Group consecutive hunks whose line ranges overlap into display chunks
+  const hunkGroups = [];
+  let curGroup = [];
+  for (const h of hunks) {
+    if (curGroup.length === 0 || h.newStart <= curGroup[curGroup.length - 1].newEnd) {
+      curGroup.push(h);
+    } else {
+      hunkGroups.push(curGroup);
+      curGroup = [h];
+    }
+  }
+  if (curGroup.length > 0) hunkGroups.push(curGroup);
+
+  // --- Build rowGroups: gaps + merged lines per display chunk ---
+  const rowGroups = [];
+
+  // Edge before first chunk (lines 1..firstStart-1)
+  if (hunkGroups.length > 0 && hunkGroups[0][0].newStart > 1) {
+    rowGroups.push({ type: 'edge', gapStart: 1, gapEnd: hunkGroups[0][0].newStart - 1 });
+  }
+
+  for (let gi = 0; gi < hunkGroups.length; gi++) {
+    if (gi > 0) {
+      const prevGroup = hunkGroups[gi - 1];
+      const gapStart = prevGroup[prevGroup.length - 1].newEnd + 1;
+      const gapEnd   = hunkGroups[gi][0].newStart - 1;
+      rowGroups.push({ type: 'sep', gapStart, gapEnd });
+    }
+
+    // Merge hunk lines, deduplicating context lines that overlap between hunks
+    const seenCtx = new Set();
+    const mergedLines = [];
+    for (const h of hunkGroups[gi]) {
+      let n = h.newStart;
+      for (const l of h.lines) {
+        if (l.type === 'ctx') {
+          if (!seenCtx.has(n)) { seenCtx.add(n); mergedLines.push(l); }
+          n++;
+        } else {
+          mergedLines.push(l);
+          if (l.type === 'add') n++;
+        }
+      }
+    }
+
+    let newLineNum = hunkGroups[gi][0].newStart;
+    let i = 0;
+    while (i < mergedLines.length) {
+      const line = mergedLines[i];
+      if (line.type === 'ctx') {
+        rowGroups.push({ type: 'ctx', text: line.text });
+        newLineNum++;
+        i++;
+      } else {
+        const dels = [], adds = [];
+        const blockStart = newLineNum;
+        while (i < mergedLines.length && mergedLines[i].type !== 'ctx') {
+          if (mergedLines[i].type === 'del') dels.push(mergedLines[i].text);
+          else adds.push(mergedLines[i].text);
+          i++;
+        }
+        const pairs = [];
+        for (let j = 0; j < Math.max(dels.length, adds.length); j++) {
+          pairs.push({ left: dels[j] ?? null, right: adds[j] ?? null });
+        }
+        rowGroups.push({
+          type: 'change',
+          pairs,
+          dels,
+          adds,
+          changeData: { newLineNum: blockStart, newCount: adds.length, oldLines: dels }
+        });
+        newLineNum += adds.length;
+      }
+    }
+  }
+
+  // Edge after last chunk
+  if (hunkGroups.length > 0) {
+    const lastGroup = hunkGroups[hunkGroups.length - 1];
+    rowGroups.push({ type: 'edge', gapStart: lastGroup[lastGroup.length - 1].newEnd + 1, gapEnd: null });
+  }
+
+  // Annotate each change with how many adjacent ctx rows it has above/below
+  for (let i = 0; i < rowGroups.length; i++) {
+    if (rowGroups[i].type !== 'change') continue;
+    let above = 0;
+    for (let j = i - 1; j >= 0 && rowGroups[j].type === 'ctx'; j--) above++;
+    let below = 0;
+    for (let j = i + 1; j < rowGroups.length && rowGroups[j].type === 'ctx'; j++) below++;
+    rowGroups[i].ctxAbove = above;
+    rowGroups[i].ctxBelow = below;
+  }
+
+  // --- Intra-line diff helpers ---
+  function setIntraCell(td, text, hlCls, start, end) {
+    if (!text) return;
+    if (start > 0) td.appendChild(document.createTextNode(text.slice(0, start)));
+    if (start < end) {
+      const span = document.createElement('span');
+      span.className = hlCls;
+      span.textContent = text.slice(start, end);
+      td.appendChild(span);
+    }
+    if (end < text.length) td.appendChild(document.createTextNode(text.slice(end)));
+  }
+
+  function applyIntraLineDiff(tdL, tdR, leftText, rightText) {
+    let pre = 0;
+    const minLen = Math.min(leftText.length, rightText.length);
+    while (pre < minLen && leftText[pre] === rightText[pre]) pre++;
+    let suf = 0;
+    const maxSuf = Math.min(leftText.length - pre, rightText.length - pre);
+    while (suf < maxSuf && leftText[leftText.length - 1 - suf] === rightText[rightText.length - 1 - suf]) suf++;
+    setIntraCell(tdL, leftText,  'commit-diff-del-hl', pre, leftText.length  - suf);
+    setIntraCell(tdR, rightText, 'commit-diff-add-hl', pre, rightText.length - suf);
+  }
+
+  // --- Floating action bar (hover overlay per change block) ---
+  let floatBar = null;
+  let floatRevertBtn = null;
+  let hideTimer = null;
+
+  if (onRevertLines) {
+    floatBar = document.createElement('div');
+    floatBar.className = 'commit-diff-float-bar';
+    floatBar.style.display = 'none';
+    panel.appendChild(floatBar);
+
+    floatRevertBtn = document.createElement('button');
+    floatRevertBtn.className = 'commit-diff-float-btn commit-diff-float-revert';
+    floatRevertBtn.textContent = '↩ Revert';
+    floatBar.appendChild(floatRevertBtn);
+
+    floatBar.addEventListener('mouseenter', () => clearTimeout(hideTimer));
+    floatBar.addEventListener('mouseleave', () => {
+      hideTimer = setTimeout(() => { floatBar.style.display = 'none'; }, 120);
+    });
+  }
+
+  function attachHover(rows, group) {
+    if (!floatBar) return;
+
+    const show = () => {
+      clearTimeout(hideTimer);
+      const panelRect = panel.getBoundingClientRect();
+      const rowRect = rows[0].getBoundingClientRect();
+      floatBar.style.top = (rowRect.top - panelRect.top + panel.scrollTop) + 'px';
+      floatBar.style.display = '';
+
+      floatRevertBtn.onclick = () => {
+        floatBar.style.display = 'none';
+        onRevertLines([group.changeData]);
+      };
+    };
+
+    const hide = () => {
+      hideTimer = setTimeout(() => { floatBar.style.display = 'none'; }, 120);
+    };
+    rows.forEach(tr => {
+      tr.addEventListener('mouseenter', show);
+      tr.addEventListener('mouseleave', hide);
+    });
+  }
+
+  // --- Table ---
+  const table = document.createElement('table');
+  table.className = 'commit-diff-table';
+
+  function makeCtxRow(text) {
+    const tr = document.createElement('tr');
+    tr.className = 'commit-diff-ctx-row';
+    const td = document.createElement('td');
+    td.className = 'commit-diff-cell';
+    td.textContent = text;
+    if (mode === 'inline') {
+      td.colSpan = 2;
+      tr.appendChild(td);
+    } else {
+      const tdR = document.createElement('td');
+      tdR.className = 'commit-diff-cell';
+      tdR.textContent = text;
+      tr.appendChild(td);
+      tr.appendChild(tdR);
+    }
+    return tr;
+  }
+
+  function makeGapRow(group) {
+    const isSep = group.type === 'sep';
+    const canExpand = onExpandGap && (group.gapEnd === null || group.gapEnd >= group.gapStart);
+
+    const tr = document.createElement('tr');
+    tr.className = isSep ? 'commit-diff-sep-row' : 'commit-diff-edge-row';
+    const td = document.createElement('td');
+    td.colSpan = 2;
+    td.className = isSep ? 'commit-diff-sep-cell' : 'commit-diff-edge-cell';
+
+    if (canExpand) {
+      let gapStart = group.gapStart;
+      let gapEnd = group.gapEnd; // null = bottom of file
+
+      const rebuild = () => {
+        td.innerHTML = '';
+        const bar = document.createElement('span');
+        bar.className = 'commit-diff-expand-bar';
+
+        const onClick = (fn) => async () => {
+          bar.querySelectorAll('button').forEach(b => { b.disabled = true; });
+          await fn();
+        };
+
+        const makeTextBtn = (text, fn) => {
+          const btn = document.createElement('button');
+          btn.className = 'commit-diff-expand-btn';
+          btn.textContent = text;
+          btn.addEventListener('click', onClick(fn));
+          return btn;
+        };
+
+        const makeArrowBtn = (dir, n, fn) => {
+          const btn = document.createElement('button');
+          btn.className = 'commit-diff-expand-btn';
+          const icon = document.createElement('span');
+          icon.className = 'commit-diff-expand-icon';
+          icon.innerHTML = dir === 'up'
+            ? '<svg width="9" height="9" viewBox="0 0 9 9" fill="none"><path d="M4.5 8 0.5 1.5h8z" fill="currentColor"/></svg>'
+            : '<svg width="9" height="9" viewBox="0 0 9 9" fill="none"><path d="M4.5 1 8.5 7.5h-8z" fill="currentColor"/></svg>';
+          const num = document.createElement('span');
+          num.textContent = n;
+          btn.appendChild(icon);
+          btn.appendChild(num);
+          btn.addEventListener('click', onClick(fn));
+          return btn;
+        };
+
+        const makeSep = () => {
+          const s = document.createElement('span');
+          s.className = 'commit-diff-expand-sep';
+          return s;
+        };
+
+        // ↑ N: load N lines from top of gap, insert before gap row
+        [15, 10, 5].forEach(n => {
+          bar.appendChild(makeArrowBtn('up', n, async () => {
+            const end = gapEnd !== null ? Math.min(gapStart + n - 1, gapEnd) : gapStart + n - 1;
+            const lines = await onExpandGap(gapStart, end);
+            if (lines?.length) {
+              lines.forEach(line => table.insertBefore(makeCtxRow(line), tr));
+              gapStart += lines.length;
+            }
+            if (gapEnd !== null && gapStart > gapEnd) { tr.remove(); return; }
+            rebuild();
+          }));
+        });
+
+        bar.appendChild(makeSep());
+
+        // Show all
+        bar.appendChild(makeTextBtn('Show hidden lines', async () => {
+          const lines = await onExpandGap(gapStart, gapEnd);
+          if (lines?.length) lines.forEach(line => table.insertBefore(makeCtxRow(line), tr));
+          tr.remove();
+        }));
+
+        // ↓ N: load N lines from bottom of gap, insert after gap row (before next content)
+        if (gapEnd !== null) {
+          bar.appendChild(makeSep());
+          [5, 10, 15].forEach(n => {
+            bar.appendChild(makeArrowBtn('down', n, async () => {
+              const start = Math.max(gapEnd - n + 1, gapStart);
+              const lines = await onExpandGap(start, gapEnd);
+              if (lines?.length) {
+                const after = tr.nextElementSibling;
+                lines.forEach(line => {
+                  if (after) table.insertBefore(makeCtxRow(line), after);
+                  else table.appendChild(makeCtxRow(line));
+                });
+                gapEnd -= lines.length;
+              }
+              if (gapStart > gapEnd) { tr.remove(); return; }
+              rebuild();
+            }));
+          });
+        }
+
+        td.appendChild(bar);
+      };
+
+      rebuild();
+    }
+
+    tr.appendChild(td);
+    return tr;
+  }
+
+  for (const group of rowGroups) {
+    if (group.type === 'sep' || group.type === 'edge') {
+      table.appendChild(makeGapRow(group));
+    } else if (group.type === 'ctx') {
+      table.appendChild(makeCtxRow(group.text));
+    } else {
+      const blockRows = [];
+      if (mode === 'inline') {
+        for (const text of group.dels) {
+          const tr = document.createElement('tr');
+          tr.className = 'commit-diff-change-row';
+          const td = document.createElement('td');
+          td.colSpan = 2;
+          td.className = 'commit-diff-cell commit-diff-del';
+          td.textContent = text;
+          tr.appendChild(td);
+          table.appendChild(tr);
+          blockRows.push(tr);
+        }
+        for (const text of group.adds) {
+          const tr = document.createElement('tr');
+          tr.className = 'commit-diff-change-row';
+          const td = document.createElement('td');
+          td.colSpan = 2;
+          td.className = 'commit-diff-cell commit-diff-add';
+          td.textContent = text;
+          tr.appendChild(td);
+          table.appendChild(tr);
+          blockRows.push(tr);
+        }
+      } else {
+        group.pairs.forEach((pair) => {
+          const tr = document.createElement('tr');
+          tr.className = 'commit-diff-change-row';
+          const tdL = document.createElement('td');
+          const tdR = document.createElement('td');
+          tdL.className = 'commit-diff-cell' + (pair.left  !== null ? ' commit-diff-del' : '');
+          tdR.className = 'commit-diff-cell' + (pair.right !== null ? ' commit-diff-add' : '');
+          applyIntraLineDiff(tdL, tdR, pair.left ?? '', pair.right ?? '');
+          tr.appendChild(tdL);
+          tr.appendChild(tdR);
+          table.appendChild(tr);
+          blockRows.push(tr);
+        });
+      }
+      attachHover(blockRows, group);
+    }
+  }
+
+  panel.appendChild(table);
 }
