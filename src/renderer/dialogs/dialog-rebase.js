@@ -217,6 +217,18 @@ function buildCommitRow(index) {
   msgInput.addEventListener('input', () => { rebaseCommits[index].message = msgInput.value; });
   msgInput.addEventListener('dragstart', (e) => e.stopPropagation());
 
+  msg.addEventListener('dblclick', (e) => {
+    e.stopPropagation();
+    const newAction = (rebaseCommits[index].action === 'squash') ? 'squash' : 'reword';
+    rebaseCommits[index].action = newAction;
+    select.value = newAction;
+    select.dataset.action = newAction;
+    select.title = actionTitles[newAction];
+    item.dataset.action = newAction;
+    applyAction(newAction);
+    updateConfirmState();
+  });
+
   function applyAction(action) {
     const isEditable = action === 'reword' || action === 'squash';
     msg.style.display = isEditable ? 'none' : '';

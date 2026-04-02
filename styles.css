@@ -1496,6 +1496,14 @@ html, body {
   min-height: 0;
 }
 
+#rebase-commits-row {
+  flex: 1 1 0;
+  display: flex;
+  flex-direction: row;
+  gap: 6px;
+  min-height: 0;
+}
+
 .rebase-commits-list {
   flex: 1 1 0;
   overflow-y: auto;
@@ -1507,32 +1515,35 @@ html, body {
 
 .rebase-bulk-toolbar {
   display: flex;
-  align-items: center;
-  gap: 5px;
-  padding: 5px 6px;
+  flex-direction: column;
+  gap: 4px;
+  padding: 6px;
+  width: 82px;
+  flex-shrink: 0;
   background: color-mix(in srgb, var(--accent) 8%, transparent);
   border: 1px solid color-mix(in srgb, var(--accent) 30%, transparent);
   border-radius: 4px;
-  margin-bottom: 4px;
-  flex-shrink: 0;
 }
 
 .rebase-bulk-count {
   font-size: 11px;
   color: var(--text-muted);
-  margin-right: 2px;
   white-space: nowrap;
+  text-align: center;
+  margin-bottom: 2px;
 }
 
 .rebase-bulk-btn {
   font-size: 11px;
   font-family: 'Consolas', 'Courier New', monospace;
-  padding: 2px 7px;
+  padding: 3px 6px;
   border: 1px solid var(--border);
   border-radius: 3px;
   background: var(--sidebar-bg);
   color: var(--text);
   cursor: pointer;
+  width: 100%;
+  text-align: left;
 }
 
 .rebase-bulk-btn:hover { background: var(--hover-bg, var(--border)); }
@@ -1621,6 +1632,7 @@ html, body {
   text-overflow: ellipsis;
   white-space: nowrap;
   flex: 1;
+  cursor: text;
 }
 
 .rebase-commit-message-input {

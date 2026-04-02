@@ -257,6 +257,28 @@ export function createWorktreeTab(wt) {
     openWorktree(tabEl, wt);
   });
 
+  tabEl.addEventListener('dblclick', (e) => {
+    if (e.target.closest('.workspace-tab-close') || e.target.closest('.workspace-tab-switch') || e.target.closest('.workspace-tab-remove')) return;
+    e.stopPropagation();
+    const actionSels = [
+      '.workspace-tab-commit-push',
+      '.workspace-tab-complete-pr',
+      '.workspace-tab-resolve-task',
+      '.workspace-tab-open-pipeline',
+      '.workspace-tab-install-btn',
+      '.workspace-tab-create-pr',
+      '.workspace-tab-open-pr',
+      '.workspace-tab-switch'
+    ];
+    for (const sel of actionSels) {
+      const btn = tabEl.querySelector(sel);
+      if (btn && btn.style.display !== 'none') {
+        btn.click();
+        return;
+      }
+    }
+  });
+
   tabEl.querySelector('.workspace-tab-close').addEventListener('click', (e) => {
     e.stopPropagation();
     if (tabEl._workspaceId !== null) {

@@ -386,15 +386,17 @@
       </div>
       <label class="dialog-label" style="margin-top:12px;">Commits <span id="rebase-commit-hint" style="color:var(--text-muted);font-weight:400;"></span></label>
       <div id="rebase-commits-container">
-        <div id="rebase-bulk-toolbar" class="rebase-bulk-toolbar" style="display:none;">
-          <span id="rebase-bulk-count" class="rebase-bulk-count"></span>
-          <button class="rebase-bulk-btn" data-action="pick"   title="Keep these commits as-is">✔ pick</button>
-          <button class="rebase-bulk-btn" data-action="reword" title="Keep commits, edit their messages">✎ reword</button>
-          <button class="rebase-bulk-btn" data-action="squash" title="Combine into older commit, merging messages">⊕ squash</button>
-          <button class="rebase-bulk-btn" data-action="fixup"  title="Combine into older commit, discarding these messages">⊖ fixup</button>
-          <button class="rebase-bulk-btn" data-action="drop"   title="Remove these commits from history">✖ drop</button>
+        <div id="rebase-commits-row">
+          <div id="rebase-commits-list" class="rebase-commits-list"></div>
+          <div id="rebase-bulk-toolbar" class="rebase-bulk-toolbar" style="display:none;">
+            <span id="rebase-bulk-count" class="rebase-bulk-count"></span>
+            <button class="rebase-bulk-btn" data-action="pick"   title="Keep these commits as-is">✔ pick</button>
+            <button class="rebase-bulk-btn" data-action="reword" title="Keep commits, edit their messages">✎ reword</button>
+            <button class="rebase-bulk-btn" data-action="squash" title="Combine into older commit, merging messages">⊕ squash</button>
+            <button class="rebase-bulk-btn" data-action="fixup"  title="Combine into older commit, discarding these messages">⊖ fixup</button>
+            <button class="rebase-bulk-btn" data-action="drop"   title="Remove these commits from history">✖ drop</button>
+          </div>
         </div>
-        <div id="rebase-commits-list" class="rebase-commits-list"></div>
         <div id="rebase-no-commits" style="display:none;color:var(--text-muted);font-size:12px;padding:6px 0;">No commits found between HEAD and the selected branch.</div>
         <div id="rebase-loading-commits" style="display:none;color:var(--text-muted);font-size:12px;padding:6px 0;">Loading commits...</div>
       </div>
