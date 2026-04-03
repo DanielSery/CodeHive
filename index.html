@@ -261,7 +261,7 @@
 
   <!-- Create Pull Request dialog -->
   <div id="create-pr-dialog-overlay" class="dialog-overlay">
-    <div class="dialog-box">
+    <div class="dialog-box dialog-box--wide">
       <h3 class="dialog-title">Create Pull Request</h3>
       <p class="dialog-desc">Create a pull request from the current branch</p>
       <label class="dialog-label">Target Branch</label>
@@ -274,6 +274,8 @@
       <input id="pr-title-input" type="text" class="dialog-input" placeholder="e.g. Add user authentication" spellcheck="false" />
       <label class="dialog-label">Description <span style="color: var(--text-muted); font-weight: 400;">(optional)</span></label>
       <textarea id="pr-desc-input" class="dialog-input dialog-textarea" placeholder="Describe the changes in this pull request..." spellcheck="false" rows="3"></textarea>
+      <label class="dialog-label">Changes</label>
+      <div id="pr-file-list" class="pr-file-list"></div>
       <div class="dialog-buttons">
         <button id="pr-cancel-btn" class="dialog-btn dialog-btn-cancel" tabindex="-1">Cancel</button>
         <button id="pr-confirm-btn" class="dialog-btn dialog-btn-confirm">Create PR</button>
@@ -320,7 +322,7 @@
     <div class="dialog-box">
       <h3 class="dialog-title" id="verify-dialog-title">Verify Build</h3>
       <p class="dialog-desc" id="verify-build-desc">Build completed successfully</p>
-      <p class="dialog-desc" id="verify-dialog-subtitle" style="margin-top:0;color:var(--text-muted);font-size:11px">Download and verify the setup before resolving the task &mdash; <a id="verify-task-link" href="#" style="display:none">Open Task</a></p>
+      <p class="dialog-desc" id="verify-dialog-subtitle" style="margin-top:0;color:var(--text-muted);font-size:11px"><span id="verify-dialog-subtitle-text">Download and verify the setup before resolving the task</span> &mdash; <a id="verify-task-link" href="#" style="display:none">Open Task</a></p>
       <div id="verify-build-selector" class="verify-build-selector" style="display:none">
         <span class="verify-build-selector-label">Build</span>
         <select id="verify-build-select" class="verify-build-select"></select>

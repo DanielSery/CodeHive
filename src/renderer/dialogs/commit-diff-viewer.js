@@ -6,6 +6,8 @@
  * @param {function(Array)} [opts.onRevertLines] - called with [{newLineNum,newCount,oldLines}]
  * @param {function(number,number|null):Promise<string[]>} [opts.onExpandGap] - called with (startLine, endLine|null), returns lines
  */
+let _gradSeq = 0;
+
 export function renderFileDiff(panel, diff, { onRevertLines, onExpandGap } = {}) {
   panel.innerHTML = '';
   panel.className = panel.className.replace(/\bcommit-diff-panel--(split|inline)\b/g, '');
@@ -187,15 +189,70 @@ export function renderFileDiff(panel, diff, { onRevertLines, onExpandGap } = {})
     setIntraCell(tdR, rightText, 'commit-diff-add-hl', pre, rightText.length - suf);
   }
 
+  // --- SVG trapezoid connectors ---
+  function drawBlockConnectors(svg, changeBlocks) {
+    while (svg.firstChild) svg.removeChild(svg.firstChild);
+    const svgRect = svg.getBoundingClientRect();
+    if (!svgRect.width || !svgRect.height) return;
+    svg.setAttribute('width', svgRect.width);
+    svg.setAttribute('height', svgRect.height);
+
+    const cs = getComputedStyle(document.documentElement);
+    const red    = cs.getPropertyValue('--red').trim()    || '#f87171';
+    const green  = cs.getPropertyValue('--green').trim()  || '#4ade80';
+    const border = cs.getPropertyValue('--border').trim() || '#404040';
+
+    for (const { leftActive, rightActive, hasDels, hasAdds, polyRef } of changeBlocks) {
+      const lTop = leftActive[0].getBoundingClientRect().top - svgRect.top;
+      const lBot = leftActive[leftActive.length - 1].getBoundingClientRect().bottom - svgRect.top;
+      const rTop = rightActive[0].getBoundingClientRect().top - svgRect.top;
+      const rBot = rightActive[rightActive.length - 1].getBoundingClientRect().bottom - svgRect.top;
+      const w = svgRect.width;
+
+      const poly = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
+      poly.setAttribute('points', `0,${lTop} ${w},${rTop} ${w},${rBot} 0,${lBot}`);
+
+      const gradId = `conn-grad-${++_gradSeq}`;
+      const defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
+      const grad = document.createElementNS('http://www.w3.org/2000/svg', 'linearGradient');
+      grad.setAttribute('id', gradId);
+      grad.setAttribute('x1', '0'); grad.setAttribute('y1', '0');
+      grad.setAttribute('x2', '1'); grad.setAttribute('y2', '0');
+      const s1 = document.createElementNS('http://www.w3.org/2000/svg', 'stop');
+      const s2 = document.createElementNS('http://www.w3.org/2000/svg', 'stop');
+      s1.setAttribute('offset', '0%');   s1.setAttribute('stop-color', hasDels ? red   : border); s1.setAttribute('stop-opacity', hasDels ? '0.10' : '0.15');
+      s2.setAttribute('offset', '100%'); s2.setAttribute('stop-color', hasAdds ? green : border); s2.setAttribute('stop-opacity', hasAdds ? '0.10' : '0.15');
+      grad.appendChild(s1); grad.appendChild(s2);
+      defs.appendChild(grad);
+      svg.appendChild(defs);
+      poly.setAttribute('fill', `url(#${gradId})`);
+      poly.setAttribute('class', 'commit-diff-connector-poly');
+      svg.appendChild(poly);
+
+      const overlayPoly = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
+      overlayPoly.setAttribute('points', poly.getAttribute('points'));
+      overlayPoly.setAttribute('class', 'commit-diff-connector-overlay');
+      svg.appendChild(overlayPoly);
+
+      polyRef.el = overlayPoly;
+      if (polyRef.show) {
+        overlayPoly.addEventListener('mouseenter', () => { clearTimeout(hideTimer); polyRef.show(); });
+        overlayPoly.addEventListener('mouseleave', polyRef.hide);
+      }
+    }
+  }
+
   // --- Floating action bar (hover overlay per change block) ---
   let floatBar = null;
   let floatRevertBtn = null;
   let hideTimer = null;
   let highlightedRows = [];
+  let highlightedPoly = null;
 
   function clearHighlight() {
     highlightedRows.forEach(tr => tr.classList.remove('commit-diff-hover'));
     highlightedRows = [];
+    if (highlightedPoly) { highlightedPoly.classList.remove('commit-diff-connector-overlay--hover'); highlightedPoly = null; }
   }
 
   if (onRevertLines) {
@@ -215,35 +272,44 @@ export function renderFileDiff(panel, diff, { onRevertLines, onExpandGap } = {})
     });
   }
 
-  function attachHover(leftRows, rightRows, group) {
-    if (!floatBar) return;
-
+  function attachHover(leftRows, rightRows, group, polyRef) {
     const allRows = [...leftRows, ...rightRows];
 
     const show = () => {
       clearTimeout(hideTimer);
       clearHighlight();
       highlightedRows = allRows;
+      highlightedPoly = polyRef.el;
       allRows.forEach(tr => tr.classList.add('commit-diff-hover'));
-      const panelRect = panel.getBoundingClientRect();
-      const rowRect = leftRows[0].getBoundingClientRect();
-      floatBar.style.top = (rowRect.top - panelRect.top + panel.scrollTop) + 'px';
-      floatBar.style.display = '';
+      if (polyRef.el) polyRef.el.classList.add('commit-diff-connector-overlay--hover');
 
-      floatRevertBtn.onclick = () => {
-        floatBar.style.display = 'none';
-        clearHighlight();
-        onRevertLines([group.changeData]);
-      };
+      if (floatBar) {
+        const panelRect = panel.getBoundingClientRect();
+        const rowRect = leftRows[0].getBoundingClientRect();
+        floatBar.style.top = (rowRect.top - panelRect.top + panel.scrollTop) + 'px';
+        floatBar.style.display = '';
+        floatRevertBtn.onclick = () => {
+          floatBar.style.display = 'none';
+          clearHighlight();
+          onRevertLines([group.changeData]);
+        };
+      }
     };
 
     const hide = () => {
-      hideTimer = setTimeout(() => { floatBar.style.display = 'none'; clearHighlight(); }, 120);
+      hideTimer = setTimeout(() => {
+        if (floatBar) floatBar.style.display = 'none';
+        clearHighlight();
+      }, 120);
     };
+
     allRows.forEach(tr => {
       tr.addEventListener('mouseenter', show);
       tr.addEventListener('mouseleave', hide);
     });
+
+    polyRef.show = show;
+    polyRef.hide = hide;
   }
 
   // --- Row factories ---
@@ -262,6 +328,7 @@ export function renderFileDiff(panel, diff, { onRevertLines, onExpandGap } = {})
 
   // Populates a content segment's tables with its rows
   function populateContentSeg(seg) {
+    seg.changeBlocks = [];
     for (const group of seg.rows) {
       if (group.type === 'ctx') {
         const { leftTr, rightTr } = makeCtxRow(group.text);
@@ -269,6 +336,7 @@ export function renderFileDiff(panel, diff, { onRevertLines, onExpandGap } = {})
         seg.rightTable.appendChild(rightTr);
       } else {
         const blockLeftRows = [], blockRightRows = [];
+        const blockLeftActive = [], blockRightActive = [];
         group.pairs.forEach((pair) => {
           const trL = document.createElement('tr');
           trL.className = 'commit-diff-change-row';
@@ -276,8 +344,8 @@ export function renderFileDiff(panel, diff, { onRevertLines, onExpandGap } = {})
           trR.className = 'commit-diff-change-row';
           const tdL = document.createElement('td');
           const tdR = document.createElement('td');
-          tdL.className = 'commit-diff-cell' + (pair.left  !== null ? ' commit-diff-del' : '');
-          tdR.className = 'commit-diff-cell' + (pair.right !== null ? ' commit-diff-add' : '');
+          tdL.className = 'commit-diff-cell' + (pair.left  !== null ? ' commit-diff-del' : ' commit-diff-pad');
+          tdR.className = 'commit-diff-cell' + (pair.right !== null ? ' commit-diff-add' : ' commit-diff-pad');
           applyIntraLineDiff(tdL, tdR, pair.left ?? '', pair.right ?? '');
           trL.appendChild(tdL);
           trR.appendChild(tdR);
@@ -285,8 +353,18 @@ export function renderFileDiff(panel, diff, { onRevertLines, onExpandGap } = {})
           seg.rightTable.appendChild(trR);
           blockLeftRows.push(trL);
           blockRightRows.push(trR);
+          if (pair.left  !== null) blockLeftActive.push(trL);
+          if (pair.right !== null) blockRightActive.push(trR);
         });
-        attachHover(blockLeftRows, blockRightRows, group);
+        const polyRef = { el: null };
+        attachHover(blockLeftRows, blockRightRows, group, polyRef);
+        seg.changeBlocks.push({
+          leftActive:  blockLeftActive.length  ? blockLeftActive  : blockLeftRows,
+          rightActive: blockRightActive.length ? blockRightActive : blockRightRows,
+          hasDels: blockLeftActive.length  > 0,
+          hasAdds: blockRightActive.length > 0,
+          polyRef,
+        });
       }
     }
   }
@@ -442,9 +520,17 @@ export function renderFileDiff(panel, diff, { onRevertLines, onExpandGap } = {})
       rightPane.className = 'commit-diff-pane commit-diff-pane--right';
       rightPane.appendChild(seg.rightTable);
 
+      const connSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+      connSvg.setAttribute('class', 'commit-diff-connectors');
+
       block.appendChild(leftPane);
+      block.appendChild(connSvg);
       block.appendChild(rightPane);
       outer.appendChild(block);
+
+      const cb = seg.changeBlocks;
+      const ro = new ResizeObserver(() => drawBlockConnectors(connSvg, cb));
+      ro.observe(block);
 
       allPanes.push(leftPane, rightPane);
     }

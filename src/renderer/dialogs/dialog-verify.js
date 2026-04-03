@@ -8,6 +8,7 @@ const overlay = document.getElementById('verify-dialog-overlay');
 const titleEl = document.getElementById('verify-dialog-title');
 const buildDesc = document.getElementById('verify-build-desc');
 const subtitleEl = document.getElementById('verify-dialog-subtitle');
+const subtitleTextEl = document.getElementById('verify-dialog-subtitle-text');
 const taskLink = document.getElementById('verify-task-link');
 const artifactsList = document.getElementById('verify-artifacts-list');
 const buildSelectorEl = document.getElementById('verify-build-selector');
@@ -69,7 +70,7 @@ export function showInstallDialog(org, project, auth, buildId, buildNumber, pipe
   buildDesc.textContent = buildNumber
     ? (pipelineCompleted ? `Build ${buildNumber} completed successfully` : `Build ${buildNumber} in progress`)
     : (pipelineCompleted ? 'Build completed successfully' : 'Build in progress');
-  subtitleEl.textContent = 'Download and install the setup';
+  subtitleTextEl.textContent = 'Download and install the setup';
   subtitleEl.style.display = '';
   if (taskUrl) {
     taskLink.href = taskUrl;
@@ -114,7 +115,7 @@ export function showVerifyDialog(buildNumber) {
   _mode = 'verify';
   titleEl.textContent = 'Mark as Verified';
   buildDesc.textContent = buildNumber ? `Build ${buildNumber}` : 'Build completed';
-  subtitleEl.textContent = 'Confirm you have tested the application';
+  subtitleTextEl.textContent = 'Confirm you have tested the application';
   subtitleEl.style.display = '';
   taskLink.style.display = 'none';
   artifactsList.style.display = 'none';

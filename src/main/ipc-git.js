@@ -1,5 +1,5 @@
 const { ipcMain } = require('electron');
-const { scanDirectory, checkClaudeActive, getCachedBranches, fetchAndListBranches, getGitUser, getRemoteUrl, getLaunchConfigs, gitDiffStat, gitFileDiff, gitRevertLines, getFirstBranchCommit, hasUncommittedChanges, hasPushedCommits, gitRevertFile, getRebaseCommits, gitGetFileLines } = require('./repo-scanner');
+const { scanDirectory, checkClaudeActive, getCachedBranches, fetchAndListBranches, getGitUser, getRemoteUrl, getLaunchConfigs, gitDiffStat, gitFileDiff, gitBranchDiffStat, gitBranchFileDiff, gitRevertLines, getFirstBranchCommit, hasUncommittedChanges, hasPushedCommits, gitRevertFile, getRebaseCommits, gitGetFileLines } = require('./repo-scanner');
 const { watchClaude, unwatchClaude } = require('./claude-status');
 
 function register(mainWindow) {
@@ -65,6 +65,14 @@ function register(mainWindow) {
 
   ipcMain.handle('repos:gitFileDiff', (event, { wtPath, filePath, context }) => {
     return gitFileDiff(wtPath, filePath, context);
+  });
+
+  ipcMain.handle('repos:gitBranchDiffStat', (event, { wtPath, targetBranch }) => {
+    return gitBranchDiffStat(wtPath, targetBranch);
+  });
+
+  ipcMain.handle('repos:gitBranchFileDiff', (event, { wtPath, filePath, targetBranch, context }) => {
+    return gitBranchFileDiff(wtPath, filePath, targetBranch, context);
   });
 
   ipcMain.handle('repos:gitRevertLines', (event, { wtPath, filePath, changes }) => {

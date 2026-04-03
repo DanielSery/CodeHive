@@ -119,6 +119,32 @@ function gitFileDiff(wtPath, filePath, context = 3) {
   }
 }
 
+function gitBranchDiffStat(wtPath, targetBranch) {
+  const result = [];
+  try {
+    assertSafeRef(targetBranch);
+    const out = execSync(`git diff --numstat origin/${targetBranch}...HEAD`, { cwd: wtPath, encoding: 'utf8', timeout: 5000 });
+    for (const line of out.trim().split('\n').filter(Boolean)) {
+      const parts = line.split('\t');
+      if (parts.length < 3) continue;
+      result.push({ path: parts[2], added: parseInt(parts[0]) || 0, removed: parseInt(parts[1]) || 0, isNew: false });
+    }
+  } catch {}
+  return result;
+}
+
+function gitBranchFileDiff(wtPath, filePath, targetBranch, context = 3) {
+  try {
+    assertSafeRef(targetBranch);
+    const ctx = Math.min(Math.max(0, parseInt(context, 10) || 3), 9999);
+    const escaped = filePath.replace(/"/g, '\\"');
+    const out = execSync(`git diff origin/${targetBranch}...HEAD -U${ctx} -- "${escaped}"`, { cwd: wtPath, encoding: 'utf8', timeout: 5000 });
+    return { ok: true, diff: out };
+  } catch {
+    return { ok: false, diff: '' };
+  }
+}
+
 function gitRevertLines(wtPath, filePath, changes) {
   // changes: [{ newLineNum: 1-based, newCount, oldLines: string[] }]
   const abs = path.join(wtPath, filePath);
@@ -247,4 +273,4 @@ function gitGetFileLines(wtPath, filePath, startLine, endLine) {
   }
 }
 
-module.exports = { getCachedBranches, fetchAndListBranches, getGitUser, getRemoteUrl, getLaunchConfigs, gitDiffStat, gitFileDiff, gitRevertLines, getFirstBranchCommit, hasUncommittedChanges, hasPushedCommits, gitRevertFile, getRebaseCommits, gitGetFileLines };
+module.exports = { getCachedBranches, fetchAndListBranches, getGitUser, getRemoteUrl, getLaunchConfigs, gitDiffStat, gitFileDiff, gitBranchDiffStat, gitBranchFileDiff, gitRevertLines, getFirstBranchCommit, hasUncommittedChanges, hasPushedCommits, gitRevertFile, getRebaseCommits, gitGetFileLines };

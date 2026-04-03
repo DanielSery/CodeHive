@@ -21,7 +21,7 @@ function getAllIndices(node) {
   return out;
 }
 
-function renderTreeNode(container, node, depth, files, folderUpdaters, wtPath, allEntries) {
+function renderTreeNode(container, node, depth, files, folderUpdaters, wtPath, allEntries, { showCheckboxes, showRevert, onLoadDiff }) {
   const folders = [...node.children.entries()].sort((a, b) => a[0].localeCompare(b[0]));
   const fileEntries = [...node.files].sort((a, b) => a.name.localeCompare(b.name));
 
@@ -74,9 +74,9 @@ function renderTreeNode(container, node, depth, files, folderUpdaters, wtPath, a
     });
 
     folderRow.appendChild(arrow);
-    folderRow.appendChild(cb);
+    if (showCheckboxes) folderRow.appendChild(cb);
     folderRow.appendChild(nameSpan);
-    folderRow.appendChild(folderRevertBtn);
+    if (showRevert) folderRow.appendChild(folderRevertBtn);
 
     const childContainer = document.createElement('div');
 
@@ -109,7 +109,7 @@ function renderTreeNode(container, node, depth, files, folderUpdaters, wtPath, a
     arrow.addEventListener('click', (e) => { e.preventDefault(); toggleCollapse(); });
     nameSpan.addEventListener('click', toggleCollapse);
 
-    renderTreeNode(childContainer, child, depth + 1, files, folderUpdaters, wtPath, allEntries);
+    renderTreeNode(childContainer, child, depth + 1, files, folderUpdaters, wtPath, allEntries, { showCheckboxes, showRevert, onLoadDiff });
     container.appendChild(folderRow);
     container.appendChild(childContainer);
   }
@@ -161,10 +161,10 @@ function renderTreeNode(container, node, depth, files, folderUpdaters, wtPath, a
       }
     });
 
-    row.appendChild(cb);
+    if (showCheckboxes) row.appendChild(cb);
     row.appendChild(nameSpan);
     row.appendChild(statSpan);
-    row.appendChild(revertBtn);
+    if (showRevert) row.appendChild(revertBtn);
     container.appendChild(row);
 
     const diffPanel = document.createElement('div');
@@ -174,7 +174,7 @@ function renderTreeNode(container, node, depth, files, folderUpdaters, wtPath, a
 
     const loadDiff = async () => {
       diffPanel.innerHTML = '<div class="commit-diff-empty">Loading…</div>';
-      const result = await window.reposAPI.gitFileDiff(wtPath, f.path, 3);
+      const result = await onLoadDiff(wtPath, f.path);
       renderFileDiff(diffPanel, result.ok ? result.diff : '', {
         onRevertLines: async (changes) => {
           const r = await window.reposAPI.gitRevertLines(wtPath, f.path, changes);
@@ -215,7 +215,7 @@ function renderTreeNode(container, node, depth, files, folderUpdaters, wtPath, a
  * Renders the commit file list into `container`.
  * Returns { getSelectedFiles } to read which files are checked.
  */
-export function renderCommitFileList(container, rawFiles, wtPath, { toolbar } = {}) {
+export function renderCommitFileList(container, rawFiles, wtPath, { toolbar, showCheckboxes = true, showRevert = true, onLoadDiff = (wt, fp) => window.reposAPI.gitFileDiff(wt, fp, 3) } = {}) {
   const files = (rawFiles || []).map(f => ({ ...f, checked: true }));
   const folderUpdaters = [];
 
@@ -231,7 +231,7 @@ export function renderCommitFileList(container, rawFiles, wtPath, { toolbar } = 
   }
 
   const tree = buildFileTree(files);
-  renderTreeNode(container, tree, 0, files, folderUpdaters, wtPath, allEntries);
+  renderTreeNode(container, tree, 0, files, folderUpdaters, wtPath, allEntries, { showCheckboxes, showRevert, onLoadDiff });
 
   function openEntry(entry) {
     const { diffPanel, loadDiff, nameSpan, f } = entry;

@@ -8,6 +8,7 @@ import { loadStoredPat, AZURE_PAT_KEY } from './utils.js';
 import { toast } from '../toast.js';
 import { createCombobox } from './combobox.js';
 import { _refreshTabStatus } from '../sidebar/registers.js';
+import { renderCommitFileList } from './commit-file-tree.js';
 
 const createPrDialogOverlay = document.getElementById('create-pr-dialog-overlay');
 const prBranchSearch = document.getElementById('pr-branch-search');
@@ -15,6 +16,7 @@ const prBranchList = document.getElementById('pr-branch-list');
 const prTitleInput = document.getElementById('pr-title-input');
 const prDescInput = document.getElementById('pr-desc-input');
 const prConfirmBtn = document.getElementById('pr-confirm-btn');
+const prFileList = document.getElementById('pr-file-list');
 
 let prSelectedBranch = null;
 let _prTabEl = null;
@@ -34,15 +36,17 @@ const branchCombobox = createCombobox({
     prSelectedBranch = b;
     prBranchSearch.value = b;
     updateConfirmState();
+    loadPrDiff(b);
   },
   onEnterMatch: (b) => {
     prSelectedBranch = b;
     prBranchSearch.value = b;
     branchCombobox.close();
     updateConfirmState();
+    loadPrDiff(b);
     prTitleInput.focus();
   },
-  onInput: () => { prSelectedBranch = null; updateConfirmState(); },
+  onInput: () => { prSelectedBranch = null; prFileList.innerHTML = ''; updateConfirmState(); },
   onBlur: () => { if (prSelectedBranch) prBranchSearch.value = prSelectedBranch; },
 });
 
@@ -50,8 +54,22 @@ function updateConfirmState() {
   prConfirmBtn.disabled = !prSelectedBranch || !prTitleInput.value.trim();
 }
 
+async function loadPrDiff(targetBranch) {
+  if (!_prTabEl || !targetBranch) { prFileList.innerHTML = ''; return; }
+  prFileList.innerHTML = '<span class="commit-file-list-empty">Loading…</span>';
+  const wtPath = _prTabEl._wtPath;
+  const files = await window.reposAPI.gitBranchDiffStat(wtPath, targetBranch);
+  if (!createPrDialogOverlay.classList.contains('visible')) return;
+  renderCommitFileList(prFileList, files, wtPath, {
+    showCheckboxes: false,
+    showRevert: false,
+    onLoadDiff: (wt, fp) => window.reposAPI.gitBranchFileDiff(wt, fp, targetBranch, 3),
+  });
+}
+
 function applyPrBranches(branches, preselect) {
   branchCombobox.setItems(branches);
+  const prevBranch = prSelectedBranch;
   if (preselect && branches.includes(preselect) && !prSelectedBranch) {
     prSelectedBranch = preselect;
     prBranchSearch.value = preselect;
@@ -65,6 +83,7 @@ function applyPrBranches(branches, preselect) {
   prBranchSearch.placeholder = 'Search branches...';
   prBranchSearch.disabled = false;
   updateConfirmState();
+  if (prSelectedBranch && prSelectedBranch !== prevBranch) loadPrDiff(prSelectedBranch);
 }
 
 export async function showCreatePrDialog(tabEl, groupEl) {
@@ -80,6 +99,7 @@ export async function showCreatePrDialog(tabEl, groupEl) {
   prTitleInput.value = '';
   prDescInput.value = '';
   prConfirmBtn.disabled = true;
+  prFileList.innerHTML = '';
 
   branchCombobox.setItems([]);
   branchCombobox.close();

@@ -23,6 +23,8 @@ contextBridge.exposeInMainWorld('reposAPI', {
   hasPushedCommits: (wtPath, branch, sourceBranch) => ipcRenderer.invoke('repos:hasPushedCommits', { wtPath, branch, sourceBranch }),
   gitRevertFile: (wtPath, filePath, isNew) => ipcRenderer.invoke('repos:gitRevertFile', { wtPath, filePath, isNew }),
   gitFileDiff: (wtPath, filePath, context) => ipcRenderer.invoke('repos:gitFileDiff', { wtPath, filePath, context }),
+  gitBranchDiffStat: (wtPath, targetBranch) => ipcRenderer.invoke('repos:gitBranchDiffStat', { wtPath, targetBranch }),
+  gitBranchFileDiff: (wtPath, filePath, targetBranch, context) => ipcRenderer.invoke('repos:gitBranchFileDiff', { wtPath, filePath, targetBranch, context }),
   gitRevertLines: (wtPath, filePath, changes) => ipcRenderer.invoke('repos:gitRevertLines', { wtPath, filePath, changes }),
   gitGetFileLines: (wtPath, filePath, startLine, endLine) => ipcRenderer.invoke('repos:gitGetFileLines', { wtPath, filePath, startLine, endLine }),
   rebaseCommits: (wtPath, sourceBranch) => ipcRenderer.invoke('repos:rebaseCommits', { wtPath, sourceBranch }),
