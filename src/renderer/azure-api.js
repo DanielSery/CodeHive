@@ -115,6 +115,56 @@ export async function updateWorkItemState(ctx, id, state) {
 }
 
 /**
+ * Fetch Azure DevOps work items in 'New' state for a repository.
+ * Returns { tasks, azureContext } on success, or { error } on failure/missing PAT/non-Azure repo.
+ */
+export async function fetchNewAzureTasks(barePath, pat) {
+  if (!pat) return { error: 'no-pat' };
+
+  let remoteUrl;
+  try { remoteUrl = await window.reposAPI.remoteUrl(barePath); } catch {}
+
+  const parsed = parseAzureRemoteUrl(remoteUrl);
+  if (!parsed) return { error: 'not-azure' };
+
+  try {
+    const ctx = buildAzureContext(parsed, pat);
+
+    const wiqlResp = await fetch(`${ctx.apiBase}/wit/wiql?api-version=7.0`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Basic ${ctx.auth}` },
+      body: JSON.stringify({ query: `SELECT [System.Id] FROM WorkItems WHERE [System.State] = 'New' AND [System.AssignedTo] = @me ORDER BY [System.ChangedDate] DESC` })
+    });
+
+    if (!wiqlResp.ok) return { error: 'fetch-failed' };
+
+    const wiqlData = await wiqlResp.json();
+    const ids = (wiqlData.workItems || []).slice(0, 100).map(wi => wi.id);
+
+    if (ids.length === 0) return { tasks: [], azureContext: ctx };
+
+    const itemsResp = await fetch(
+      `${ctx.apiBase}/wit/workitems?ids=${ids.join(',')}&fields=System.Id,System.Title,System.WorkItemType,System.Description&api-version=7.0`,
+      { headers: { 'Authorization': `Basic ${ctx.auth}` } }
+    );
+
+    if (!itemsResp.ok) return { error: 'fetch-failed' };
+
+    const itemsData = await itemsResp.json();
+    const tasks = (itemsData.value || []).map(wi => ({
+      id: wi.id,
+      title: wi.fields['System.Title'] || '',
+      type: wi.fields['System.WorkItemType'] || '',
+      description: wi.fields['System.Description'] || ''
+    }));
+
+    return { tasks, azureContext: ctx };
+  } catch {
+    return { error: 'fetch-failed' };
+  }
+}
+
+/**
  * Fetch a single work item by ID. Returns { id, title, type, state } or null.
  */
 export async function fetchWorkItemById(ctx, id) {

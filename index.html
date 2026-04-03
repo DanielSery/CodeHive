@@ -21,6 +21,7 @@
       <button class="titlebar-action-btn visible" id="btn-clone-repo" title="Clone Repository"></button>
       <button class="titlebar-action-btn visible" id="btn-azure-pat" title="Set Azure PAT"></button>
       <button class="titlebar-action-btn visible" id="btn-check-updates" title="Check for Updates"></button>
+      <button class="titlebar-action-btn visible" id="btn-task-placeholders" title="Show New Task Placeholders"></button>
     </div>
     <div class="titlebar-drag">
       <span class="titlebar-title">CodeHive</span>
@@ -105,6 +106,7 @@
         <span class="combobox-arrow" tabindex="-1">&#x25BC;</span>
         <div id="wt-task-list" class="combobox-list" tabindex="-1"></div>
       </div>
+      <a id="wt-task-link" class="dialog-task-link" style="display:none" tabindex="-1">Open task &#x2197;</a>
       <div id="wt-task-desc-row" style="display:none">
         <label class="dialog-label">Task Description <span style="color: var(--text-muted); font-weight: 400;">(optional)</span></label>
         <textarea id="wt-task-desc" class="dialog-input" placeholder="What needs to be done..." spellcheck="false" rows="3" style="resize:vertical;min-height:60px;font-family:inherit"></textarea>
@@ -181,6 +183,7 @@
         <span class="combobox-arrow" tabindex="-1">&#x25BC;</span>
         <div id="wt-switch-task-list" class="combobox-list" tabindex="-1"></div>
       </div>
+      <a id="wt-switch-task-link" class="dialog-task-link" style="display:none" tabindex="-1">Open task &#x2197;</a>
       <div id="wt-switch-task-desc-row" style="display:none">
         <label class="dialog-label">Task Description <span style="color: var(--text-muted); font-weight: 400;">(optional)</span></label>
         <textarea id="wt-switch-task-desc" class="dialog-input" placeholder="What needs to be done..." spellcheck="false" rows="3" style="resize:vertical;min-height:60px;font-family:inherit"></textarea>

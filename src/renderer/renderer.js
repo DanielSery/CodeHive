@@ -1,4 +1,4 @@
-import { addRepoGroup, clearAllGroups, createWorktreeTab, rebuildCollapsedDots, registerWorktreeDialog, registerDeleteDialog, registerWorktreeRemoveDialog, registerWorktreeSwitchDialog, registerCommitPushDialog, registerCreatePrDialog, registerSetTaskDialog, registerRebaseDialog, registerToggleTerminal, registerOnStateChange, registerRefreshTabStatus, removeRepoGroup, showTabCloseButton, showTabRemoveButton, refreshTabStatus } from './sidebar/index.js';
+import { addRepoGroup, clearAllGroups, createWorktreeTab, rebuildCollapsedDots, registerWorktreeDialog, registerDeleteDialog, registerWorktreeRemoveDialog, registerWorktreeSwitchDialog, registerCommitPushDialog, registerCreatePrDialog, registerSetTaskDialog, registerRebaseDialog, registerToggleTerminal, registerOnStateChange, registerRefreshTabStatus, removeRepoGroup, showTabCloseButton, showTabRemoveButton, refreshTabStatus, refreshAllPlaceholders, clearAllPlaceholders } from './sidebar/index.js';
 import './titlebar-icons.js';
 import { showWorktreeDialog, showCloneDialog, showDeleteDialog, showWorktreeRemoveDialog, showWorktreeSwitchDialog, showCommitPushDialog, showCreatePrDialog, showSetTaskDialog, showRebaseDialog, registerSidebarFns, registerRemoveRepoGroup, registerOnCloneComplete } from './dialogs/index.js';
 
@@ -8,7 +8,7 @@ import { getWtState } from './worktree-state.js';
 import { toggleTerminal } from './terminal-panel.js';
 import { pr } from './pr-service.js';
 import { pipeline } from './pipeline-service.js';
-import { saveDirectories } from './storage.js';
+import { saveDirectories, getTaskPlaceholdersEnabled, saveTaskPlaceholdersEnabled } from './storage.js';
 import { saveState, restoreState, onOpenDirectory } from './app-state-service.js';
 import { checkAndInstallAz, initPatButton } from './az-service.js';
 import { showUpdateDialog } from './dialogs/dialog-update.js';
@@ -118,6 +118,24 @@ document.getElementById('btn-titlebar-switch').addEventListener('click', () => {
   });
 })();
 
+// ===== Task placeholders toggle =====
+
+(function() {
+  const btn = document.getElementById('btn-task-placeholders');
+  btn.classList.toggle('active', getTaskPlaceholdersEnabled());
+
+  btn.addEventListener('click', () => {
+    const next = !getTaskPlaceholdersEnabled();
+    saveTaskPlaceholdersEnabled(next);
+    btn.classList.toggle('active', next);
+    if (next) {
+      refreshAllPlaceholders();
+    } else {
+      clearAllPlaceholders();
+    }
+  });
+})();
+
 document.getElementById('btn-minimize').addEventListener('click', () => window.windowAPI.minimize());
 document.getElementById('btn-maximize').addEventListener('click', () => window.windowAPI.maximize());
 document.getElementById('btn-close').addEventListener('click', () => window.windowAPI.close());
@@ -159,4 +177,5 @@ document.getElementById('btn-check-updates').addEventListener('click', () => sho
 
 restoreState().then(() => {
   checkAndInstallAz();
+  if (getTaskPlaceholdersEnabled()) refreshAllPlaceholders();
 });

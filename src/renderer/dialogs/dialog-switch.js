@@ -23,6 +23,7 @@ const wtSwitchBranchList = document.getElementById('wt-switch-branch-list');
 const wtSwitchTargetSearch = document.getElementById('wt-switch-target-search');
 const wtSwitchTargetList = document.getElementById('wt-switch-target-list');
 const wtSwitchPreview = document.getElementById('wt-switch-preview');
+const wtSwitchTaskLink = document.getElementById('wt-switch-task-link');
 const wtSwitchSkipTaskBtn = document.getElementById('wt-switch-skip-task-btn');
 const wtSwitchConfirmBtn = document.getElementById('wt-switch-confirm-btn');
 const wtSwitchDeleteBranchCheckbox = document.getElementById('wt-switch-delete-branch');
@@ -176,6 +177,12 @@ function selectWtSwitchTask(task) {
     wtSwitchChangeNameEdited = false;
     wtSwitchChangeName.value = task.title;
     updateTargetFromTask();
+    if (wtSwitchAzureContext) {
+      wtSwitchTaskLink.style.display = '';
+      wtSwitchTaskLink._taskId = task.id;
+    }
+  } else {
+    wtSwitchTaskLink.style.display = 'none';
   }
   updateSwitchNewTaskFields();
 }
@@ -372,6 +379,7 @@ export function hideWorktreeSwitchDialog() {
   wtSwitchTaskDescRow.style.display = 'none';
   wtSwitchTaskTypeRow.style.display = 'none';
   wtSwitchTaskDesc.value = '';
+  wtSwitchTaskLink.style.display = 'none';
   clearTimeout(wtSwitchFetchByIdTimer);
   clearTimeout(wtSwitchFetchRetryTimer);
 }
@@ -463,6 +471,13 @@ wtSwitchChangeName.addEventListener('keydown', (e) => {
 wtSwitchTaskDesc.addEventListener('keydown', (e) => {
   if (e.key === 'Escape') hideWorktreeSwitchDialog();
   else if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) confirmSwitchWorktree();
+});
+
+// --- Task link ---
+
+wtSwitchTaskLink.addEventListener('click', (e) => {
+  e.preventDefault();
+  if (wtSwitchAzureContext && wtSwitchTaskLink._taskId) window.shellAPI.openExternal(buildAzureTaskUrl(wtSwitchAzureContext, wtSwitchTaskLink._taskId));
 });
 
 // --- Dialog buttons ---

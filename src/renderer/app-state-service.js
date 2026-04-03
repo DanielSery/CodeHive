@@ -10,7 +10,10 @@ export function saveState() {
     worktreeOrders: getWorktreeOrders(),
     branchCache: prev.branchCache || {},
     sourceBranches: prev.sourceBranches || {},
-    taskIds: prev.taskIds || {}
+    taskIds: prev.taskIds || {},
+    prefs: prev.prefs || {},
+    pipelineInstalled: prev.pipelineInstalled || {},
+    newTasksCache: prev.newTasksCache || {}
   };
   localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
 }

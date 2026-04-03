@@ -22,6 +22,7 @@ const wtBranchList = document.getElementById('wt-branch-list');
 const wtTargetSearch = document.getElementById('wt-target-search');
 const wtTargetList = document.getElementById('wt-target-list');
 const wtPreview = document.getElementById('wt-preview');
+const wtTaskLink = document.getElementById('wt-task-link');
 const wtSkipTaskBtn = document.getElementById('wt-skip-task-btn');
 const wtConfirmBtn = document.getElementById('wt-confirm-btn');
 
@@ -175,12 +176,22 @@ function selectWtTask(task) {
     wtChangeNameEdited = false;
     wtChangeName.value = task.title;
     updateTargetFromTask();
+    if (wtAzureContext) {
+      wtTaskLink.style.display = '';
+      wtTaskLink._taskId = task.id;
+    }
+  } else {
+    wtTaskLink.style.display = 'none';
   }
   updateNewTaskFields();
 }
 
 function applyWtTasks(tasks, azureContext, focusTaskSearch) {
   wtAzureContext = azureContext;
+  if (wtSelectedTask && wtAzureContext) {
+    wtTaskLink.style.display = '';
+    wtTaskLink._taskId = wtSelectedTask.id;
+  }
   taskCombobox.setItems(tasks);
   wtTaskSearch.placeholder = tasks.length === 0 ? 'No active tasks found' : 'Search or type new task...';
   wtTaskSearch.disabled = false;
@@ -211,7 +222,7 @@ function applyWtTasks(tasks, azureContext, focusTaskSearch) {
 }
 
 async function fetchTasksForDialog(barePath, gen) {
-  const focusTaskSearch = () => { if (wtDialogOverlay.classList.contains('visible')) wtTaskSearch.focus(); };
+  const focusTaskSearch = () => { if (wtDialogOverlay.classList.contains('visible') && !wtSelectedTask) wtTaskSearch.focus(); };
   const pat = await loadStoredPat();
   if (_wtDialogGen !== gen) return;
 
@@ -294,7 +305,7 @@ function applyBranches(branches) {
 
 // --- Dialog show/hide/confirm ---
 
-export async function showWorktreeDialog(groupEl, tabsEl) {
+export async function showWorktreeDialog(groupEl, tabsEl, prefillTask = null) {
   const gen = ++_wtDialogGen;
   // Reset all state
   wtCurrentGroupEl = groupEl;
@@ -344,6 +355,8 @@ export async function showWorktreeDialog(groupEl, tabsEl) {
 
   if (cached.length > 0 && stateCache.length === 0) applyBranches(cached);
 
+  if (prefillTask) { selectWtTask(prefillTask); wtChangeName.focus(); }
+
   window.reposAPI.fetchBranches(groupEl._barePath).then((fetchResult) => {
     if (_wtDialogGen !== gen) return;
     const fetched = fetchResult.value;
@@ -364,6 +377,7 @@ export function hideWorktreeDialog() {
   wtTaskDescRow.style.display = 'none';
   wtTaskTypeRow.style.display = 'none';
   wtTaskDesc.value = '';
+  wtTaskLink.style.display = 'none';
   clearTimeout(wtFetchByIdTimer);
   clearTimeout(wtFetchRetryTimer);
 }
@@ -447,6 +461,13 @@ wtChangeName.addEventListener('keydown', (e) => {
 wtTaskDesc.addEventListener('keydown', (e) => {
   if (e.key === 'Escape') hideWorktreeDialog();
   else if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) confirmCreateWorktree();
+});
+
+// --- Task link ---
+
+wtTaskLink.addEventListener('click', (e) => {
+  e.preventDefault();
+  if (wtAzureContext && wtTaskLink._taskId) window.shellAPI.openExternal(buildAzureTaskUrl(wtAzureContext, wtTaskLink._taskId));
 });
 
 // --- Dialog buttons ---
