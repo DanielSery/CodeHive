@@ -1093,13 +1093,41 @@ html, body {
   border-top: 1px solid var(--border);
   border-bottom: 1px solid var(--border);
   background: color-mix(in srgb, var(--bg) 60%, transparent);
-  overflow-x: auto;
-  overflow-y: visible;
+  overflow: visible;
   font-size: 11px;
   font-family: 'Consolas', 'Courier New', monospace;
-  scrollbar-width: none;
 }
-.commit-diff-panel::-webkit-scrollbar { display: none; }
+.commit-diff-outer {
+  display: flex;
+  flex-direction: column;
+}
+.commit-diff-split-block {
+  display: flex;
+}
+.commit-diff-pane {
+  flex: 1;
+  min-width: 0;
+  overflow-x: auto;
+  overflow-y: visible;
+  scrollbar-width: thin;
+  scrollbar-color: var(--tab-bg) transparent;
+}
+.commit-diff-pane--right {
+  border-left: 1px solid var(--border);
+}
+.commit-diff-pane::-webkit-scrollbar {
+  height: 8px;
+}
+.commit-diff-pane::-webkit-scrollbar-track {
+  background: transparent;
+}
+.commit-diff-pane::-webkit-scrollbar-thumb {
+  background: var(--tab-bg);
+  border-radius: 4px;
+}
+.commit-diff-pane::-webkit-scrollbar-thumb:hover {
+  background: var(--tab-hover-bg);
+}
 .commit-diff-empty { padding: 4px 10px; color: var(--text-muted); }
 .commit-diff-float-bar {
   position: absolute;
@@ -1122,18 +1150,20 @@ html, body {
   border-color: color-mix(in srgb, var(--red) 50%, transparent);
 }
 .commit-diff-float-revert:hover { background: color-mix(in srgb, var(--red) 28%, var(--bg)); }
-.commit-diff-table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+.commit-diff-table { min-width: 100%; border-collapse: collapse; table-layout: auto; }
 .commit-diff-cell {
-  width: 50%;
+  width: 100%;
+  min-width: 300px;
   padding: 1px 10px;
   white-space: pre;
   line-height: 1.5;
   color: var(--text);
-  overflow: hidden;
 }
-.commit-diff-panel--split .commit-diff-cell:last-child { border-left: 1px solid var(--border); }
 .commit-diff-add { background: color-mix(in srgb, var(--green) 10%, transparent); color: var(--green); }
 .commit-diff-del { background: color-mix(in srgb, var(--red) 10%, transparent); color: var(--red); }
+.commit-diff-change-row.commit-diff-hover > td {
+  box-shadow: inset 0 0 0 9999px color-mix(in srgb, var(--accent) 14%, transparent);
+}
 .commit-diff-add-hl { background: color-mix(in srgb, var(--green) 20%, transparent); border-radius: 2px; }
 .commit-diff-del-hl { background: color-mix(in srgb, var(--red) 20%, transparent); border-radius: 2px; }
 .commit-diff-controls {
@@ -1160,21 +1190,20 @@ html, body {
   background: color-mix(in srgb, var(--text) 18%, transparent);
   color: var(--text);
 }
-.commit-diff-sep-row { height: 28px; }
-.commit-diff-sep-cell {
+.commit-diff-gap {
+  height: 28px;
+  position: relative;
+  flex-shrink: 0;
+}
+.commit-diff-gap--sep {
   background: color-mix(in srgb, var(--border) 40%, transparent);
   border-top: 1px solid var(--border);
   border-bottom: 1px solid var(--border);
-  padding: 0;
-  position: relative;
 }
-.commit-diff-edge-row { height: 28px; }
-.commit-diff-edge-cell {
+.commit-diff-gap--edge {
   background: color-mix(in srgb, var(--border) 18%, transparent);
   border-top: 1px solid color-mix(in srgb, var(--border) 60%, transparent);
   border-bottom: 1px solid color-mix(in srgb, var(--border) 60%, transparent);
-  padding: 0;
-  position: relative;
 }
 .commit-diff-expand-bar {
   position: absolute;

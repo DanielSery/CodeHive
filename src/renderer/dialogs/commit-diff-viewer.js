@@ -3,14 +3,13 @@
  * @param {HTMLElement} panel
  * @param {string} diff - unified diff text (from git diff -U<n>)
  * @param {object} opts
- * @param {'split'|'inline'} [opts.mode='split'] - 'split' for side-by-side, 'inline' for unified single column
  * @param {function(Array)} [opts.onRevertLines] - called with [{newLineNum,newCount,oldLines}]
  * @param {function(number,number|null):Promise<string[]>} [opts.onExpandGap] - called with (startLine, endLine|null), returns lines
  */
-export function renderFileDiff(panel, diff, { onRevertLines, onExpandGap, mode = 'split' } = {}) {
+export function renderFileDiff(panel, diff, { onRevertLines, onExpandGap } = {}) {
   panel.innerHTML = '';
   panel.className = panel.className.replace(/\bcommit-diff-panel--(split|inline)\b/g, '');
-  panel.classList.add(`commit-diff-panel--${mode}`);
+  panel.classList.add('commit-diff-panel--split');
   if (!diff || !diff.trim()) {
     panel.innerHTML = '<div class="commit-diff-empty">No diff available</div>';
     return;
@@ -139,6 +138,31 @@ export function renderFileDiff(panel, diff, { onRevertLines, onExpandGap, mode =
     rowGroups[i].ctxBelow = below;
   }
 
+  // --- Segment rowGroups into alternating gap / content blocks ---
+  // Each content segment gets its own pair of tables (left + right).
+  // Gap segments become full-width divs between split blocks.
+  const segments = [];
+  let pendingRows = [];
+  for (const group of rowGroups) {
+    if (group.type === 'sep' || group.type === 'edge') {
+      segments.push({ type: 'content', rows: pendingRows });
+      pendingRows = [];
+      segments.push({ type: 'gap', group });
+    } else {
+      pendingRows.push(group);
+    }
+  }
+  segments.push({ type: 'content', rows: pendingRows });
+
+  // Pre-create tables for each content segment so gap expand callbacks can reference them
+  for (const seg of segments) {
+    if (seg.type !== 'content') continue;
+    seg.leftTable = document.createElement('table');
+    seg.leftTable.className = 'commit-diff-table';
+    seg.rightTable = document.createElement('table');
+    seg.rightTable.className = 'commit-diff-table';
+  }
+
   // --- Intra-line diff helpers ---
   function setIntraCell(td, text, hlCls, start, end) {
     if (!text) return;
@@ -167,6 +191,12 @@ export function renderFileDiff(panel, diff, { onRevertLines, onExpandGap, mode =
   let floatBar = null;
   let floatRevertBtn = null;
   let hideTimer = null;
+  let highlightedRows = [];
+
+  function clearHighlight() {
+    highlightedRows.forEach(tr => tr.classList.remove('commit-diff-hover'));
+    highlightedRows = [];
+  }
 
   if (onRevertLines) {
     floatBar = document.createElement('div');
@@ -181,214 +211,254 @@ export function renderFileDiff(panel, diff, { onRevertLines, onExpandGap, mode =
 
     floatBar.addEventListener('mouseenter', () => clearTimeout(hideTimer));
     floatBar.addEventListener('mouseleave', () => {
-      hideTimer = setTimeout(() => { floatBar.style.display = 'none'; }, 120);
+      hideTimer = setTimeout(() => { floatBar.style.display = 'none'; clearHighlight(); }, 120);
     });
   }
 
-  function attachHover(rows, group) {
+  function attachHover(leftRows, rightRows, group) {
     if (!floatBar) return;
+
+    const allRows = [...leftRows, ...rightRows];
 
     const show = () => {
       clearTimeout(hideTimer);
+      clearHighlight();
+      highlightedRows = allRows;
+      allRows.forEach(tr => tr.classList.add('commit-diff-hover'));
       const panelRect = panel.getBoundingClientRect();
-      const rowRect = rows[0].getBoundingClientRect();
+      const rowRect = leftRows[0].getBoundingClientRect();
       floatBar.style.top = (rowRect.top - panelRect.top + panel.scrollTop) + 'px';
       floatBar.style.display = '';
 
       floatRevertBtn.onclick = () => {
         floatBar.style.display = 'none';
+        clearHighlight();
         onRevertLines([group.changeData]);
       };
     };
 
     const hide = () => {
-      hideTimer = setTimeout(() => { floatBar.style.display = 'none'; }, 120);
+      hideTimer = setTimeout(() => { floatBar.style.display = 'none'; clearHighlight(); }, 120);
     };
-    rows.forEach(tr => {
+    allRows.forEach(tr => {
       tr.addEventListener('mouseenter', show);
       tr.addEventListener('mouseleave', hide);
     });
   }
 
-  // --- Table ---
-  const table = document.createElement('table');
-  table.className = 'commit-diff-table';
-
+  // --- Row factories ---
   function makeCtxRow(text) {
-    const tr = document.createElement('tr');
-    tr.className = 'commit-diff-ctx-row';
-    const td = document.createElement('td');
-    td.className = 'commit-diff-cell';
-    td.textContent = text;
-    if (mode === 'inline') {
-      td.colSpan = 2;
+    const makeTr = () => {
+      const tr = document.createElement('tr');
+      tr.className = 'commit-diff-ctx-row';
+      const td = document.createElement('td');
+      td.className = 'commit-diff-cell';
+      td.textContent = text;
       tr.appendChild(td);
-    } else {
-      const tdR = document.createElement('td');
-      tdR.className = 'commit-diff-cell';
-      tdR.textContent = text;
-      tr.appendChild(td);
-      tr.appendChild(tdR);
-    }
-    return tr;
+      return tr;
+    };
+    return { leftTr: makeTr(), rightTr: makeTr() };
   }
 
-  function makeGapRow(group) {
-    const isSep = group.type === 'sep';
-    const canExpand = onExpandGap && (group.gapEnd === null || group.gapEnd >= group.gapStart);
-
-    const tr = document.createElement('tr');
-    tr.className = isSep ? 'commit-diff-sep-row' : 'commit-diff-edge-row';
-    const td = document.createElement('td');
-    td.colSpan = 2;
-    td.className = isSep ? 'commit-diff-sep-cell' : 'commit-diff-edge-cell';
-
-    if (canExpand) {
-      let gapStart = group.gapStart;
-      let gapEnd = group.gapEnd; // null = bottom of file
-
-      const rebuild = () => {
-        td.innerHTML = '';
-        const bar = document.createElement('span');
-        bar.className = 'commit-diff-expand-bar';
-
-        const onClick = (fn) => async () => {
-          bar.querySelectorAll('button').forEach(b => { b.disabled = true; });
-          await fn();
-        };
-
-        const makeTextBtn = (text, fn) => {
-          const btn = document.createElement('button');
-          btn.className = 'commit-diff-expand-btn';
-          btn.textContent = text;
-          btn.addEventListener('click', onClick(fn));
-          return btn;
-        };
-
-        const makeArrowBtn = (dir, n, fn) => {
-          const btn = document.createElement('button');
-          btn.className = 'commit-diff-expand-btn';
-          const icon = document.createElement('span');
-          icon.className = 'commit-diff-expand-icon';
-          icon.innerHTML = dir === 'up'
-            ? '<svg width="9" height="9" viewBox="0 0 9 9" fill="none"><path d="M4.5 8 0.5 1.5h8z" fill="currentColor"/></svg>'
-            : '<svg width="9" height="9" viewBox="0 0 9 9" fill="none"><path d="M4.5 1 8.5 7.5h-8z" fill="currentColor"/></svg>';
-          const num = document.createElement('span');
-          num.textContent = n;
-          btn.appendChild(icon);
-          btn.appendChild(num);
-          btn.addEventListener('click', onClick(fn));
-          return btn;
-        };
-
-        const makeSep = () => {
-          const s = document.createElement('span');
-          s.className = 'commit-diff-expand-sep';
-          return s;
-        };
-
-        // ↑ N: load N lines from top of gap, insert before gap row
-        [15, 10, 5].forEach(n => {
-          bar.appendChild(makeArrowBtn('up', n, async () => {
-            const end = gapEnd !== null ? Math.min(gapStart + n - 1, gapEnd) : gapStart + n - 1;
-            const lines = await onExpandGap(gapStart, end);
-            if (lines?.length) {
-              lines.forEach(line => table.insertBefore(makeCtxRow(line), tr));
-              gapStart += lines.length;
-            }
-            if (gapEnd !== null && gapStart > gapEnd) { tr.remove(); return; }
-            rebuild();
-          }));
-        });
-
-        bar.appendChild(makeSep());
-
-        // Show all
-        bar.appendChild(makeTextBtn('Show hidden lines', async () => {
-          const lines = await onExpandGap(gapStart, gapEnd);
-          if (lines?.length) lines.forEach(line => table.insertBefore(makeCtxRow(line), tr));
-          tr.remove();
-        }));
-
-        // ↓ N: load N lines from bottom of gap, insert after gap row (before next content)
-        if (gapEnd !== null) {
-          bar.appendChild(makeSep());
-          [5, 10, 15].forEach(n => {
-            bar.appendChild(makeArrowBtn('down', n, async () => {
-              const start = Math.max(gapEnd - n + 1, gapStart);
-              const lines = await onExpandGap(start, gapEnd);
-              if (lines?.length) {
-                const after = tr.nextElementSibling;
-                lines.forEach(line => {
-                  if (after) table.insertBefore(makeCtxRow(line), after);
-                  else table.appendChild(makeCtxRow(line));
-                });
-                gapEnd -= lines.length;
-              }
-              if (gapStart > gapEnd) { tr.remove(); return; }
-              rebuild();
-            }));
-          });
-        }
-
-        td.appendChild(bar);
-      };
-
-      rebuild();
-    }
-
-    tr.appendChild(td);
-    return tr;
-  }
-
-  for (const group of rowGroups) {
-    if (group.type === 'sep' || group.type === 'edge') {
-      table.appendChild(makeGapRow(group));
-    } else if (group.type === 'ctx') {
-      table.appendChild(makeCtxRow(group.text));
-    } else {
-      const blockRows = [];
-      if (mode === 'inline') {
-        for (const text of group.dels) {
-          const tr = document.createElement('tr');
-          tr.className = 'commit-diff-change-row';
-          const td = document.createElement('td');
-          td.colSpan = 2;
-          td.className = 'commit-diff-cell commit-diff-del';
-          td.textContent = text;
-          tr.appendChild(td);
-          table.appendChild(tr);
-          blockRows.push(tr);
-        }
-        for (const text of group.adds) {
-          const tr = document.createElement('tr');
-          tr.className = 'commit-diff-change-row';
-          const td = document.createElement('td');
-          td.colSpan = 2;
-          td.className = 'commit-diff-cell commit-diff-add';
-          td.textContent = text;
-          tr.appendChild(td);
-          table.appendChild(tr);
-          blockRows.push(tr);
-        }
+  // Populates a content segment's tables with its rows
+  function populateContentSeg(seg) {
+    for (const group of seg.rows) {
+      if (group.type === 'ctx') {
+        const { leftTr, rightTr } = makeCtxRow(group.text);
+        seg.leftTable.appendChild(leftTr);
+        seg.rightTable.appendChild(rightTr);
       } else {
+        const blockLeftRows = [], blockRightRows = [];
         group.pairs.forEach((pair) => {
-          const tr = document.createElement('tr');
-          tr.className = 'commit-diff-change-row';
+          const trL = document.createElement('tr');
+          trL.className = 'commit-diff-change-row';
+          const trR = document.createElement('tr');
+          trR.className = 'commit-diff-change-row';
           const tdL = document.createElement('td');
           const tdR = document.createElement('td');
           tdL.className = 'commit-diff-cell' + (pair.left  !== null ? ' commit-diff-del' : '');
           tdR.className = 'commit-diff-cell' + (pair.right !== null ? ' commit-diff-add' : '');
           applyIntraLineDiff(tdL, tdR, pair.left ?? '', pair.right ?? '');
-          tr.appendChild(tdL);
-          tr.appendChild(tdR);
-          table.appendChild(tr);
-          blockRows.push(tr);
+          trL.appendChild(tdL);
+          trR.appendChild(tdR);
+          seg.leftTable.appendChild(trL);
+          seg.rightTable.appendChild(trR);
+          blockLeftRows.push(trL);
+          blockRightRows.push(trR);
         });
+        attachHover(blockLeftRows, blockRightRows, group);
       }
-      attachHover(blockRows, group);
     }
   }
 
-  panel.appendChild(table);
+  // Builds a full-width gap div. prevSeg/nextSeg are the adjacent content segments (may be undefined).
+  function makeGapDiv(group, prevSeg, nextSeg) {
+    const isSep = group.type === 'sep';
+    const canExpand = onExpandGap && (group.gapEnd === null || group.gapEnd >= group.gapStart);
+
+    const div = document.createElement('div');
+    div.className = isSep ? 'commit-diff-gap commit-diff-gap--sep' : 'commit-diff-gap commit-diff-gap--edge';
+
+    if (!canExpand) return div;
+
+    let gapStart = group.gapStart;
+    let gapEnd = group.gapEnd;
+
+    const rebuild = () => {
+      div.innerHTML = '';
+      const bar = document.createElement('span');
+      bar.className = 'commit-diff-expand-bar';
+
+      const onClick = (fn) => async () => {
+        bar.querySelectorAll('button').forEach(b => { b.disabled = true; });
+        await fn();
+      };
+
+      const makeTextBtn = (text, fn) => {
+        const btn = document.createElement('button');
+        btn.className = 'commit-diff-expand-btn';
+        btn.textContent = text;
+        btn.addEventListener('click', onClick(fn));
+        return btn;
+      };
+
+      const makeArrowBtn = (dir, n, fn) => {
+        const btn = document.createElement('button');
+        btn.className = 'commit-diff-expand-btn';
+        const icon = document.createElement('span');
+        icon.className = 'commit-diff-expand-icon';
+        icon.innerHTML = dir === 'up'
+          ? '<svg width="9" height="9" viewBox="0 0 9 9" fill="none"><path d="M4.5 8 0.5 1.5h8z" fill="currentColor"/></svg>'
+          : '<svg width="9" height="9" viewBox="0 0 9 9" fill="none"><path d="M4.5 1 8.5 7.5h-8z" fill="currentColor"/></svg>';
+        const num = document.createElement('span');
+        num.textContent = n;
+        btn.appendChild(icon);
+        btn.appendChild(num);
+        btn.addEventListener('click', onClick(fn));
+        return btn;
+      };
+
+      const makeSep = () => {
+        const s = document.createElement('span');
+        s.className = 'commit-diff-expand-sep';
+        return s;
+      };
+
+      // ↑ N: load N lines from top of gap → append to prevSeg's tables
+      [15, 10, 5].forEach(n => {
+        bar.appendChild(makeArrowBtn('up', n, async () => {
+          const end = gapEnd !== null ? Math.min(gapStart + n - 1, gapEnd) : gapStart + n - 1;
+          const lines = await onExpandGap(gapStart, end);
+          if (lines?.length && prevSeg) {
+            lines.forEach(line => {
+              const { leftTr, rightTr } = makeCtxRow(line);
+              prevSeg.leftTable.appendChild(leftTr);
+              prevSeg.rightTable.appendChild(rightTr);
+            });
+            gapStart += lines.length;
+          }
+          if (gapEnd !== null && gapStart > gapEnd) { div.remove(); return; }
+          rebuild();
+        }));
+      });
+
+      bar.appendChild(makeSep());
+
+      // Show all
+      bar.appendChild(makeTextBtn('Show hidden lines', async () => {
+        const lines = await onExpandGap(gapStart, gapEnd);
+        if (lines?.length && prevSeg) {
+          lines.forEach(line => {
+            const { leftTr, rightTr } = makeCtxRow(line);
+            prevSeg.leftTable.appendChild(leftTr);
+            prevSeg.rightTable.appendChild(rightTr);
+          });
+        }
+        div.remove();
+      }));
+
+      // ↓ N: load N lines from bottom of gap → prepend to nextSeg's tables
+      if (gapEnd !== null) {
+        bar.appendChild(makeSep());
+        [5, 10, 15].forEach(n => {
+          bar.appendChild(makeArrowBtn('down', n, async () => {
+            const start = Math.max(gapEnd - n + 1, gapStart);
+            const lines = await onExpandGap(start, gapEnd);
+            if (lines?.length && nextSeg) {
+              const firstLeft = nextSeg.leftTable.firstChild;
+              const firstRight = nextSeg.rightTable.firstChild;
+              lines.forEach(line => {
+                const { leftTr, rightTr } = makeCtxRow(line);
+                if (firstLeft) nextSeg.leftTable.insertBefore(leftTr, firstLeft);
+                else nextSeg.leftTable.appendChild(leftTr);
+                if (firstRight) nextSeg.rightTable.insertBefore(rightTr, firstRight);
+                else nextSeg.rightTable.appendChild(rightTr);
+              });
+              gapEnd -= lines.length;
+            }
+            if (gapStart > gapEnd) { div.remove(); return; }
+            rebuild();
+          }));
+        });
+      }
+
+      div.appendChild(bar);
+    };
+
+    rebuild();
+    return div;
+  }
+
+  // --- Build and mount the DOM ---
+  const outer = document.createElement('div');
+  outer.className = 'commit-diff-outer';
+
+  // Populate all content segment tables first
+  for (const seg of segments) {
+    if (seg.type === 'content') populateContentSeg(seg);
+  }
+
+  // All scroll panes, for sync
+  const allPanes = [];
+  let syncing = false;
+
+  for (let i = 0; i < segments.length; i++) {
+    const seg = segments[i];
+    if (seg.type === 'gap') {
+      const prevSeg = segments[i - 1]; // content above (may be undefined)
+      const nextSeg = segments[i + 1]; // content below (may be undefined)
+      outer.appendChild(makeGapDiv(seg.group, prevSeg, nextSeg));
+    } else {
+      if (seg.rows.length === 0) continue;
+
+      const block = document.createElement('div');
+      block.className = 'commit-diff-split-block';
+
+      const leftPane = document.createElement('div');
+      leftPane.className = 'commit-diff-pane commit-diff-pane--left';
+      leftPane.appendChild(seg.leftTable);
+
+      const rightPane = document.createElement('div');
+      rightPane.className = 'commit-diff-pane commit-diff-pane--right';
+      rightPane.appendChild(seg.rightTable);
+
+      block.appendChild(leftPane);
+      block.appendChild(rightPane);
+      outer.appendChild(block);
+
+      allPanes.push(leftPane, rightPane);
+    }
+  }
+
+  // Sync horizontal scroll across all panes
+  allPanes.forEach(pane => {
+    pane.addEventListener('scroll', () => {
+      if (syncing) return;
+      syncing = true;
+      allPanes.forEach(p => { if (p !== pane) p.scrollLeft = pane.scrollLeft; });
+      syncing = false;
+    });
+  });
+
+  panel.appendChild(outer);
 }

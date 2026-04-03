@@ -21,7 +21,7 @@ function getAllIndices(node) {
   return out;
 }
 
-function renderTreeNode(container, node, depth, files, folderUpdaters, wtPath, allEntries, getDiffMode) {
+function renderTreeNode(container, node, depth, files, folderUpdaters, wtPath, allEntries) {
   const folders = [...node.children.entries()].sort((a, b) => a[0].localeCompare(b[0]));
   const fileEntries = [...node.files].sort((a, b) => a.name.localeCompare(b.name));
 
@@ -109,7 +109,7 @@ function renderTreeNode(container, node, depth, files, folderUpdaters, wtPath, a
     arrow.addEventListener('click', (e) => { e.preventDefault(); toggleCollapse(); });
     nameSpan.addEventListener('click', toggleCollapse);
 
-    renderTreeNode(childContainer, child, depth + 1, files, folderUpdaters, wtPath, allEntries, getDiffMode);
+    renderTreeNode(childContainer, child, depth + 1, files, folderUpdaters, wtPath, allEntries);
     container.appendChild(folderRow);
     container.appendChild(childContainer);
   }
@@ -176,7 +176,6 @@ function renderTreeNode(container, node, depth, files, folderUpdaters, wtPath, a
       diffPanel.innerHTML = '<div class="commit-diff-empty">Loading…</div>';
       const result = await window.reposAPI.gitFileDiff(wtPath, f.path, 3);
       renderFileDiff(diffPanel, result.ok ? result.diff : '', {
-        mode: getDiffMode(),
         onRevertLines: async (changes) => {
           const r = await window.reposAPI.gitRevertLines(wtPath, f.path, changes);
           if (r.ok) loadDiff();
@@ -220,11 +219,9 @@ export function renderCommitFileList(container, rawFiles, wtPath, { toolbar } = 
   const files = (rawFiles || []).map(f => ({ ...f, checked: true }));
   const folderUpdaters = [];
 
-  let expandAll = localStorage.getItem('diffExpandAll') === 'true';
-  let diffMode = localStorage.getItem('diffViewMode') || 'split';
+  let expandAll = true;
 
   const allEntries = [];
-  const getDiffMode = () => diffMode;
 
   container.innerHTML = '';
   if (files.length === 0) {
@@ -234,7 +231,7 @@ export function renderCommitFileList(container, rawFiles, wtPath, { toolbar } = 
   }
 
   const tree = buildFileTree(files);
-  renderTreeNode(container, tree, 0, files, folderUpdaters, wtPath, allEntries, getDiffMode);
+  renderTreeNode(container, tree, 0, files, folderUpdaters, wtPath, allEntries);
 
   function openEntry(entry) {
     const { diffPanel, loadDiff, nameSpan, f } = entry;
@@ -250,43 +247,8 @@ export function renderCommitFileList(container, rawFiles, wtPath, { toolbar } = 
     }
   }
 
-  function closeEntry(entry) {
-    entry.diffPanel.style.display = 'none';
-    entry.nameSpan.classList.remove('commit-file-path-expanded');
-  }
-
   if (toolbar) {
     toolbar.innerHTML = '';
-
-    const expandBtn = document.createElement('button');
-    expandBtn.className = 'commit-diff-ctrl-btn' + (expandAll ? ' active' : '');
-    expandBtn.textContent = expandAll ? 'Collapse All' : 'Expand All';
-    expandBtn.addEventListener('click', () => {
-      expandAll = !expandAll;
-      localStorage.setItem('diffExpandAll', expandAll);
-      expandBtn.textContent = expandAll ? 'Collapse All' : 'Expand All';
-      expandBtn.classList.toggle('active', expandAll);
-      for (const entry of allEntries) {
-        if (expandAll) openEntry(entry); else closeEntry(entry);
-      }
-    });
-
-    const modeBtn = document.createElement('button');
-    modeBtn.className = 'commit-diff-ctrl-btn' + (diffMode === 'inline' ? ' active' : '');
-    modeBtn.textContent = diffMode === 'inline' ? 'Inline' : 'Split';
-    modeBtn.title = 'Toggle between split and inline diff view';
-    modeBtn.addEventListener('click', () => {
-      diffMode = diffMode === 'split' ? 'inline' : 'split';
-      localStorage.setItem('diffViewMode', diffMode);
-      modeBtn.textContent = diffMode === 'inline' ? 'Inline' : 'Split';
-      modeBtn.classList.toggle('active', diffMode === 'inline');
-      for (const entry of allEntries) {
-        if (entry.diffPanel._loaded && !entry.f.isNew) entry.loadDiff();
-      }
-    });
-
-    toolbar.appendChild(expandBtn);
-    toolbar.appendChild(modeBtn);
   }
 
   if (expandAll) {
