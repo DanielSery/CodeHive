@@ -93,9 +93,27 @@ function updateConfirmState() {
 
 // --- Task combobox ---
 
+const WORK_ITEM_TYPE_SVGS = {
+  'Bug':        '<svg width="12" height="12" viewBox="0 0 12 12"><circle cx="6" cy="6" r="6" fill="#CC293D"/><path d="M4 4.5c0-.8.9-1.5 2-1.5s2 .7 2 1.5V7c0 .8-.9 1.5-2 1.5S4 7.8 4 7V4.5z" fill="#fff"/><circle cx="6" cy="9.5" r=".7" fill="#fff"/></svg>',
+  'Task':       '<svg width="12" height="12" viewBox="0 0 12 12"><rect width="12" height="12" rx="2" fill="#F2CB1D"/><path d="M3 6l2 2 4-4" stroke="#fff" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg>',
+  'User Story': '<svg width="12" height="12" viewBox="0 0 12 12"><rect width="12" height="12" rx="2" fill="#0078D4"/><path d="M4 2h4v7L6 7.5 4 9V2z" fill="#fff"/></svg>',
+  'Feature':    '<svg width="12" height="12" viewBox="0 0 12 12"><rect width="12" height="12" rx="2" fill="#773B93"/><path d="M6 2l1.2 2.5H10L7.9 6.2l.8 2.8L6 7.5l-2.7 1.5.8-2.8L2 4.5h2.8z" fill="#fff"/></svg>',
+  'Epic':       '<svg width="12" height="12" viewBox="0 0 12 12"><rect width="12" height="12" rx="2" fill="#FF7B00"/><path d="M7 2L4 7h3l-2 3 5-5H7z" fill="#fff"/></svg>',
+};
+
 function renderTaskItem(el, t) {
   const titleLine = document.createElement('div');
-  titleLine.textContent = `#${t.id} ${t.title}`;
+  titleLine.className = 'combobox-item-title';
+  const svgStr = WORK_ITEM_TYPE_SVGS[t.type];
+  if (svgStr) {
+    const icon = document.createElement('span');
+    icon.className = 'work-item-type-icon';
+    icon.innerHTML = svgStr;
+    titleLine.appendChild(icon);
+  }
+  const titleText = document.createElement('span');
+  titleText.textContent = `#${t.id} ${t.title}`;
+  titleLine.appendChild(titleText);
   el.appendChild(titleLine);
   if (t.description) {
     const desc = stripHtml(t.description).substring(0, 300);

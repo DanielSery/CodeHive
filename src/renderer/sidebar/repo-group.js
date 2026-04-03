@@ -6,7 +6,7 @@ import { _showWorktreeDialog, _showDeleteDialog, _onStateChange } from './regist
 import { getTaskPlaceholdersEnabled, getNewTasksCache, saveNewTasksCache } from '../storage.js';
 import { fetchNewAzureTasks } from '../azure-api.js';
 import { loadStoredPat } from '../dialogs/utils.js';
-import { DOT_OPEN_TASK_SVG } from './worktree-tab-icons.js';
+import { DOT_OPEN_TASK_SVG, WORK_ITEM_TYPE_ICON_SVGS } from './worktree-tab-icons.js';
 
 const repoGroupsEl = document.getElementById('repo-groups');
 
@@ -15,7 +15,8 @@ function createPlaceholderButton(groupEl, tabsEl, task) {
   btn.className = 'repo-group-tabs-add repo-group-tabs-placeholder';
   btn.setAttribute('draggable', 'false');
   btn.title = `#${task.id} ${task.title}`;
-  btn.innerHTML = `<span class="repo-group-tabs-add-icon">${DOT_OPEN_TASK_SVG}</span><span class="repo-group-tabs-add-label">${task.title}</span>`;
+  const taskIcon = WORK_ITEM_TYPE_ICON_SVGS[task.type] || DOT_OPEN_TASK_SVG;
+  btn.innerHTML = `<span class="repo-group-tabs-add-icon">${taskIcon}</span><span class="repo-group-tabs-add-label">${task.title}</span>`;
   btn.addEventListener('click', (e) => {
     e.stopPropagation();
     if (_showWorktreeDialog) _showWorktreeDialog(groupEl, tabsEl, task);

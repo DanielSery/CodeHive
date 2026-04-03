@@ -24,6 +24,14 @@ export const THEME_DARK_SVG = '<svg id="theme-icon-dark" width="14" height="14" 
 export const THEME_LIGHT_SVG = '<svg id="theme-icon-light" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:none"><path d="M14 8.5A6 6 0 1 1 7.5 2 4.7 4.7 0 0 0 14 8.5z"/></svg>';
 export const TERMINAL_SVG = '<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 6 8 10 4 14"/><line x1="10" y1="14" x2="14" y2="14"/></svg>';
 
+export const WORK_ITEM_TYPE_ICON_SVGS = {
+  'Bug':        '<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="5.5"/><path d="M8 5.5v4M8 11v.5"/></svg>',
+  'Task':       '<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="2.5" width="11" height="11" rx="1.5"/><path d="M5 8l2.5 2.5 4-4"/></svg>',
+  'User Story': '<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 2h6v11l-3-2-3 2V2z"/></svg>',
+  'Feature':    '<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2l1.6 3.3H13l-2.8 2 1.1 3.4L8 9 4.7 10.7l1.1-3.4L3 5.3h3.4z"/></svg>',
+  'Epic':       '<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 2L5.5 9H9l-2 5 7-7H10z"/></svg>',
+};
+
 export const TASK_PLACEHOLDERS_SVG = '<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2 4h8M2 8h6M2 12h4"/><path d="M12 6v6M9 9h6"/></svg>';
 
 export const UPDATE_SVG = '<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="6"/><path d="M8 5.5v4"/><path d="M5.5 7.5L8 10l2.5-2.5"/></svg>';

@@ -943,6 +943,8 @@ html, body {
   border: 1px solid var(--border);
   border-radius: 4px;
   margin-bottom: 4px;
+  font-size: 11px;
+  font-family: 'Consolas', 'Courier New', monospace;
 }
 
 .dialog-title {
@@ -1526,6 +1528,18 @@ html, body {
 .combobox-item.selected,
 .combobox-item.highlighted {
   background: var(--tab-active-bg);
+}
+
+.combobox-item-title {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.work-item-type-icon {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
 }
 
 .combobox-item-desc {
