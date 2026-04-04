@@ -13,15 +13,20 @@ function registerTabButtonFns(showClose, showRemove) {
 
 const editorArea = document.getElementById('editor-area');
 const placeholder = document.getElementById('editor-placeholder');
-const titlebarCommitBtn = document.getElementById('btn-titlebar-commit');
-const titlebarCreatePrBtn = document.getElementById('btn-titlebar-create-pr');
-const titlebarOpenPrBtn = document.getElementById('btn-titlebar-open-pr');
-const titlebarCompletePrBtn = document.getElementById('btn-titlebar-complete-pr');
-const titlebarResolveTaskBtn = document.getElementById('btn-titlebar-resolve-task');
-const titlebarOpenPipelineBtn = document.getElementById('btn-titlebar-open-pipeline');
-const titlebarOpenTaskBtn = document.getElementById('btn-titlebar-open-task');
+const titlebarOpenExplorerBtn = document.getElementById('btn-titlebar-open-explorer');
 const titlebarGitAppBtn = document.getElementById('btn-titlebar-git-app');
 const titlebarSwitchBtn = document.getElementById('btn-titlebar-switch');
+const titlebarCommitBtn = document.getElementById('btn-titlebar-commit');
+const titlebarCreatePrBtn = document.getElementById('btn-titlebar-create-pr');
+const titlebarCompletePrBtn = document.getElementById('btn-titlebar-complete-pr');
+const titlebarOpenPipelineBtn = document.getElementById('btn-titlebar-open-pipeline');
+const titlebarInstallBtn = document.getElementById('btn-titlebar-install');
+const titlebarResolveTaskBtn = document.getElementById('btn-titlebar-resolve-task');
+const titlebarSetTaskBtn = document.getElementById('btn-titlebar-set-task');
+const titlebarRebaseBtn = document.getElementById('btn-titlebar-rebase');
+const titlebarOpenTaskBtn = document.getElementById('btn-titlebar-open-task');
+const titlebarOpenPrBtn = document.getElementById('btn-titlebar-open-pr');
+const titlebarOpenMergedPrBtn = document.getElementById('btn-titlebar-open-merged-pr');
 
 const sessionPartition = window.appSession.getPartition();
 
@@ -109,7 +114,7 @@ const serverReady = new Promise((resolve) => {
   });
 });
 
-const allTitlebarActionBtns = [titlebarCommitBtn, titlebarCreatePrBtn, titlebarOpenPrBtn, titlebarCompletePrBtn, titlebarResolveTaskBtn, titlebarOpenPipelineBtn, titlebarOpenTaskBtn, titlebarGitAppBtn, titlebarSwitchBtn];
+const allTitlebarActionBtns = [titlebarOpenExplorerBtn, titlebarGitAppBtn, titlebarSwitchBtn, titlebarCommitBtn, titlebarCreatePrBtn, titlebarCompletePrBtn, titlebarOpenPipelineBtn, titlebarInstallBtn, titlebarResolveTaskBtn, titlebarSetTaskBtn, titlebarRebaseBtn, titlebarOpenTaskBtn, titlebarOpenPrBtn, titlebarOpenMergedPrBtn];
 
 function updateTitlebarActions(hasActive) {
   if (!hasActive) {
@@ -130,6 +135,7 @@ function syncTitlebarToTab() {
 
   const hasTask = !!tabEl._wtTaskId;
   const hasPr = !!wtState?.existingPrUrl;
+  const hasMergedPr = !!wtState?.mergedPrUrl;
   const canComplete = !!wtState?.canCompletePr;
   const canResolve = !!wtState?.canResolveTask;
   const hasChanges = !!wtState?.hasUncommittedChanges;
@@ -137,25 +143,30 @@ function syncTitlebarToTab() {
   const showCreatePr = !hasChanges && hasPushed && !hasPr && !canComplete && !canResolve;
 
   const canOpenPipeline = !!wtState?.canOpenPipeline && !!wtState?.pipelineUrl && wtState?.pipelineStatus !== 'succeeded';
+  const installBtn = tabEl.querySelector('.workspace-tab-install-btn');
+  const canInstall = !!installBtn && installBtn.style.display !== 'none';
 
+  titlebarOpenExplorerBtn.classList.toggle('visible', true);
+  titlebarGitAppBtn.classList.toggle('visible', true);
+  titlebarSwitchBtn.classList.toggle('visible', true);
   titlebarCommitBtn.classList.toggle('visible', hasChanges);
   titlebarCreatePrBtn.classList.toggle('visible', showCreatePr);
   titlebarCompletePrBtn.classList.toggle('visible', !hasChanges && canComplete);
-  titlebarResolveTaskBtn.classList.toggle('visible', !hasChanges && canResolve);
   titlebarOpenPipelineBtn.classList.toggle('visible', !hasChanges && canOpenPipeline);
   if (canOpenPipeline) {
     titlebarOpenPipelineBtn.style.color = wtState?.pipelineStatus === 'failed' ? 'var(--red)' : 'var(--yellow)';
   } else {
     titlebarOpenPipelineBtn.style.color = '';
   }
+  titlebarInstallBtn.classList.toggle('visible', !hasChanges && canInstall);
+  titlebarResolveTaskBtn.classList.toggle('visible', !hasChanges && canResolve);
+  titlebarSetTaskBtn.classList.toggle('visible', !hasTask);
+  titlebarRebaseBtn.classList.toggle('visible', true);
   titlebarOpenTaskBtn.classList.toggle('visible', hasTask);
-  titlebarGitAppBtn.classList.toggle('visible', true);
-  titlebarSwitchBtn.classList.toggle('visible', true);
 
   // Open PR button with status coloring
-  const showOpenPr = hasPr && !hasChanges && !canComplete;
-  titlebarOpenPrBtn.classList.toggle('visible', showOpenPr);
-  if (showOpenPr) {
+  titlebarOpenPrBtn.classList.toggle('visible', hasPr);
+  if (hasPr) {
     const openPrBtn = tabEl.querySelector('.workspace-tab-open-pr');
     let color = 'var(--accent)';
     if (openPrBtn && openPrBtn.classList.contains('has-pr-approved')) color = 'var(--green)';
@@ -163,9 +174,9 @@ function syncTitlebarToTab() {
     else if (openPrBtn && openPrBtn.classList.contains('has-pr-comments')) color = 'var(--peach)';
     else if (openPrBtn && openPrBtn.classList.contains('has-pr-succeeded')) color = 'var(--yellow)';
     titlebarOpenPrBtn.style.color = color;
-  } else {
-    titlebarOpenPrBtn.style.color = '';
   }
+
+  titlebarOpenMergedPrBtn.classList.toggle('visible', hasMergedPr);
 }
 
 async function openWorktree(tabEl, wt) {

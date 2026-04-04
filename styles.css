@@ -146,6 +146,10 @@ html, body {
   color: var(--accent);
 }
 
+#btn-task-placeholders.active {
+  color: var(--yellow);
+}
+
 .titlebar-controls {
   display: flex;
   height: 100%;

@@ -43,6 +43,10 @@ document.getElementById('btn-open-directory').addEventListener('click', openDire
 document.getElementById('btn-clone-repo').addEventListener('click', showCloneDialog);
 
 
+document.getElementById('btn-titlebar-open-explorer').addEventListener('click', () => {
+  const ws = getActive();
+  if (ws) window.shellAPI.openInExplorer(ws.tabEl._wtPath);
+});
 document.getElementById('btn-titlebar-commit').addEventListener('click', () => {
   const ws = getActive();
   if (ws) showCommitPushDialog(ws.tabEl, ws.tabEl.closest('.repo-group'));
@@ -86,6 +90,25 @@ document.getElementById('btn-titlebar-git-app').addEventListener('click', () => 
 document.getElementById('btn-titlebar-switch').addEventListener('click', () => {
   const ws = getActive();
   if (ws) showWorktreeSwitchDialog(ws.tabEl, ws.tabEl.closest('.repo-group'));
+});
+document.getElementById('btn-titlebar-install').addEventListener('click', () => {
+  const ws = getActive();
+  if (ws) {
+    const btn = ws.tabEl.querySelector('.workspace-tab-install-btn');
+    if (btn) btn.click();
+  }
+});
+document.getElementById('btn-titlebar-set-task').addEventListener('click', () => {
+  const ws = getActive();
+  if (ws) showSetTaskDialog(ws.tabEl);
+});
+document.getElementById('btn-titlebar-rebase').addEventListener('click', () => {
+  const ws = getActive();
+  if (ws) showRebaseDialog(ws.tabEl, ws.tabEl.closest('.repo-group'));
+});
+document.getElementById('btn-titlebar-open-merged-pr').addEventListener('click', () => {
+  const ws = getActive();
+  if (ws) pr.openMerged(ws.tabEl);
 });
 
 // ===== Theme toggle =====
