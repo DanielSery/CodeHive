@@ -1,5 +1,6 @@
 import { addRepoGroup, clearAllGroups, createWorktreeTab, rebuildCollapsedDots, registerWorktreeDialog, registerDeleteDialog, registerWorktreeRemoveDialog, registerWorktreeSwitchDialog, registerCommitPushDialog, registerCreatePrDialog, registerSetTaskDialog, registerRebaseDialog, registerToggleTerminal, registerOnStateChange, registerRefreshTabStatus, removeRepoGroup, showTabCloseButton, showTabRemoveButton, refreshTabStatus, refreshAllPlaceholders, clearAllPlaceholders } from './sidebar/index.js';
 import './titlebar-icons.js';
+import { TASK_PLACEHOLDERS_SVG, TASK_PLACEHOLDERS_ACTIVE_SVG } from './sidebar/worktree-tab-icons.js';
 import { showWorktreeDialog, showCloneDialog, showDeleteDialog, showWorktreeRemoveDialog, showWorktreeSwitchDialog, showCommitPushDialog, showCreatePrDialog, showSetTaskDialog, showRebaseDialog, registerSidebarFns, registerRemoveRepoGroup, registerOnCloneComplete } from './dialogs/index.js';
 
 import { cycleWorkspace, registerTabButtonFns } from './workspace-manager.js';
@@ -110,6 +111,10 @@ document.getElementById('btn-titlebar-open-merged-pr').addEventListener('click',
   const ws = getActive();
   if (ws) pr.openMerged(ws.tabEl);
 });
+document.getElementById('btn-titlebar-remove').addEventListener('click', () => {
+  const ws = getActive();
+  if (ws) showWorktreeRemoveDialog(ws.tabEl, ws.tabEl.closest('.repo-group'));
+});
 
 // ===== Theme toggle =====
 
@@ -145,12 +150,17 @@ document.getElementById('btn-titlebar-open-merged-pr').addEventListener('click',
 
 (function() {
   const btn = document.getElementById('btn-task-placeholders');
-  btn.classList.toggle('active', getTaskPlaceholdersEnabled());
+
+  function applyPlaceholderIcon(enabled) {
+    btn.innerHTML = enabled ? TASK_PLACEHOLDERS_ACTIVE_SVG : TASK_PLACEHOLDERS_SVG;
+  }
+
+  applyPlaceholderIcon(getTaskPlaceholdersEnabled());
 
   btn.addEventListener('click', () => {
     const next = !getTaskPlaceholdersEnabled();
     saveTaskPlaceholdersEnabled(next);
-    btn.classList.toggle('active', next);
+    applyPlaceholderIcon(next);
     if (next) {
       refreshAllPlaceholders();
     } else {

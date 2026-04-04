@@ -1,4 +1,5 @@
 import { toast } from '../toast.js';
+import { UPDATE_AVAILABLE_SVG } from '../sidebar/worktree-tab-icons.js';
 
 const overlay = document.getElementById('update-dialog-overlay');
 const titleEl = document.getElementById('update-dialog-title');
@@ -105,7 +106,7 @@ export async function showUpdateDialog(autoCheck = false) {
   }
 
   // Update found — open dialog
-  document.getElementById('btn-check-updates').classList.add('update-available');
+  document.getElementById('btn-check-updates').innerHTML = UPDATE_AVAILABLE_SVG;
   pendingZipPath = null;
   pendingZipAsset = null;
   progressFill.style.width = '0%';
