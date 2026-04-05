@@ -38,8 +38,7 @@
       <button class="titlebar-action-btn" id="btn-titlebar-install" title="Install Build"></button>
       <button class="titlebar-action-btn" id="btn-titlebar-resolve-task" title="Resolve Azure Task"></button>
       <button class="titlebar-action-btn" id="btn-titlebar-set-task" title="Set Task"></button>
-      <button class="titlebar-action-btn" id="btn-titlebar-rebase" title="Interactive Rebase"></button>
-      <button class="titlebar-action-btn" id="btn-titlebar-open-task" title="Open Task"></button>
+<button class="titlebar-action-btn" id="btn-titlebar-open-task" title="Open Task"></button>
       <button class="titlebar-action-btn" id="btn-titlebar-open-pr" title="View Pull Request"></button>
       <button class="titlebar-action-btn" id="btn-titlebar-open-merged-pr" title="View Merged PR"></button>
       <span class="titlebar-sep" id="titlebar-sep-2" style="display:none"></span>
@@ -387,66 +386,6 @@
     </div>
   </div>
 
-  <!-- Interactive Rebase dialog -->
-  <div id="rebase-dialog-overlay" class="dialog-overlay">
-    <div id="rebase-dialog-box" class="dialog-box">
-      <h3 class="dialog-title">Interactive Rebase</h3>
-      <p class="dialog-desc">Reorder, squash, reword, or drop commits onto the target branch</p>
-      <label class="dialog-label">Base Branch</label>
-      <div class="combobox" id="rebase-base-combobox">
-        <input id="rebase-base-search" type="text" class="dialog-input combobox-input" placeholder="Search branches..." spellcheck="false" autocomplete="off" />
-        <span class="combobox-arrow" tabindex="-1">&#x25BC;</span>
-        <div id="rebase-base-list" class="combobox-list" tabindex="-1"></div>
-      </div>
-      <label class="dialog-label" style="margin-top:12px;">Commits <span id="rebase-commit-hint" style="color:var(--text-muted);font-weight:400;"></span></label>
-      <div id="rebase-commits-container">
-        <div id="rebase-commits-row">
-          <div id="rebase-commits-list" class="rebase-commits-list"></div>
-          <div id="rebase-bulk-toolbar" class="rebase-bulk-toolbar" style="display:none;">
-            <span id="rebase-bulk-count" class="rebase-bulk-count"></span>
-            <button class="rebase-bulk-btn" data-action="pick"   title="Keep these commits as-is">✔ pick</button>
-            <button class="rebase-bulk-btn" data-action="reword" title="Keep commits, edit their messages">✎ reword</button>
-            <button class="rebase-bulk-btn" data-action="squash" title="Combine into older commit, merging messages">⊕ squash</button>
-            <button class="rebase-bulk-btn" data-action="fixup"  title="Combine into older commit, discarding these messages">⊖ fixup</button>
-            <button class="rebase-bulk-btn" data-action="drop"   title="Remove these commits from history">✖ drop</button>
-          </div>
-        </div>
-        <div id="rebase-no-commits" style="display:none;">No commits found between HEAD and the selected branch.</div>
-        <div id="rebase-loading-commits" style="display:none;">Loading commits...</div>
-      </div>
-      <div class="dialog-buttons">
-        <button id="rebase-cancel-btn" class="dialog-btn dialog-btn-cancel" tabindex="-1">Cancel</button>
-        <button id="rebase-fast-forward-btn" class="dialog-btn dialog-btn-confirm" style="display:none">Fast Forward</button>
-        <button id="rebase-confirm-btn" class="dialog-btn dialog-btn-confirm" disabled>Rebase</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- Interactive Cherry-Pick dialog -->
-  <div id="cherrypick-dialog-overlay" class="dialog-overlay">
-    <div id="cherrypick-dialog-box" class="dialog-box">
-      <h3 class="dialog-title">Cherry-Pick Commits</h3>
-      <p class="dialog-desc">Select commits from <strong id="cherrypick-source-branch"></strong> to cherry-pick onto <strong id="cherrypick-target-branch"></strong></p>
-      <label class="dialog-label" style="margin-top:4px;">Commits <span id="cherrypick-commit-hint" style="color:var(--text-muted);font-weight:400;"></span></label>
-      <div id="cherrypick-commits-container">
-        <div id="cherrypick-commits-row">
-          <div id="cherrypick-commits-list" class="rebase-commits-list"></div>
-          <div id="cherrypick-bulk-toolbar" class="rebase-bulk-toolbar" style="display:none;">
-            <span id="cherrypick-bulk-count" class="rebase-bulk-count"></span>
-            <button class="rebase-bulk-btn" data-action="pick" title="Cherry-pick these commits">✔ pick</button>
-            <button class="rebase-bulk-btn" data-action="drop" title="Skip these commits">✖ drop</button>
-          </div>
-        </div>
-        <div id="cherrypick-no-commits" style="display:none;">No unique commits found on source branch.</div>
-        <div id="cherrypick-loading-commits" style="display:none;">Loading commits...</div>
-      </div>
-      <div class="dialog-buttons">
-        <button id="cherrypick-cancel-btn" class="dialog-btn dialog-btn-cancel" tabindex="-1">Cancel</button>
-        <button id="cherrypick-confirm-btn" class="dialog-btn dialog-btn-confirm" disabled>Cherry-Pick</button>
-      </div>
-    </div>
-  </div>
-
   <!-- Worktree context menu -->
   <div id="wt-context-menu" class="context-menu">
     <button class="context-menu-item" data-action="open-explorer">Open in Explorer</button>
@@ -460,8 +399,7 @@
     <button class="context-menu-item" data-action="install">Install Build</button>
     <button class="context-menu-item" data-action="resolve-task">Resolve Task</button>
     <button class="context-menu-item" data-action="set-task">Set Task</button>
-    <button class="context-menu-item" data-action="rebase">Interactive Rebase</button>
-    <button class="context-menu-item" data-action="open-task">Open Task</button>
+<button class="context-menu-item" data-action="open-task">Open Task</button>
     <button class="context-menu-item" data-action="open-pr">Open Pull Request</button>
     <button class="context-menu-item" data-action="open-merged-pr">View Merged PR</button>
     <hr class="context-menu-separator">

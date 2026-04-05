@@ -23,7 +23,6 @@ const titlebarOpenPipelineBtn = document.getElementById('btn-titlebar-open-pipel
 const titlebarInstallBtn = document.getElementById('btn-titlebar-install');
 const titlebarResolveTaskBtn = document.getElementById('btn-titlebar-resolve-task');
 const titlebarSetTaskBtn = document.getElementById('btn-titlebar-set-task');
-const titlebarRebaseBtn = document.getElementById('btn-titlebar-rebase');
 const titlebarOpenTaskBtn = document.getElementById('btn-titlebar-open-task');
 const titlebarOpenPrBtn = document.getElementById('btn-titlebar-open-pr');
 const titlebarOpenMergedPrBtn = document.getElementById('btn-titlebar-open-merged-pr');
@@ -117,7 +116,7 @@ const serverReady = new Promise((resolve) => {
   });
 });
 
-const allTitlebarActionBtns = [titlebarOpenExplorerBtn, titlebarGitAppBtn, titlebarSwitchBtn, titlebarCommitBtn, titlebarCreatePrBtn, titlebarCompletePrBtn, titlebarOpenPipelineBtn, titlebarInstallBtn, titlebarResolveTaskBtn, titlebarSetTaskBtn, titlebarRebaseBtn, titlebarOpenTaskBtn, titlebarOpenPrBtn, titlebarOpenMergedPrBtn, titlebarRemoveBtn];
+const allTitlebarActionBtns = [titlebarOpenExplorerBtn, titlebarGitAppBtn, titlebarSwitchBtn, titlebarCommitBtn, titlebarCreatePrBtn, titlebarCompletePrBtn, titlebarOpenPipelineBtn, titlebarInstallBtn, titlebarResolveTaskBtn, titlebarSetTaskBtn, titlebarOpenTaskBtn, titlebarOpenPrBtn, titlebarOpenMergedPrBtn, titlebarRemoveBtn];
 
 function updateTitlebarActions(hasActive) {
   if (!hasActive) {
@@ -163,8 +162,7 @@ function syncTitlebarToTab() {
   titlebarInstallBtn.classList.toggle('visible', !hasChanges && canInstall);
   titlebarResolveTaskBtn.classList.toggle('visible', !hasChanges && canResolve);
   titlebarSetTaskBtn.classList.toggle('visible', !hasTask);
-  titlebarRebaseBtn.classList.toggle('visible', true);
-  titlebarOpenTaskBtn.classList.toggle('visible', hasTask);
+titlebarOpenTaskBtn.classList.toggle('visible', hasTask);
 
   titlebarOpenPrBtn.classList.toggle('visible', hasPr);
 

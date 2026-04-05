@@ -1,7 +1,7 @@
 import {
   DOT_COMMIT_PUSH_SVG, DOT_CREATE_PR_SVG, DOT_OPEN_PR_SVG, DOT_COMPLETE_PR_SVG,
   DOT_RESOLVE_TASK_SVG, DOT_PIPELINE_SVG, DOT_OPEN_TASK_SVG, DOT_SWITCH_SVG,
-  DOT_SET_TASK_SVG, DOT_REBASE_SVG, DOT_OPEN_MERGED_PR_SVG, INSTALL_BTN_SVG, BIN_ICON_SVG,
+  DOT_SET_TASK_SVG, DOT_OPEN_MERGED_PR_SVG, INSTALL_BTN_SVG, BIN_ICON_SVG,
   OPEN_DIRECTORY_SVG, OPEN_EXPLORER_SVG, CLONE_REPO_SVG, AZURE_PAT_SVG,
   GIT_APP_SVG, THEME_DARK_SVG, THEME_LIGHT_SVG, TERMINAL_SVG, UPDATE_SVG,
 } from './sidebar/worktree-tab-icons.js';
@@ -22,8 +22,7 @@ const BUTTON_ICONS = {
   'btn-titlebar-remove': BIN_ICON_SVG,
   'btn-titlebar-install': INSTALL_BTN_SVG,
   'btn-titlebar-set-task': DOT_SET_TASK_SVG,
-  'btn-titlebar-rebase': DOT_REBASE_SVG,
-  'btn-titlebar-open-merged-pr': DOT_OPEN_MERGED_PR_SVG,
+'btn-titlebar-open-merged-pr': DOT_OPEN_MERGED_PR_SVG,
   'btn-titlebar-git-app': GIT_APP_SVG,
   'btn-titlebar-switch': DOT_SWITCH_SVG,
   'btn-theme': THEME_DARK_SVG + THEME_LIGHT_SVG,

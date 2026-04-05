@@ -9,9 +9,6 @@ export { showResolveTaskDialog } from './dialog-resolve.js';
 export { showInstallDialog, showVerifyDialog } from './dialog-verify.js';
 export { showCompletePrDialog } from './dialog-complete-pr.js';
 export { showSetTaskDialog } from './dialog-set-task.js';
-export { showRebaseDialog } from './dialog-rebase.js';
-export { showCherryPickDialog, hideCherryPickDialog } from './dialog-cherrypick.js';
-
 import { registerWorktreeSidebarFns } from './dialog-worktree.js';
 import { registerSwitchSidebarFns } from './dialog-switch.js';
 import { registerCloneSidebarFns } from './dialog-clone.js';

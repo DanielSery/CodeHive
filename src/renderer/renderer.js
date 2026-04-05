@@ -1,6 +1,6 @@
-import { addRepoGroup, clearAllGroups, createWorktreeTab, rebuildCollapsedDots, registerWorktreeDialog, registerDeleteDialog, registerWorktreeRemoveDialog, registerWorktreeSwitchDialog, registerCommitPushDialog, registerCreatePrDialog, registerSetTaskDialog, registerRebaseDialog, registerCherryPickDialog, registerToggleTerminal, registerOnStateChange, registerRefreshTabStatus, removeRepoGroup, showTabCloseButton, showTabRemoveButton, refreshTabStatus } from './sidebar/index.js';
+import { addRepoGroup, clearAllGroups, createWorktreeTab, rebuildCollapsedDots, registerWorktreeDialog, registerDeleteDialog, registerWorktreeRemoveDialog, registerWorktreeSwitchDialog, registerCommitPushDialog, registerCreatePrDialog, registerSetTaskDialog, registerToggleTerminal, registerOnStateChange, registerRefreshTabStatus, removeRepoGroup, showTabCloseButton, showTabRemoveButton, refreshTabStatus } from './sidebar/index.js';
 import './titlebar-icons.js';
-import { showWorktreeDialog, showCloneDialog, showDeleteDialog, showWorktreeRemoveDialog, showWorktreeSwitchDialog, showCommitPushDialog, showCreatePrDialog, showSetTaskDialog, showRebaseDialog, showCherryPickDialog, registerSidebarFns, registerRemoveRepoGroup, registerOnCloneComplete } from './dialogs/index.js';
+import { showWorktreeDialog, showCloneDialog, showDeleteDialog, showWorktreeRemoveDialog, showWorktreeSwitchDialog, showCommitPushDialog, showCreatePrDialog, showSetTaskDialog, registerSidebarFns, registerRemoveRepoGroup, registerOnCloneComplete } from './dialogs/index.js';
 
 import { cycleWorkspace, registerTabButtonFns } from './workspace-manager.js';
 import { getActive } from './state.js';
@@ -22,8 +22,6 @@ registerWorktreeSwitchDialog(showWorktreeSwitchDialog);
 registerCommitPushDialog(showCommitPushDialog);
 registerCreatePrDialog(showCreatePrDialog);
 registerSetTaskDialog(showSetTaskDialog);
-registerRebaseDialog(showRebaseDialog);
-registerCherryPickDialog(showCherryPickDialog);
 registerToggleTerminal(toggleTerminal);
 registerRefreshTabStatus(refreshTabStatus);
 registerTabButtonFns(showTabCloseButton, showTabRemoveButton);
@@ -102,10 +100,6 @@ document.getElementById('btn-titlebar-install').addEventListener('click', () => 
 document.getElementById('btn-titlebar-set-task').addEventListener('click', () => {
   const ws = getActive();
   if (ws) showSetTaskDialog(ws.tabEl);
-});
-document.getElementById('btn-titlebar-rebase').addEventListener('click', () => {
-  const ws = getActive();
-  if (ws) showRebaseDialog(ws.tabEl, ws.tabEl.closest('.repo-group'));
 });
 document.getElementById('btn-titlebar-open-merged-pr').addEventListener('click', () => {
   const ws = getActive();
