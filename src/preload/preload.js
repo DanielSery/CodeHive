@@ -28,6 +28,7 @@ contextBridge.exposeInMainWorld('reposAPI', {
   gitRevertLines: (wtPath, filePath, changes) => ipcRenderer.invoke('repos:gitRevertLines', { wtPath, filePath, changes }),
   gitGetFileLines: (wtPath, filePath, startLine, endLine) => ipcRenderer.invoke('repos:gitGetFileLines', { wtPath, filePath, startLine, endLine }),
   rebaseCommits: (wtPath, sourceBranch) => ipcRenderer.invoke('repos:rebaseCommits', { wtPath, sourceBranch }),
+  cherryPickCommits: (sourceWtPath, targetBranch) => ipcRenderer.invoke('repos:cherryPickCommits', { sourceWtPath, targetBranch }),
 });
 
 // Helper: returns a disposer function. Exit uses `once` (auto-removes); data uses `on` with returned disposer.
@@ -65,22 +66,59 @@ contextBridge.exposeInMainWorld('rebaseAPI', {
     ipcRenderer.once('rebase:exit', handler);
     return () => ipcRenderer.removeListener('rebase:exit', handler);
   },
-  forcePushStart: (opts) => ipcRenderer.invoke('rebase:forcePushStart', opts),
-  forcePushReady: () => ipcRenderer.send('rebase:forcePushReady'),
-  onForcePushData: (cb) => {
+  fastForwardStart: (opts) => ipcRenderer.invoke('rebase:fastForwardStart', opts),
+  fastForwardReady: () => ipcRenderer.send('rebase:fastForwardReady'),
+  onFastForwardData: (cb) => {
     const handler = (_, data) => cb(data);
-    ipcRenderer.on('rebase:forcePushData', handler);
-    return () => ipcRenderer.removeListener('rebase:forcePushData', handler);
+    ipcRenderer.on('rebase:fastForwardData', handler);
+    return () => ipcRenderer.removeListener('rebase:fastForwardData', handler);
   },
-  onForcePushExit: (cb) => {
+  onFastForwardExit: (cb) => {
     const handler = (_, info) => cb(info);
-    ipcRenderer.once('rebase:forcePushExit', handler);
-    return () => ipcRenderer.removeListener('rebase:forcePushExit', handler);
+    ipcRenderer.once('rebase:fastForwardExit', handler);
+    return () => ipcRenderer.removeListener('rebase:fastForwardExit', handler);
   },
 });
 
 contextBridge.exposeInMainWorld('worktreeAPI', {
   ...makeApi('worktree:data', 'worktree:exit', 'worktree:start', 'worktree:ready'),
+});
+
+contextBridge.exposeInMainWorld('cherryPickAPI', {
+  ...makeApi('cherryPick:data', 'cherryPick:exit', 'cherryPick:start', 'cherryPick:ready'),
+});
+
+contextBridge.exposeInMainWorld('pushAPI', {
+  start: (opts) => ipcRenderer.invoke('push:start', opts),
+  ready: () => ipcRenderer.send('push:ready'),
+  onData: (cb) => {
+    const handler = (_, data) => cb(data);
+    ipcRenderer.on('push:data', handler);
+    return () => ipcRenderer.removeListener('push:data', handler);
+  },
+  onExit: (cb) => {
+    const handler = (_, info) => cb(info);
+    ipcRenderer.once('push:exit', handler);
+    return () => ipcRenderer.removeListener('push:exit', handler);
+  },
+  forcePushStart: (opts) => ipcRenderer.invoke('push:forcePushStart', opts),
+  forcePushReady: () => ipcRenderer.send('push:forcePushReady'),
+  onForcePushData: (cb) => {
+    const handler = (_, data) => cb(data);
+    ipcRenderer.on('push:forcePushData', handler);
+    return () => ipcRenderer.removeListener('push:forcePushData', handler);
+  },
+  onForcePushExit: (cb) => {
+    const handler = (_, info) => cb(info);
+    ipcRenderer.once('push:forcePushExit', handler);
+    return () => ipcRenderer.removeListener('push:forcePushExit', handler);
+  },
+  removeListeners: () => {
+    ipcRenderer.removeAllListeners('push:data');
+    ipcRenderer.removeAllListeners('push:exit');
+    ipcRenderer.removeAllListeners('push:forcePushData');
+    ipcRenderer.removeAllListeners('push:forcePushExit');
+  },
 });
 
 contextBridge.exposeInMainWorld('cloneAPI', {

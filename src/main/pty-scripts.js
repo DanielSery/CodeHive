@@ -266,15 +266,7 @@ function buildCommitPushScript(wtPath, { title, description, branch, files }) {
     lines.push(')');
     lines.push(`del "${msgPathWin}" 2>nul`);
     lines.push('echo.');
-    lines.push(`echo Pushing to origin/${branch}...`);
-    lines.push(`git push -u origin ${shellQuote(branch)}`);
-    lines.push('if %errorlevel% neq 0 (');
-    lines.push('  echo.');
-    lines.push('  echo Push failed.');
-    lines.push('  exit /b 1');
-    lines.push(')');
-    lines.push('echo.');
-    lines.push('echo === COMMIT AND PUSH COMPLETE ===');
+    lines.push('echo === COMMIT COMPLETE ===');
   } else {
     lines.push('#!/bin/sh');
     lines.push('set -e');
@@ -285,10 +277,7 @@ function buildCommitPushScript(wtPath, { title, description, branch, files }) {
     lines.push(`git commit -F ${shellQuote(msgPath)}`);
     lines.push(`rm -f ${shellQuote(msgPath)}`);
     lines.push('echo ""');
-    lines.push(`echo "Pushing to origin/${branch}..."`);
-    lines.push(`git push -u origin ${shellQuote(branch)}`);
-    lines.push('echo ""');
-    lines.push('echo "=== COMMIT AND PUSH COMPLETE ==="');
+    lines.push('echo "=== COMMIT COMPLETE ==="');
   }
 
   fs.writeFileSync(scriptPath, lines.join('\n'), { encoding: 'utf8' });
@@ -515,4 +504,142 @@ function buildForcePushScript(wtPath) {
   return { cmd, cwd: wtPath, scriptPath };
 }
 
-module.exports = { buildWorktreeCmd, buildCloneCmd, buildDeleteScript, buildWorktreeRemoveScript, buildWorktreeSwitchScript, buildCommitPushScript, buildPrCreateScript, buildRebaseScript, buildForcePushScript, shellQuote, assertSafeRef };
+function buildRegularPushScript(wtPath) {
+  const isWin = process.platform === 'win32';
+  const scriptExt = isWin ? '.cmd' : '.sh';
+  const scriptPath = path.join(os.tmpdir(), `codehive-push-${Date.now()}${scriptExt}`);
+
+  if (isWin) {
+    const lines = [
+      '@echo off',
+      'echo Pushing to origin...',
+      'git push origin HEAD',
+      'if %errorlevel% neq 0 (',
+      '  echo.',
+      '  echo Push failed.',
+      '  exit /b 1',
+      ')',
+      'echo.',
+      'echo === PUSH COMPLETE ===',
+    ];
+    fs.writeFileSync(scriptPath, lines.join('\r\n'), { encoding: 'utf8' });
+  } else {
+    const lines = [
+      '#!/bin/sh',
+      'echo "Pushing to origin..."',
+      'git push origin HEAD',
+      'PUSH_STATUS=$?',
+      'if [ "$PUSH_STATUS" -ne 0 ]; then',
+      '  echo ""',
+      '  echo "Push failed."',
+      '  exit 1',
+      'fi',
+      'echo ""',
+      'echo "=== PUSH COMPLETE ==="',
+    ];
+    fs.writeFileSync(scriptPath, lines.join('\n'), { encoding: 'utf8' });
+    fs.chmodSync(scriptPath, 0o755);
+  }
+
+  const cmd = isWin ? scriptPath : `sh ${shellQuote(scriptPath)}`;
+  return { cmd, cwd: wtPath, scriptPath };
+}
+
+/**
+ * Build a script that cherry-picks a list of commits into the target worktree.
+ *
+ * @param {string} wtPath - target worktree directory
+ * @param {{ sourceBranch: string, targetBranch: string, commits: string[] }} opts - commits are hashes to cherry-pick in order
+ */
+function buildFastForwardScript(wtPath, { branch }) {
+  assertSafeRef(branch);
+  const isWin = process.platform === 'win32';
+  const scriptExt = isWin ? '.cmd' : '.sh';
+  const scriptPath = path.join(os.tmpdir(), `codehive-ff-${Date.now()}${scriptExt}`);
+  const ref = `origin/${branch}`;
+
+  if (isWin) {
+    const lines = [
+      '@echo off',
+      `echo Fast-forwarding to ${ref}...`,
+      `git merge --ff-only ${shellQuote(ref)}`,
+      'if %errorlevel% neq 0 (',
+      '  echo.',
+      '  echo Fast-forward failed.',
+      '  exit /b 1',
+      ')',
+      'echo.',
+      'echo === FAST-FORWARD COMPLETE ===',
+    ];
+    fs.writeFileSync(scriptPath, lines.join('\r\n'), { encoding: 'utf8' });
+  } else {
+    const lines = [
+      '#!/bin/sh',
+      `echo "Fast-forwarding to ${ref}..."`,
+      `git merge --ff-only ${shellQuote(ref)}`,
+      'STATUS=$?',
+      'if [ "$STATUS" -ne 0 ]; then',
+      '  echo ""',
+      '  echo "Fast-forward failed."',
+      '  exit 1',
+      'fi',
+      'echo ""',
+      'echo "=== FAST-FORWARD COMPLETE ==="',
+    ];
+    fs.writeFileSync(scriptPath, lines.join('\n'), { encoding: 'utf8' });
+    fs.chmodSync(scriptPath, 0o755);
+  }
+
+  const cmd = isWin ? scriptPath : `sh ${shellQuote(scriptPath)}`;
+  return { cmd, cwd: wtPath, scriptPath };
+}
+
+function buildCherryPickScript(wtPath, { sourceBranch, targetBranch, commits }) {
+  assertSafeRef(sourceBranch);
+  assertSafeRef(targetBranch);
+  for (const hash of commits) {
+    if (!/^[0-9a-f]{7,40}$/.test(hash)) throw new Error(`Invalid commit hash: ${hash}`);
+  }
+
+  const isWin = process.platform === 'win32';
+  const scriptExt = isWin ? '.cmd' : '.sh';
+  const scriptPath = path.join(os.tmpdir(), `codehive-cherrypick-${Date.now()}${scriptExt}`);
+  const hashList = commits.map(shellQuote).join(' ');
+
+  if (isWin) {
+    const lines = [
+      '@echo off',
+      `echo Cherry-picking ${commits.length} commit(s) from ${sourceBranch} onto ${targetBranch}...`,
+      `git cherry-pick ${hashList}`,
+      'if %errorlevel% neq 0 (',
+      '  echo.',
+      '  echo Cherry-pick failed.',
+      '  exit /b 1',
+      ')',
+      'echo.',
+      'echo === CHERRY-PICK COMPLETE ===',
+    ];
+    fs.writeFileSync(scriptPath, lines.join('\r\n'), { encoding: 'utf8' });
+  } else {
+    const lines = [
+      '#!/bin/sh',
+      `echo "Cherry-picking ${commits.length} commit(s) from ${sourceBranch} onto ${targetBranch}..."`,
+      `git cherry-pick ${hashList}`,
+      'STATUS=$?',
+      'if [ "$STATUS" -ne 0 ]; then',
+      '  echo ""',
+      '  echo "Cherry-pick failed."',
+      '  exit 1',
+      'fi',
+      'echo ""',
+      'echo "=== CHERRY-PICK COMPLETE ==="',
+    ];
+    fs.writeFileSync(scriptPath, lines.join('\n'), { encoding: 'utf8' });
+    fs.chmodSync(scriptPath, 0o755);
+  }
+
+  const cmd = isWin ? scriptPath : `sh ${shellQuote(scriptPath)}`;
+  return { cmd, cwd: wtPath, scriptPath };
+}
+
+module.exports = { buildWorktreeCmd, buildCloneCmd, buildDeleteScript, buildWorktreeRemoveScript, buildWorktreeSwitchScript, buildCommitPushScript, buildPrCreateScript, buildRebaseScript, buildForcePushScript, buildRegularPushScript, buildFastForwardScript, buildCherryPickScript, shellQuote, assertSafeRef };

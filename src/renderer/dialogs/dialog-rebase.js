@@ -1,5 +1,7 @@
 import { terminal, registerPtyApi } from '../terminal-panel.js';
 import { runPty } from './pty-runner.js';
+import { refreshTabStatus } from '../sidebar/worktree-tab-status.js';
+import { runPushFlow } from '../push-flow.js';
 
 registerPtyApi(window.rebaseAPI);
 import { getCachedBranchesFromState, saveBranchCache } from '../storage.js';
@@ -7,7 +9,6 @@ import { toast } from '../toast.js';
 import { createCombobox } from './combobox.js';
 
 const rebaseDialogOverlay = document.getElementById('rebase-dialog-overlay');
-const rebasePushConfirmOverlay = document.getElementById('rebase-push-confirm-overlay');
 const rebaseBaseSearch = document.getElementById('rebase-base-search');
 const rebaseBaseList = document.getElementById('rebase-base-list');
 const rebaseCommitsList = document.getElementById('rebase-commits-list');
@@ -15,6 +16,7 @@ const rebaseNoCommits = document.getElementById('rebase-no-commits');
 const rebaseLoadingCommits = document.getElementById('rebase-loading-commits');
 const rebaseCommitHint = document.getElementById('rebase-commit-hint');
 const rebaseConfirmBtn = document.getElementById('rebase-confirm-btn');
+const rebaseFastForwardBtn = document.getElementById('rebase-fast-forward-btn');
 const rebaseBulkToolbar = document.getElementById('rebase-bulk-toolbar');
 const rebaseBulkCount = document.getElementById('rebase-bulk-count');
 
@@ -96,10 +98,18 @@ async function loadCommitsForBranch(branch) {
   rebaseLoadingCommits.style.display = 'none';
 
   if (!raw || raw.length === 0) {
+    // Nothing to rebase — offer fast-forward instead
     rebaseNoCommits.style.display = '';
+    rebaseNoCommits.textContent = `No commits to rebase. Branch can be fast-forwarded to ${branch}.`;
     rebaseCommitHint.textContent = '';
+    rebaseConfirmBtn.style.display = 'none';
+    rebaseFastForwardBtn.style.display = '';
+    rebaseFastForwardBtn.dataset.branch = branch;
     return;
   }
+
+  rebaseFastForwardBtn.style.display = 'none';
+  rebaseConfirmBtn.style.display = '';
 
   rebaseCommits = raw.map(c => ({ action: 'pick', hash: c.hash, message: c.message })).reverse();
   renderCommits();
@@ -204,6 +214,10 @@ function buildCommitRow(index) {
     if (opt === c.action) o.selected = true;
     select.appendChild(o);
   }
+  const hashEl = document.createElement('span');
+  hashEl.className = 'rebase-commit-hash';
+  hashEl.textContent = c.hash.slice(0, 7);
+
   const msg = document.createElement('span');
   msg.className = 'rebase-commit-message';
   msg.textContent = c.message;
@@ -249,6 +263,7 @@ function buildCommitRow(index) {
 
   item.appendChild(handle);
   item.appendChild(select);
+  item.appendChild(hashEl);
   item.appendChild(msg);
   item.appendChild(msgInput);
 
@@ -330,6 +345,8 @@ export async function showRebaseDialog(tabEl, groupEl) {
   rebaseLoadingCommits.style.display = 'none';
   rebaseCommitHint.textContent = '';
   rebaseConfirmBtn.disabled = true;
+  rebaseConfirmBtn.style.display = '';
+  rebaseFastForwardBtn.style.display = 'none';
 
   baseBranchCombobox.setItems([]);
   baseBranchCombobox.close();
@@ -384,8 +401,7 @@ export async function confirmRebase() {
     onSuccess: () => {
       terminal.writeln('\x1b[32mRebase completed successfully!\x1b[0m');
       terminal.setTitle('Rebase complete');
-      _forcePushWtPath = wtPath;
-      rebasePushConfirmOverlay.classList.add('visible');
+      runPushFlow(wtPath);
     },
     onError: () => {
       terminal.writeln('\x1b[31mRebase failed — aborting...\x1b[0m');
@@ -406,55 +422,45 @@ export async function confirmRebase() {
   }
 }
 
-// ---- Force push ----
-
-let _forcePushWtPath = null;
-
-function hidePushConfirm() {
-  rebasePushConfirmOverlay.classList.remove('visible');
-  _forcePushWtPath = null;
-}
-
-document.getElementById('rebase-push-skip-btn').addEventListener('click', () => {
-  hidePushConfirm();
-  showCloseButton();
-});
-
-document.getElementById('rebase-push-confirm-btn').addEventListener('click', async () => {
-  const wtPath = _forcePushWtPath;
-  hidePushConfirm();
-  setTitle('Force pushing...');
-
-  const disposeForceData = window.rebaseAPI.onForcePushData((data) => { terminal.write(data); });
-  window.rebaseAPI.onForcePushExit(({ exitCode }) => {
-    disposeForceData();
-    if (exitCode === 0) {
-      terminal.writeln('\x1b[32mForce push complete!\x1b[0m');
-      terminal.setTitle('Force push complete');
-    } else {
-      terminal.writeln('\x1b[31mForce push failed.\x1b[0m');
-      terminal.setTitle('Force push failed');
-      toast.error('Force push failed — see terminal');
-    }
-    terminal.showCloseButton();
-  });
-
-  try {
-    await window.rebaseAPI.forcePushStart({ wtPath });
-    window.rebaseAPI.forcePushReady();
-  } catch (err) {
-    disposeForceData();
-    terminal.writeln(`\x1b[31m${err.message || err}\x1b[0m`);
-    terminal.setTitle('Force push failed');
-    toast.error('Force push failed — see terminal');
-    terminal.showCloseButton();
-  }
-});
-
 // ---- Event listeners ----
 
 document.getElementById('rebase-cancel-btn').addEventListener('click', hideRebaseDialog);
 rebaseConfirmBtn.addEventListener('click', confirmRebase);
+rebaseFastForwardBtn.addEventListener('click', async () => {
+  const branch = rebaseFastForwardBtn.dataset.branch;
+  if (!branch || !rebaseTabEl) return;
+  const tabEl = rebaseTabEl;
+  const wtPath = tabEl._wtPath;
+  hideRebaseDialog();
+  terminal.show(`Fast-forwarding to ${branch}...`);
+
+  const disposeData = window.rebaseAPI.onFastForwardData((data) => terminal.write(data));
+  window.rebaseAPI.onFastForwardExit(({ exitCode }) => {
+    disposeData();
+    if (exitCode === 0) {
+      terminal.writeln('\x1b[32mFast-forward complete!\x1b[0m');
+      terminal.setTitle('Fast-forward complete');
+      refreshTabStatus(tabEl);
+      setTimeout(() => terminal.close(), 1200);
+    } else {
+      terminal.writeln('\x1b[31mFast-forward failed.\x1b[0m');
+      terminal.setTitle('Fast-forward failed');
+      toast.error('Fast-forward failed — see terminal');
+      terminal.showCloseButton();
+    }
+  });
+
+  try {
+    await window.rebaseAPI.fastForwardStart({ wtPath, branch });
+    window.rebaseAPI.fastForwardReady();
+  } catch (err) {
+    disposeData();
+    terminal.writeln(`\x1b[31m${err.message || err}\x1b[0m`);
+    terminal.setTitle('Fast-forward failed');
+    toast.error('Fast-forward failed — see terminal');
+    terminal.showCloseButton();
+  }
+});
 
 rebaseBaseSearch.addEventListener('keydown', (e) => {
   if (e.key === 'Escape') hideRebaseDialog();

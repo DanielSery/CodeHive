@@ -1,7 +1,6 @@
-import { addRepoGroup, clearAllGroups, createWorktreeTab, rebuildCollapsedDots, registerWorktreeDialog, registerDeleteDialog, registerWorktreeRemoveDialog, registerWorktreeSwitchDialog, registerCommitPushDialog, registerCreatePrDialog, registerSetTaskDialog, registerRebaseDialog, registerToggleTerminal, registerOnStateChange, registerRefreshTabStatus, removeRepoGroup, showTabCloseButton, showTabRemoveButton, refreshTabStatus, refreshAllPlaceholders, clearAllPlaceholders } from './sidebar/index.js';
+import { addRepoGroup, clearAllGroups, createWorktreeTab, rebuildCollapsedDots, registerWorktreeDialog, registerDeleteDialog, registerWorktreeRemoveDialog, registerWorktreeSwitchDialog, registerCommitPushDialog, registerCreatePrDialog, registerSetTaskDialog, registerRebaseDialog, registerCherryPickDialog, registerToggleTerminal, registerOnStateChange, registerRefreshTabStatus, removeRepoGroup, showTabCloseButton, showTabRemoveButton, refreshTabStatus } from './sidebar/index.js';
 import './titlebar-icons.js';
-import { TASK_PLACEHOLDERS_SVG, TASK_PLACEHOLDERS_ACTIVE_SVG } from './sidebar/worktree-tab-icons.js';
-import { showWorktreeDialog, showCloneDialog, showDeleteDialog, showWorktreeRemoveDialog, showWorktreeSwitchDialog, showCommitPushDialog, showCreatePrDialog, showSetTaskDialog, showRebaseDialog, registerSidebarFns, registerRemoveRepoGroup, registerOnCloneComplete } from './dialogs/index.js';
+import { showWorktreeDialog, showCloneDialog, showDeleteDialog, showWorktreeRemoveDialog, showWorktreeSwitchDialog, showCommitPushDialog, showCreatePrDialog, showSetTaskDialog, showRebaseDialog, showCherryPickDialog, registerSidebarFns, registerRemoveRepoGroup, registerOnCloneComplete } from './dialogs/index.js';
 
 import { cycleWorkspace, registerTabButtonFns } from './workspace-manager.js';
 import { getActive } from './state.js';
@@ -9,7 +8,7 @@ import { getWtState } from './worktree-state.js';
 import { toggleTerminal } from './terminal-panel.js';
 import { pr } from './pr-service.js';
 import { pipeline } from './pipeline-service.js';
-import { saveDirectories, getTaskPlaceholdersEnabled, saveTaskPlaceholdersEnabled } from './storage.js';
+import { saveDirectories } from './storage.js';
 import { saveState, restoreState, onOpenDirectory } from './app-state-service.js';
 import { checkAndInstallAz, initPatButton } from './az-service.js';
 import { showUpdateDialog } from './dialogs/dialog-update.js';
@@ -24,6 +23,7 @@ registerCommitPushDialog(showCommitPushDialog);
 registerCreatePrDialog(showCreatePrDialog);
 registerSetTaskDialog(showSetTaskDialog);
 registerRebaseDialog(showRebaseDialog);
+registerCherryPickDialog(showCherryPickDialog);
 registerToggleTerminal(toggleTerminal);
 registerRefreshTabStatus(refreshTabStatus);
 registerTabButtonFns(showTabCloseButton, showTabRemoveButton);
@@ -146,28 +146,6 @@ document.getElementById('btn-titlebar-remove').addEventListener('click', () => {
   });
 })();
 
-// ===== Task placeholders toggle =====
-
-(function() {
-  const btn = document.getElementById('btn-task-placeholders');
-
-  function applyPlaceholderIcon(enabled) {
-    btn.innerHTML = enabled ? TASK_PLACEHOLDERS_ACTIVE_SVG : TASK_PLACEHOLDERS_SVG;
-  }
-
-  applyPlaceholderIcon(getTaskPlaceholdersEnabled());
-
-  btn.addEventListener('click', () => {
-    const next = !getTaskPlaceholdersEnabled();
-    saveTaskPlaceholdersEnabled(next);
-    applyPlaceholderIcon(next);
-    if (next) {
-      refreshAllPlaceholders();
-    } else {
-      clearAllPlaceholders();
-    }
-  });
-})();
 
 document.getElementById('btn-minimize').addEventListener('click', () => window.windowAPI.minimize());
 document.getElementById('btn-maximize').addEventListener('click', () => window.windowAPI.maximize());
@@ -210,5 +188,4 @@ document.getElementById('btn-check-updates').addEventListener('click', () => sho
 
 restoreState().then(() => {
   checkAndInstallAz();
-  if (getTaskPlaceholdersEnabled()) refreshAllPlaceholders();
 });

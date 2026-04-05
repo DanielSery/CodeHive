@@ -4,7 +4,7 @@ import { getSourceBranch, getTaskId, getPipelineInstalled } from '../storage.js'
 import { pipeline } from '../pipeline-service.js';
 import { rebuildCollapsedDots, collapsedDotsEl } from './collapsed-dots.js';
 import { showContextMenu } from './context-menu.js';
-import { _showWorktreeSwitchDialog, _showWorktreeRemoveDialog, _showCommitPushDialog, _showCreatePrDialog, _onStateChange } from './registers.js';
+import { _showWorktreeSwitchDialog, _showWorktreeRemoveDialog, _showCommitPushDialog, _showCreatePrDialog, _showCherryPickDialog, _onStateChange } from './registers.js';
 import { pr } from '../pr-service.js';
 import { showResolveTaskDialog } from '../dialogs/dialog-resolve.js';
 import { showInstallDialog } from '../dialogs/dialog-verify.js';
@@ -14,6 +14,19 @@ import { refreshTabStatus, showFallbackSwitch } from './worktree-tab-status.js';
 import { initWtState, getWtState } from '../worktree-state.js';
 
 export { refreshTabStatus } from './worktree-tab-status.js';
+
+export function setReorderDropTarget(tabsEl, insertBefore) {
+  _reorderTabsEl = tabsEl;
+  _reorderInsertBefore = insertBefore;
+}
+
+// Module-level state for cross-tab drag-to-cherry-pick
+let _dragSourceTabEl = null;
+let _dragSourceNextSibling = null;
+let _dragSourceParent = null;
+let _cherryPickTarget = null;
+let _reorderTabsEl = null;
+let _reorderInsertBefore = undefined; // undefined = no pending reorder, null = append
 
 export function showTabCloseButton(tabEl) {
   const switchBtn = tabEl.querySelector('.workspace-tab-switch');
@@ -297,6 +310,10 @@ export function createWorktreeTab(wt) {
   tabEl.addEventListener('dragstart', (e) => {
     e.stopPropagation();
     e.dataTransfer.effectAllowed = 'move';
+    _dragSourceTabEl = tabEl;
+    _dragSourceParent = tabEl.parentNode;
+    _dragSourceNextSibling = tabEl.nextSibling;
+    _cherryPickTarget = null;
     tabEl.classList.add('dragging');
     setTimeout(() => tabEl.classList.add('drag-ghost'), 0);
   });
@@ -307,12 +324,49 @@ export function createWorktreeTab(wt) {
     const tabsEl = tabEl.closest('.repo-group-tabs');
     if (tabsEl) {
       tabsEl.querySelectorAll('.workspace-tab.drag-over').forEach(el => el.classList.remove('drag-over'));
+      tabsEl.querySelectorAll('.workspace-tab.cherry-pick-target').forEach(el => el.classList.remove('cherry-pick-target'));
+      tabsEl.querySelectorAll('.workspace-tab.drag-drop-above').forEach(el => el.classList.remove('drag-drop-above'));
+      tabsEl.querySelectorAll('.workspace-tab.drag-drop-below').forEach(el => el.classList.remove('drag-drop-below'));
       // Ensure "Add worktree" button always stays last
       const addBtn = tabsEl.querySelector('.repo-group-tabs-add');
       if (addBtn) tabsEl.appendChild(addBtn);
     }
-    rebuildCollapsedDots();
-    if (_onStateChange) _onStateChange();
+
+    if (_cherryPickTarget && _dragSourceTabEl && _dragSourceTabEl !== _cherryPickTarget) {
+      // Restore dragging tab to its original DOM position before showing dialog
+      if (_dragSourceNextSibling) {
+        _dragSourceParent.insertBefore(_dragSourceTabEl, _dragSourceNextSibling);
+      } else {
+        _dragSourceParent.appendChild(_dragSourceTabEl);
+      }
+      const addBtn2 = _dragSourceParent?.querySelector('.repo-group-tabs-add');
+      if (addBtn2) _dragSourceParent.appendChild(addBtn2);
+
+      const sourceTab = _dragSourceTabEl;
+      const targetTab = _cherryPickTarget;
+      _cherryPickTarget = null;
+      _dragSourceTabEl = null;
+      _reorderTabsEl = null;
+      _reorderInsertBefore = undefined;
+      if (_showCherryPickDialog) _showCherryPickDialog(sourceTab, targetTab);
+    } else {
+      // Apply the pending reorder on drop
+      if (_reorderTabsEl && _reorderInsertBefore !== undefined && _dragSourceTabEl) {
+        // When appending (null), insert before the first placeholder to keep worktrees above placeholders
+        const insertTarget = _reorderInsertBefore === null
+          ? (_reorderTabsEl.querySelector('.repo-group-tabs-placeholder') || null)
+          : _reorderInsertBefore;
+        _reorderTabsEl.insertBefore(_dragSourceTabEl, insertTarget);
+        const addBtn3 = _reorderTabsEl.querySelector('.repo-group-tabs-add');
+        if (addBtn3) _reorderTabsEl.appendChild(addBtn3);
+      }
+      _cherryPickTarget = null;
+      _dragSourceTabEl = null;
+      _reorderTabsEl = null;
+      _reorderInsertBefore = undefined;
+      rebuildCollapsedDots();
+      if (_onStateChange) _onStateChange();
+    }
   });
 
   tabEl.addEventListener('dragover', (e) => {
@@ -324,24 +378,41 @@ export function createWorktreeTab(wt) {
     const dragging = tabsEl.querySelector('.workspace-tab.dragging');
     if (!dragging || dragging === tabEl) return;
 
-    tabsEl.querySelectorAll('.workspace-tab.drag-over').forEach(el => el.classList.remove('drag-over'));
-    tabEl.classList.add('drag-over');
-
+    // Determine zone: center 50% = cherry-pick, top/bottom 25% = reorder
     const rect = tabEl.getBoundingClientRect();
-    const midY = rect.top + rect.height / 2;
-    if (e.clientY < midY) {
-      tabsEl.insertBefore(dragging, tabEl);
+    const relY = e.clientY - rect.top;
+    const isCenterZone = relY >= rect.height * 0.25 && relY <= rect.height * 0.75;
+
+    tabsEl.querySelectorAll('.workspace-tab.drag-over').forEach(el => el.classList.remove('drag-over'));
+    tabsEl.querySelectorAll('.workspace-tab.cherry-pick-target').forEach(el => el.classList.remove('cherry-pick-target'));
+
+    if (isCenterZone) {
+      // Cherry-pick mode: highlight target
+      _cherryPickTarget = tabEl;
+      _reorderTabsEl = null;
+      _reorderInsertBefore = undefined;
+      tabEl.classList.add('cherry-pick-target');
     } else {
-      tabsEl.insertBefore(dragging, tabEl.nextSibling);
+      // Reorder mode: show drop indicator without moving the DOM
+      _cherryPickTarget = null;
+      _reorderTabsEl = tabsEl;
+      const midY = rect.top + rect.height / 2;
+      if (e.clientY < midY) {
+        _reorderInsertBefore = tabEl;
+        tabEl.classList.add('drag-drop-above');
+      } else {
+        // insertBefore the next sibling (or null to append)
+        const next = tabEl.nextSibling;
+        _reorderInsertBefore = (next && next.classList && next.classList.contains('workspace-tab')) ? next : null;
+        tabEl.classList.add('drag-drop-below');
+      }
     }
-    // Ensure "Add worktree" button always stays last
-    const addBtn = tabsEl.querySelector('.repo-group-tabs-add');
-    if (addBtn) tabsEl.appendChild(addBtn);
   });
 
   tabEl.addEventListener('dragleave', (e) => {
     e.stopPropagation();
-    tabEl.classList.remove('drag-over');
+    tabEl.classList.remove('drag-over', 'cherry-pick-target', 'drag-drop-above', 'drag-drop-below');
+    if (_cherryPickTarget === tabEl) _cherryPickTarget = null;
   });
 
   return tabEl;

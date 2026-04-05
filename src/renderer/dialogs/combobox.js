@@ -30,24 +30,32 @@ export function createCombobox(config) {
     onEnterNoMatch,
     onEnterMatch,
     openOnFocus = true,
+    prioritizeFn,
   } = config;
 
   let items = [];
   let highlightIndex = -1;
 
+  function sortItems(arr, q) {
+    return arr.sort((a, b) => {
+      if (prioritizeFn) {
+        const pA = prioritizeFn(a) ? 1 : 0;
+        const pB = prioritizeFn(b) ? 1 : 0;
+        if (pA !== pB) return pB - pA;
+      }
+      return fuzzyScore(getLabel(b), q) - fuzzyScore(getLabel(a), q);
+    });
+  }
+
   function getFiltered(filter) {
     const q = (typeof filter === 'string' ? filter : inputEl.value || '').toLowerCase();
-    return items
-      .filter(item => fuzzyMatch(getLabel(item), q))
-      .sort((a, b) => fuzzyScore(getLabel(b), q) - fuzzyScore(getLabel(a), q));
+    return sortItems(items.filter(item => fuzzyMatch(getLabel(item), q)), q);
   }
 
   function render(filter) {
     listEl.innerHTML = '';
     const q = (typeof filter === 'string' ? filter : inputEl.value || '').toLowerCase();
-    const filtered = items
-      .filter(item => fuzzyMatch(getLabel(item), q))
-      .sort((a, b) => fuzzyScore(getLabel(b), q) - fuzzyScore(getLabel(a), q));
+    const filtered = sortItems(items.filter(item => fuzzyMatch(getLabel(item), q)), q);
 
     if (filtered.length === 0) {
       listEl.classList.remove('open');

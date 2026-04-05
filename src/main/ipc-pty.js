@@ -1,6 +1,6 @@
 const { ipcMain } = require('electron');
 const { exec, spawn } = require('child_process');
-const { createWorktreePty, createClonePty, createDeletePty, createWorktreeRemovePty, createWorktreeSwitchPty, createCommitPushPty, createPrCreatePty, createAzInstallPty, createSetupInstallPty, createRebasePty, createForcePushPty } = require('./pty-manager');
+const { createWorktreePty, createClonePty, createDeletePty, createWorktreeRemovePty, createWorktreeSwitchPty, createCommitPushPty, createPrCreatePty, createAzInstallPty, createSetupInstallPty, createRebasePty, createForcePushPty, createFastForwardPty, createCherryPickPty, createPushPty } = require('./pty-manager');
 
 let worktreePty = null;
 let clonePty = null;
@@ -13,6 +13,9 @@ let azInstallPty = null;
 let setupInstallPty = null;
 let rebasePty = null;
 let forcePushPty = null;
+let fastForwardPty = null;
+let cherryPickPty = null;
+let pushPty = null;
 
 function register(mainWindow) {
   // Worktree PTY
@@ -79,13 +82,37 @@ function register(mainWindow) {
   });
   ipcMain.on('rebase:ready', () => { if (rebasePty) rebasePty.flush(); });
 
-  // Force push PTY
-  ipcMain.handle('rebase:forcePushStart', (event, opts) => {
+  // Fast-forward PTY
+  ipcMain.handle('rebase:fastForwardStart', (event, opts) => {
+    const result = createFastForwardPty(mainWindow, opts);
+    fastForwardPty = result.proc;
+    return {};
+  });
+  ipcMain.on('rebase:fastForwardReady', () => { if (fastForwardPty) fastForwardPty.flush(); });
+
+  // Force push PTY (shared)
+  ipcMain.handle('push:forcePushStart', (event, opts) => {
     const result = createForcePushPty(mainWindow, opts);
     forcePushPty = result.proc;
     return {};
   });
-  ipcMain.on('rebase:forcePushReady', () => { if (forcePushPty) forcePushPty.flush(); });
+  ipcMain.on('push:forcePushReady', () => { if (forcePushPty) forcePushPty.flush(); });
+
+  // Regular push PTY (shared)
+  ipcMain.handle('push:start', (event, opts) => {
+    const result = createPushPty(mainWindow, opts);
+    pushPty = result.proc;
+    return {};
+  });
+  ipcMain.on('push:ready', () => { if (pushPty) pushPty.flush(); });
+
+  // Cherry-pick PTY
+  ipcMain.handle('cherryPick:start', (event, opts) => {
+    const result = createCherryPickPty(mainWindow, opts);
+    cherryPickPty = result.proc;
+    return {};
+  });
+  ipcMain.on('cherryPick:ready', () => { if (cherryPickPty) cherryPickPty.flush(); });
 
   // AZ CLI check & install
   ipcMain.handle('azInstall:check', () => {
@@ -129,7 +156,7 @@ function register(mainWindow) {
 }
 
 function killAllPtys() {
-  for (const pty of [worktreePty, clonePty, deletePty, worktreeRemovePty, worktreeSwitchPty, commitPushPty, prCreatePty, azInstallPty, rebasePty, forcePushPty]) {
+  for (const pty of [worktreePty, clonePty, deletePty, worktreeRemovePty, worktreeSwitchPty, commitPushPty, prCreatePty, azInstallPty, rebasePty, forcePushPty, fastForwardPty, cherryPickPty, pushPty]) {
     if (pty) pty.kill();
   }
 }

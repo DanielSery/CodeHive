@@ -20,8 +20,7 @@
       <button class="titlebar-action-btn visible" id="btn-open-directory" title="Open Directory (Ctrl+O)"></button>
       <button class="titlebar-action-btn visible" id="btn-clone-repo" title="Clone Repository"></button>
       <button class="titlebar-action-btn visible" id="btn-azure-pat" title="Set Azure PAT"></button>
-      <button class="titlebar-action-btn visible" id="btn-task-placeholders" title="Show New Task Placeholders"></button>
-      <button class="titlebar-action-btn visible" id="btn-theme" title="Toggle theme"></button>
+<button class="titlebar-action-btn visible" id="btn-theme" title="Toggle theme"></button>
       <button class="titlebar-action-btn visible" id="btn-check-updates" title="Check for Updates"></button>
     </div>
     <div class="titlebar-drag">
@@ -375,14 +374,15 @@
     </div>
   </div>
 
-  <!-- Rebase force push confirm -->
-  <div id="rebase-push-confirm-overlay" class="dialog-overlay">
-    <div class="dialog-box" style="max-width:380px;">
-      <h3 class="dialog-title">Force Push?</h3>
-      <p class="dialog-desc">Rebase succeeded. Force push the rebased branch to origin?</p>
+  <!-- Shared push confirm -->
+  <div id="push-confirm-overlay" class="dialog-overlay">
+    <div class="dialog-box" style="max-width:440px;">
+      <h3 class="dialog-title">Force Push Required</h3>
+      <p class="dialog-desc">The branch cannot be pushed without overwriting remote history.</p>
+      <pre id="push-confirm-reason" style="margin:8px 0 12px;padding:8px 10px;background:var(--bg-secondary,#1e1e1e);border-radius:4px;font-size:11px;white-space:pre-wrap;word-break:break-word;max-height:120px;overflow-y:auto;color:var(--text-muted,#aaa);"></pre>
       <div class="dialog-buttons">
-        <button id="rebase-push-skip-btn" class="dialog-btn dialog-btn-cancel" tabindex="-1">Skip</button>
-        <button id="rebase-push-confirm-btn" class="dialog-btn dialog-btn-confirm">Force Push</button>
+        <button id="push-skip-btn" class="dialog-btn dialog-btn-cancel" tabindex="-1">Skip</button>
+        <button id="push-force-btn" class="dialog-btn dialog-btn-danger">Force Push</button>
       </div>
     </div>
   </div>
@@ -411,12 +411,38 @@
             <button class="rebase-bulk-btn" data-action="drop"   title="Remove these commits from history">✖ drop</button>
           </div>
         </div>
-        <div id="rebase-no-commits" style="display:none;color:var(--text-muted);font-size:12px;padding:6px 0;">No commits found between HEAD and the selected branch.</div>
-        <div id="rebase-loading-commits" style="display:none;color:var(--text-muted);font-size:12px;padding:6px 0;">Loading commits...</div>
+        <div id="rebase-no-commits" style="display:none;">No commits found between HEAD and the selected branch.</div>
+        <div id="rebase-loading-commits" style="display:none;">Loading commits...</div>
       </div>
       <div class="dialog-buttons">
         <button id="rebase-cancel-btn" class="dialog-btn dialog-btn-cancel" tabindex="-1">Cancel</button>
+        <button id="rebase-fast-forward-btn" class="dialog-btn dialog-btn-confirm" style="display:none">Fast Forward</button>
         <button id="rebase-confirm-btn" class="dialog-btn dialog-btn-confirm" disabled>Rebase</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Interactive Cherry-Pick dialog -->
+  <div id="cherrypick-dialog-overlay" class="dialog-overlay">
+    <div id="cherrypick-dialog-box" class="dialog-box">
+      <h3 class="dialog-title">Cherry-Pick Commits</h3>
+      <p class="dialog-desc">Select commits from <strong id="cherrypick-source-branch"></strong> to cherry-pick onto <strong id="cherrypick-target-branch"></strong></p>
+      <label class="dialog-label" style="margin-top:4px;">Commits <span id="cherrypick-commit-hint" style="color:var(--text-muted);font-weight:400;"></span></label>
+      <div id="cherrypick-commits-container">
+        <div id="cherrypick-commits-row">
+          <div id="cherrypick-commits-list" class="rebase-commits-list"></div>
+          <div id="cherrypick-bulk-toolbar" class="rebase-bulk-toolbar" style="display:none;">
+            <span id="cherrypick-bulk-count" class="rebase-bulk-count"></span>
+            <button class="rebase-bulk-btn" data-action="pick" title="Cherry-pick these commits">✔ pick</button>
+            <button class="rebase-bulk-btn" data-action="drop" title="Skip these commits">✖ drop</button>
+          </div>
+        </div>
+        <div id="cherrypick-no-commits" style="display:none;">No unique commits found on source branch.</div>
+        <div id="cherrypick-loading-commits" style="display:none;">Loading commits...</div>
+      </div>
+      <div class="dialog-buttons">
+        <button id="cherrypick-cancel-btn" class="dialog-btn dialog-btn-cancel" tabindex="-1">Cancel</button>
+        <button id="cherrypick-confirm-btn" class="dialog-btn dialog-btn-confirm" disabled>Cherry-Pick</button>
       </div>
     </div>
   </div>

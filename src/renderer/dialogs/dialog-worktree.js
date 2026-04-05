@@ -102,6 +102,7 @@ const WORK_ITEM_TYPE_SVGS = {
 };
 
 function renderTaskItem(el, t) {
+  if (t.isMyNew) el.classList.add('combobox-item--my-new');
   const titleLine = document.createElement('div');
   titleLine.className = 'combobox-item-title';
   const svgStr = WORK_ITEM_TYPE_SVGS[t.type];
@@ -114,6 +115,12 @@ function renderTaskItem(el, t) {
   const titleText = document.createElement('span');
   titleText.textContent = `#${t.id} ${t.title}`;
   titleLine.appendChild(titleText);
+  if (t.isMyNew) {
+    const badge = document.createElement('span');
+    badge.className = 'task-my-new-badge';
+    badge.textContent = 'Mine';
+    titleLine.appendChild(badge);
+  }
   el.appendChild(titleLine);
   if (t.description) {
     const desc = stripHtml(t.description).substring(0, 300);
@@ -134,6 +141,7 @@ const taskCombobox = createCombobox({
   getLabel: (t) => `#${t.id} ${t.title}`,
   isSelected: (t) => wtSelectedTask && t.id === wtSelectedTask.id,
   renderItemContent: renderTaskItem,
+  prioritizeFn: (t) => !!t.isMyNew,
   onSelect: (task) => selectWtTask(task),
   onEnterMatch: (task) => { selectWtTask(task); wtChangeName.focus(); },
   onInput: () => {
@@ -210,7 +218,12 @@ function applyWtTasks(tasks, azureContext, focusTaskSearch) {
     wtTaskLink.style.display = '';
     wtTaskLink._taskId = wtSelectedTask.id;
   }
-  taskCombobox.setItems(tasks);
+  const sorted = [...tasks].sort((a, b) => {
+    if (a.isMyNew && !b.isMyNew) return -1;
+    if (!a.isMyNew && b.isMyNew) return 1;
+    return 0;
+  });
+  taskCombobox.setItems(sorted);
   wtTaskSearch.placeholder = tasks.length === 0 ? 'No active tasks found' : 'Search or type new task...';
   wtTaskSearch.disabled = false;
   focusTaskSearch();

@@ -401,6 +401,20 @@ html, body {
   opacity: 0.4;
 }
 
+.workspace-tab.cherry-pick-target {
+  background: color-mix(in srgb, var(--green) 15%, transparent);
+  outline: 2px solid var(--green);
+  outline-offset: -2px;
+}
+
+.workspace-tab.drag-drop-above {
+  border-top: 2px solid var(--accent);
+}
+
+.workspace-tab.drag-drop-below {
+  border-bottom: 2px solid var(--accent);
+}
+
 .repo-group-header {
   display: flex;
   align-items: center;
@@ -547,8 +561,8 @@ html, body {
   min-width: 0;
 }
 
-.repo-group-tabs-add:not(.repo-group-tabs-placeholder) .repo-group-tabs-add-icon,
-.repo-group-tabs-add:not(.repo-group-tabs-placeholder) .repo-group-tabs-add-label {
+.repo-group-tabs-add .repo-group-tabs-add-icon,
+.repo-group-tabs-add .repo-group-tabs-add-label {
   color: color-mix(in srgb, var(--text-muted) 30%, transparent);
 }
 
@@ -563,11 +577,6 @@ html, body {
   color: var(--accent);
 }
 
-
-.repo-group-tabs-placeholder .repo-group-tabs-add-icon,
-.repo-group-tabs-placeholder .repo-group-tabs-add-label {
-  color: color-mix(in srgb, var(--text-muted) 30%, transparent);
-}
 
 /* Collapsed sidebar add-worktree button */
 
@@ -1559,6 +1568,31 @@ html, body {
   line-height: 1.4;
 }
 
+.combobox-item--my-new {
+  border-left: 3px solid #4ec9b0;
+  padding-left: 7px;
+  background: rgba(78, 201, 176, 0.08);
+  color: #c8f0e8;
+}
+
+.combobox-item--my-new:hover,
+.combobox-item--my-new.highlighted {
+  background: rgba(78, 201, 176, 0.18);
+}
+
+.task-my-new-badge {
+  font-size: 9px;
+  font-family: inherit;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: #1a3a34;
+  background: #4ec9b0;
+  border-radius: 3px;
+  padding: 1px 6px;
+  margin-left: 6px;
+  flex-shrink: 0;
+}
+
 /* ===== XTerm Terminal Panel ===== */
 #clone-terminal {
   position: absolute;
@@ -1687,6 +1721,35 @@ html, body {
   margin: 4px 8px;
 }
 
+/* ===== Interactive Cherry-Pick Dialog ===== */
+#cherrypick-dialog-box {
+  width: 580px;
+  height: 500px;
+  min-width: 420px;
+  min-height: 280px;
+  max-width: 95vw;
+  max-height: 95vh;
+  display: flex;
+  flex-direction: column;
+  resize: both;
+  overflow: hidden;
+}
+
+#cherrypick-commits-container {
+  flex: 1 1 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+#cherrypick-commits-row {
+  flex: 1 1 0;
+  display: flex;
+  flex-direction: row;
+  gap: 8px;
+  overflow: hidden;
+}
+
 /* ===== Interactive Rebase Dialog ===== */
 #rebase-dialog-box {
   width: 580px;
@@ -1733,13 +1796,14 @@ html, body {
   padding: 6px;
   width: 82px;
   flex-shrink: 0;
-  background: color-mix(in srgb, var(--accent) 8%, transparent);
-  border: 1px solid color-mix(in srgb, var(--accent) 30%, transparent);
+  background: var(--bg);
+  border: 1px solid var(--border);
   border-radius: 4px;
 }
 
 .rebase-bulk-count {
   font-size: 11px;
+  font-weight: 600;
   color: var(--text-muted);
   white-space: nowrap;
   text-align: center;
@@ -1748,10 +1812,10 @@ html, body {
 
 .rebase-bulk-btn {
   font-size: 11px;
-  font-family: 'Consolas', 'Courier New', monospace;
-  padding: 3px 6px;
+  font-family: inherit;
+  padding: 4px 6px;
   border: 1px solid var(--border);
-  border-radius: 3px;
+  border-radius: 4px;
   background: var(--sidebar-bg);
   color: var(--text);
   cursor: pointer;
@@ -1759,7 +1823,7 @@ html, body {
   text-align: left;
 }
 
-.rebase-bulk-btn:hover { background: var(--hover-bg, var(--border)); }
+.rebase-bulk-btn:hover { background: var(--tab-bg); color: var(--text); }
 .rebase-bulk-btn[data-action="reword"] { color: var(--accent); }
 .rebase-bulk-btn[data-action="squash"] { color: var(--yellow); }
 .rebase-bulk-btn[data-action="fixup"]  { color: var(--yellow); }
@@ -1778,6 +1842,10 @@ html, body {
 
 .rebase-commit-item:last-child {
   border-bottom: none;
+}
+
+.rebase-commit-item:hover:not(.selected) {
+  background: color-mix(in srgb, var(--text) 5%, transparent);
 }
 
 .rebase-commit-item.selected {
@@ -1811,7 +1879,7 @@ html, body {
   width: 95px;
   padding: 3px 6px;
   border: 1px solid var(--border);
-  border-radius: 3px;
+  border-radius: 4px;
   background: var(--sidebar-bg);
   color: var(--text);
   font-size: 11px;
@@ -1855,7 +1923,7 @@ html, body {
   color: var(--text);
   background: var(--input-bg, var(--sidebar-bg));
   border: 1px solid var(--accent);
-  border-radius: 3px;
+  border-radius: 4px;
   padding: 1px 5px;
   outline: none;
   min-width: 0;
@@ -1865,6 +1933,13 @@ html, body {
 .rebase-commit-item[data-action="drop"] .rebase-commit-hash {
   opacity: 0.4;
   text-decoration: line-through;
+}
+
+#rebase-no-commits,
+#rebase-loading-commits {
+  color: var(--text-muted);
+  font-size: 12px;
+  padding: 8px 0;
 }
 
 /* ===== Toast Notifications ===== */

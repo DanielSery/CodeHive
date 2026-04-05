@@ -199,12 +199,12 @@ function hasPushedCommits(wtPath, branch, sourceBranch) {
     });
     return { value: parseInt(out.trim(), 10) > 0, error: false };
   } catch {
-    // Source branch may not be fetched in this worktree — fall back to checking
-    // whether the feature branch itself exists on origin.
+    // Source branch may not be fetched in this worktree — fall back to comparing
+    // origin/branch against local HEAD (HEAD should be at or beyond the source tip after a fast-forward).
     try {
       assertSafeRef(branch);
-      execSync(`git rev-parse --verify origin/${branch}`, { cwd: wtPath, encoding: 'utf8', timeout: 5000, stdio: 'pipe' });
-      return { value: true, error: false };
+      const out = execSync(`git rev-list --count HEAD..origin/${branch}`, { cwd: wtPath, encoding: 'utf8', timeout: 5000, stdio: 'pipe' });
+      return { value: parseInt(out.trim(), 10) > 0, error: false };
     } catch (err) {
       return { value: false, error: true, message: err.message };
     }
@@ -240,8 +240,17 @@ function gitRevertFile(wtPath, filePath, isNew) {
 function getRebaseCommits(wtPath, sourceBranch) {
   try {
     assertSafeRef(sourceBranch);
+    // Use origin/ first to match what buildRebaseScript uses (git rebase -i origin/branch).
+    // This ensures the dialog shows the same commits that will actually be replayed.
+    // Fall back to local branch if origin doesn't exist (local-only workflow).
+    let ref = `origin/${sourceBranch}`;
+    try {
+      execSync(`git rev-parse --verify origin/${sourceBranch}`, { cwd: wtPath, encoding: 'utf8', timeout: 3000 });
+    } catch {
+      ref = sourceBranch;
+    }
     // Use %x09 (tab) to separate hash from subject — avoids shell quoting issues with spaces
-    const out = execSync(`git log --format=%H%x09%s --reverse origin/${sourceBranch}..HEAD`, {
+    const out = execSync(`git log --format=%H%x09%s --reverse ${ref}..HEAD`, {
       cwd: wtPath,
       encoding: 'utf8',
       timeout: 5000
@@ -273,4 +282,37 @@ function gitGetFileLines(wtPath, filePath, startLine, endLine) {
   }
 }
 
-module.exports = { getCachedBranches, fetchAndListBranches, getGitUser, getRemoteUrl, getLaunchConfigs, gitDiffStat, gitFileDiff, gitBranchDiffStat, gitBranchFileDiff, gitRevertLines, getFirstBranchCommit, hasUncommittedChanges, hasPushedCommits, gitRevertFile, getRebaseCommits, gitGetFileLines };
+/**
+ * Get commits in sourceWtPath that are NOT in targetBranch.
+ * Uses origin/ first to avoid stale local refs showing too many commits;
+ * falls back to local branch for local-only workflows.
+ */
+function getCherryPickCommits(sourceWtPath, targetBranch) {
+  try {
+    assertSafeRef(targetBranch);
+    // Try origin/ first; fall back to local branch if origin doesn't exist.
+    let ref = `origin/${targetBranch}`;
+    try {
+      execSync(`git rev-parse --verify origin/${targetBranch}`, { cwd: sourceWtPath, encoding: 'utf8', timeout: 3000 });
+    } catch {
+      ref = targetBranch;
+    }
+    const out = execSync(`git log --format=%H%x09%s --reverse ${ref}..HEAD`, {
+      cwd: sourceWtPath,
+      encoding: 'utf8',
+      timeout: 5000
+    });
+    const lines = out.trim().split('\n').filter(Boolean);
+    return lines.map(line => {
+      const tabIdx = line.indexOf('\t');
+      return {
+        hash: line.substring(0, tabIdx),
+        message: line.substring(tabIdx + 1).trim()
+      };
+    });
+  } catch {
+    return [];
+  }
+}
+
+module.exports = { getCachedBranches, fetchAndListBranches, getGitUser, getRemoteUrl, getLaunchConfigs, gitDiffStat, gitFileDiff, gitBranchDiffStat, gitBranchFileDiff, gitRevertLines, getFirstBranchCommit, hasUncommittedChanges, hasPushedCommits, gitRevertFile, getRebaseCommits, getCherryPickCommits, gitGetFileLines };

@@ -42,17 +42,6 @@ export function getCachedBranchesFromState(repoName) {
   return (state.branchCache && state.branchCache[repoName]) || [];
 }
 
-export function saveNewTasksCache(barePath, tasks) {
-  const state = getState();
-  if (!state.newTasksCache) state.newTasksCache = {};
-  state.newTasksCache[normalizePath(barePath)] = tasks;
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-}
-
-export function getNewTasksCache(barePath) {
-  const state = getState();
-  return (state.newTasksCache && state.newTasksCache[normalizePath(barePath)]) || null;
-}
 
 export function saveDirectories(dirPath) {
   const state = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
@@ -110,17 +99,6 @@ export function getPipelineInstalled(wtPath) {
   return !!(state.pipelineInstalled && state.pipelineInstalled[normalizePath(wtPath)]);
 }
 
-export function getTaskPlaceholdersEnabled() {
-  const state = getState();
-  return !!(state.prefs && state.prefs.taskPlaceholders);
-}
-
-export function saveTaskPlaceholdersEnabled(value) {
-  const state = getState();
-  if (!state.prefs) state.prefs = {};
-  state.prefs.taskPlaceholders = value;
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-}
 
 export function clearWorktreeStorage(wtPath) {
   const state = getState();

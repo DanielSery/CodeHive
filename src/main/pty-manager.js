@@ -2,7 +2,7 @@ const fs = require('fs');
 const path = require('path');
 const os = require('os');
 const { spawnProc } = require('./pty-spawn.js');
-const { buildWorktreeCmd, buildCloneCmd, buildDeleteScript, buildWorktreeRemoveScript, buildWorktreeSwitchScript, buildCommitPushScript, buildPrCreateScript, buildRebaseScript, buildForcePushScript } = require('./pty-scripts.js');
+const { buildWorktreeCmd, buildCloneCmd, buildDeleteScript, buildWorktreeRemoveScript, buildWorktreeSwitchScript, buildCommitPushScript, buildPrCreateScript, buildRebaseScript, buildForcePushScript, buildRegularPushScript, buildFastForwardScript, buildCherryPickScript } = require('./pty-scripts.js');
 const { createPackagesJunction } = require('./repo-scanner.js');
 
 function createWorktreePty(mainWindow, { barePath, repoDir, branchName, sourceBranch }) {
@@ -249,15 +249,63 @@ function createForcePushPty(mainWindow, { wtPath }) {
   const proc = spawnProc(cmd, cwd);
 
   proc.onData((data) => {
-    if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send('rebase:forcePushData', data);
+    if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send('push:forcePushData', data);
   });
 
   proc.onExit(({ exitCode }) => {
     try { fs.unlinkSync(scriptPath); } catch {}
-    if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send('rebase:forcePushExit', { exitCode });
+    if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send('push:forcePushExit', { exitCode });
   });
 
   return { proc };
 }
 
-module.exports = { createWorktreePty, createClonePty, createDeletePty, createWorktreeRemovePty, createWorktreeSwitchPty, createCommitPushPty, createPrCreatePty, createAzInstallPty, createSetupInstallPty, createRebasePty, createForcePushPty };
+function createPushPty(mainWindow, { wtPath }) {
+  const { cmd, cwd, scriptPath } = buildRegularPushScript(wtPath);
+  const proc = spawnProc(cmd, cwd);
+
+  proc.onData((data) => {
+    if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send('push:data', data);
+  });
+
+  proc.onExit(({ exitCode }) => {
+    try { fs.unlinkSync(scriptPath); } catch {}
+    if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send('push:exit', { exitCode });
+  });
+
+  return { proc };
+}
+
+function createFastForwardPty(mainWindow, { wtPath, branch }) {
+  const { cmd, cwd, scriptPath } = buildFastForwardScript(wtPath, { branch });
+  const proc = spawnProc(cmd, cwd);
+
+  proc.onData((data) => {
+    if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send('rebase:fastForwardData', data);
+  });
+
+  proc.onExit(({ exitCode }) => {
+    try { fs.unlinkSync(scriptPath); } catch {}
+    if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send('rebase:fastForwardExit', { exitCode });
+  });
+
+  return { proc };
+}
+
+function createCherryPickPty(mainWindow, { wtPath, sourceBranch, targetBranch, commits }) {
+  const { cmd, cwd, scriptPath } = buildCherryPickScript(wtPath, { sourceBranch, targetBranch, commits });
+  const proc = spawnProc(cmd, cwd);
+
+  proc.onData((data) => {
+    if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send('cherryPick:data', data);
+  });
+
+  proc.onExit(({ exitCode }) => {
+    try { fs.unlinkSync(scriptPath); } catch {}
+    if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send('cherryPick:exit', { exitCode });
+  });
+
+  return { proc };
+}
+
+module.exports = { createWorktreePty, createClonePty, createDeletePty, createWorktreeRemovePty, createWorktreeSwitchPty, createCommitPushPty, createPrCreatePty, createAzInstallPty, createSetupInstallPty, createRebasePty, createForcePushPty, createFastForwardPty, createCherryPickPty, createPushPty };

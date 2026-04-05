@@ -37,18 +37,34 @@ export async function fetchAzureTasks(barePath, pat) {
   try {
     const ctx = buildAzureContext(parsed, pat);
 
-    const wiqlResp = await fetch(`${ctx.apiBase}/wit/wiql?api-version=7.0`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Basic ${ctx.auth}` },
-      body: JSON.stringify({ query: `SELECT [System.Id] FROM WorkItems WHERE [System.State] NOT IN ('Closed', 'Done', 'Resolved', 'Removed') ORDER BY [System.ChangedDate] DESC` })
-    });
+    const [wiqlResp, myNewWiqlResp] = await Promise.all([
+      fetch(`${ctx.apiBase}/wit/wiql?api-version=7.0`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Basic ${ctx.auth}` },
+        body: JSON.stringify({ query: `SELECT [System.Id] FROM WorkItems WHERE [System.State] NOT IN ('Closed', 'Done', 'Resolved', 'Removed') ORDER BY [System.ChangedDate] DESC` })
+      }),
+      fetch(`${ctx.apiBase}/wit/wiql?api-version=7.0`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Basic ${ctx.auth}` },
+        body: JSON.stringify({ query: `SELECT [System.Id] FROM WorkItems WHERE [System.State] = 'New' AND [System.AssignedTo] = @me ORDER BY [System.ChangedDate] DESC` })
+      })
+    ]);
 
     if (!wiqlResp.ok) return { error: 'fetch-failed' };
 
-    const wiqlData = await wiqlResp.json();
-    const ids = (wiqlData.workItems || []).slice(0, 200).map(wi => wi.id);
+    const [wiqlData, myNewWiqlData] = await Promise.all([
+      wiqlResp.json(),
+      myNewWiqlResp.ok ? myNewWiqlResp.json() : Promise.resolve({ workItems: [] })
+    ]);
 
-    if (ids.length === 0) return { tasks: [], azureContext: ctx };
+    const myNewIds = new Set((myNewWiqlData.workItems || []).map(wi => wi.id));
+    // Prepend @me New IDs so they're always included, then fill remaining slots up to 200
+    const allIds = (wiqlData.workItems || []).map(wi => wi.id);
+    const myNewIdsList = [...myNewIds];
+    const remaining = allIds.filter(id => !myNewIds.has(id));
+    const ids = [...myNewIdsList, ...remaining].slice(0, 200);
+
+    if (ids.length === 0) return { tasks: [], azureContext: ctx, myNewIds };
 
     const itemsResp = await fetch(
       `${ctx.apiBase}/wit/workitems?ids=${ids.join(',')}&fields=System.Id,System.Title,System.WorkItemType,System.Description&api-version=7.0`,
@@ -62,10 +78,11 @@ export async function fetchAzureTasks(barePath, pat) {
       id: wi.id,
       title: wi.fields['System.Title'] || '',
       type: wi.fields['System.WorkItemType'] || '',
-      description: wi.fields['System.Description'] || ''
+      description: wi.fields['System.Description'] || '',
+      isMyNew: myNewIds.has(wi.id)
     }));
 
-    return { tasks, azureContext: ctx };
+    return { tasks, azureContext: ctx, myNewIds };
   } catch {
     return { error: 'fetch-failed' };
   }

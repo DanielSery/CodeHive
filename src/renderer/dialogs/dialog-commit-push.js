@@ -3,6 +3,7 @@ import { toast } from '../toast.js';
 import { _refreshTabStatus } from '../sidebar/registers.js';
 import { runPty } from './pty-runner.js';
 import { renderCommitFileList } from './commit-file-tree.js';
+import { runPushFlow } from '../push-flow.js';
 
 registerPtyApi(window.commitPushAPI);
 
@@ -78,14 +79,18 @@ async function confirmCommitPush() {
   terminal.show(`Commit & Push: ${branch}`);
 
   const disposeData = runPty(window.commitPushAPI, {
-    successMsg: `Pushed ${branch} successfully`,
-    failMsg: 'Commit & push failed',
+    successMsg: `Committed ${branch}`,
+    failMsg: 'Commit failed',
     onSuccess: () => {
-      terminal.setTitle('Commit & push complete');
-      if (_refreshTabStatus) _refreshTabStatus(tabEl);
-      setTimeout(() => terminal.close(), 1200);
+      terminal.setTitle('Commit complete');
+      runPushFlow(wtPath, {
+        onSuccess: () => {
+          if (_refreshTabStatus) _refreshTabStatus(tabEl);
+          setTimeout(() => terminal.close(), 1200);
+        }
+      });
     },
-    onError: () => terminal.setTitle('Commit & push failed'),
+    onError: () => terminal.setTitle('Commit failed'),
   });
 
   try {

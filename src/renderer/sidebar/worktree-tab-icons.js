@@ -37,9 +37,6 @@ export const DOT_SET_TASK_SVG = '<svg width="14" height="14" viewBox="0 0 16 16"
 export const DOT_REBASE_SVG = '<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="3" cy="4" r="1.5"/><circle cx="3" cy="12" r="1.5"/><circle cx="13" cy="8" r="1.5"/><path d="M3 5.5v5"/><path d="M4.5 8h7"/><path d="M10 6l2.5 2L10 10"/></svg>';
 export const DOT_OPEN_MERGED_PR_SVG = '<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="4" cy="4" r="2"/><circle cx="4" cy="12" r="2"/><path d="M4 6v4"/><path d="M7 4h3a2 2 0 012 2v2.5"/><path d="M11 11.5l1.5 1.5-1.5 1.5M13 13H9"/></svg>';
 
-export const TASK_PLACEHOLDERS_SVG = '<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2 4h8M2 8h6M2 12h4"/><path d="M12 6v6M9 9h6"/></svg>';
-export const TASK_PLACEHOLDERS_ACTIVE_SVG = '<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2 4h8M2 8h6M2 12h4"/><path d="M10 7l4 4M14 7l-4 4"/></svg>';
-
 export const UPDATE_SVG = '<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="6"/><path d="M8 5.5v4"/><path d="M5.5 7.5L8 10l2.5-2.5"/></svg>';
 export const UPDATE_AVAILABLE_SVG = '<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="6"/><line x1="8" y1="5.5" x2="8" y2="9"/><circle cx="8" cy="11" r="0.75" fill="currentColor" stroke="none"/></svg>';
 

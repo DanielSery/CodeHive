@@ -1,62 +1,11 @@
 import { closeWorkspace } from '../workspace-manager.js';
 import { rebuildCollapsedDots, collapsedDotsEl, createCollapsedAddBtn } from './collapsed-dots.js';
 import { showProjectContextMenu } from './context-menu.js';
-import { createWorktreeTab, refreshTabStatus } from './worktree-tab.js';
+import { createWorktreeTab, refreshTabStatus, setReorderDropTarget } from './worktree-tab.js';
 import { _showWorktreeDialog, _showDeleteDialog, _onStateChange } from './registers.js';
-import { getTaskPlaceholdersEnabled, getNewTasksCache, saveNewTasksCache } from '../storage.js';
-import { fetchNewAzureTasks } from '../azure-api.js';
-import { loadStoredPat } from '../dialogs/utils.js';
-import { DOT_OPEN_TASK_SVG, WORK_ITEM_TYPE_ICON_SVGS } from './worktree-tab-icons.js';
 
 const repoGroupsEl = document.getElementById('repo-groups');
 
-function createPlaceholderButton(groupEl, tabsEl, task) {
-  const btn = document.createElement('button');
-  btn.className = 'repo-group-tabs-add repo-group-tabs-placeholder';
-  btn.setAttribute('draggable', 'false');
-  btn.title = `#${task.id} ${task.title}`;
-  const taskIcon = WORK_ITEM_TYPE_ICON_SVGS[task.type] || DOT_OPEN_TASK_SVG;
-  btn.innerHTML = `<span class="repo-group-tabs-add-icon">${taskIcon}</span><span class="repo-group-tabs-add-label">${task.title}</span>`;
-  btn.addEventListener('click', (e) => {
-    e.stopPropagation();
-    if (_showWorktreeDialog) _showWorktreeDialog(groupEl, tabsEl, task);
-  });
-  return btn;
-}
-
-function applyPlaceholderTasks(groupEl, tabsEl, tasks) {
-  tabsEl.querySelectorAll('.repo-group-tabs-placeholder').forEach(el => el.remove());
-  if (!tasks || tasks.length === 0) return;
-  const addBtn = tabsEl.querySelector('.repo-group-tabs-add:not(.repo-group-tabs-placeholder)');
-  for (const task of tasks) {
-    tabsEl.insertBefore(createPlaceholderButton(groupEl, tabsEl, task), addBtn);
-  }
-}
-
-async function refreshTaskPlaceholders(groupEl, tabsEl) {
-  if (!getTaskPlaceholdersEnabled()) { tabsEl.querySelectorAll('.repo-group-tabs-placeholder').forEach(el => el.remove()); return; }
-
-  const cached = getNewTasksCache(groupEl._barePath);
-  if (cached) applyPlaceholderTasks(groupEl, tabsEl, cached);
-
-  const pat = await loadStoredPat();
-  const result = await fetchNewAzureTasks(groupEl._barePath, pat);
-  if (result.error) return;
-  saveNewTasksCache(groupEl._barePath, result.tasks || []);
-  applyPlaceholderTasks(groupEl, tabsEl, result.tasks);
-}
-
-export async function refreshAllPlaceholders() {
-  const groups = repoGroupsEl.querySelectorAll('.repo-group');
-  for (const groupEl of groups) {
-    const tabsEl = groupEl.querySelector('.repo-group-tabs');
-    if (tabsEl) await refreshTaskPlaceholders(groupEl, tabsEl);
-  }
-}
-
-export function clearAllPlaceholders() {
-  repoGroupsEl.querySelectorAll('.repo-group-tabs-placeholder').forEach(el => el.remove());
-}
 
 export function addRepoGroup(repo) {
   if (repoGroupsEl.querySelector(`[data-repo-name="${CSS.escape(repo.name)}"]`)) return;
@@ -119,11 +68,18 @@ export function addRepoGroup(repo) {
     e.stopPropagation();
     e.dataTransfer.dropEffect = 'move';
     const dragging = tabsEl.querySelector('.workspace-tab.dragging');
-    if (dragging) tabsEl.insertBefore(dragging, addBtn);
+    if (dragging) {
+      // Store "append before add button" as the pending drop target without moving the DOM
+      setReorderDropTarget(tabsEl, null);
+      // Show indicator on the last workspace-tab
+      tabsEl.querySelectorAll('.workspace-tab.drag-drop-above').forEach(el => el.classList.remove('drag-drop-above'));
+      tabsEl.querySelectorAll('.workspace-tab.drag-drop-below').forEach(el => el.classList.remove('drag-drop-below'));
+      const tabs = tabsEl.querySelectorAll('.workspace-tab');
+      const lastTab = tabs[tabs.length - 1];
+      if (lastTab && lastTab !== dragging) lastTab.classList.add('drag-drop-below');
+    }
   });
   tabsEl.appendChild(addBtn);
-
-  if (getTaskPlaceholdersEnabled()) refreshTaskPlaceholders(groupEl, tabsEl);
 
   // Collapsed-view add-worktree button (after all dots for this group)
   collapsedDotsEl.appendChild(createCollapsedAddBtn(groupEl));

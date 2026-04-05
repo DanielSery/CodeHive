@@ -57,7 +57,7 @@ function applyActionButtonVisibility(tabEl, { statusClass, switchBtn }) {
   } else {
     ws.canCompletePr = false;
     if (completePrBtn) completePrBtn.style.display = 'none';
-    if (!ws.hasUncommittedChanges) {
+    if (!ws.hasUncommittedChanges && ws.hasPushedCommits) {
       if (openPrBtn) openPrBtn.style.display = 'inline-flex';
       actionShown = true;
     } else {
