@@ -2,6 +2,7 @@ import { getWorkspace, getActive, getActiveId, setActiveId, nextId, addWorkspace
 import { setTabStatus, startClaudePoll, stopClaudePoll } from './claude-poll.js';
 import { hideTerminal, deactivateTerminalTab } from './terminal-panel.js';
 import { getWtState } from './worktree-state.js';
+import { DOT_SWITCH_SVG, DOT_DONE_SWITCH_SVG, DOT_SYNC_SVG } from './sidebar/worktree-tab-icons.js';
 
 let _showTabCloseButton = null;
 let _showTabRemoveButton = null;
@@ -149,6 +150,11 @@ function syncTitlebarToTab() {
   const canOpenPipeline = !!wtState?.canOpenPipeline && !!wtState?.pipelineUrl && wtState?.pipelineStatus !== 'succeeded';
   const installBtn = tabEl.querySelector('.workspace-tab-install-btn');
   const canInstall = !!installBtn && installBtn.style.display !== 'none';
+
+  titlebarSwitchBtn.innerHTML = wtState?.taskResolved ? DOT_DONE_SWITCH_SVG : DOT_SWITCH_SVG;
+
+  titlebarCommitBtn.innerHTML = DOT_SYNC_SVG;
+  titlebarCommitBtn.style.color = '';
 
   titlebarSep1.style.display = '';
   titlebarSep2.style.display = '';

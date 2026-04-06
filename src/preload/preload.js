@@ -21,6 +21,9 @@ contextBridge.exposeInMainWorld('reposAPI', {
   firstBranchCommit: (wtPath, sourceBranch) => ipcRenderer.invoke('repos:firstBranchCommit', { wtPath, sourceBranch }),
   hasUncommittedChanges: (wtPath) => ipcRenderer.invoke('repos:hasUncommittedChanges', wtPath),
   hasPushedCommits: (wtPath, branch, sourceBranch) => ipcRenderer.invoke('repos:hasPushedCommits', { wtPath, branch, sourceBranch }),
+  getSyncStatus: (wtPath, branch, sourceBranch) => ipcRenderer.invoke('repos:getSyncStatus', { wtPath, branch, sourceBranch }),
+  getCommitsAhead: (wtPath, branch, sourceBranch) => ipcRenderer.invoke('repos:getCommitsAhead', { wtPath, branch, sourceBranch }),
+  getCommitsBehind: (wtPath, branch) => ipcRenderer.invoke('repos:getCommitsBehind', { wtPath, branch }),
   gitRevertFile: (wtPath, filePath, isNew) => ipcRenderer.invoke('repos:gitRevertFile', { wtPath, filePath, isNew }),
   gitFileDiff: (wtPath, filePath, context) => ipcRenderer.invoke('repos:gitFileDiff', { wtPath, filePath, context }),
   gitBranchDiffStat: (wtPath, targetBranch) => ipcRenderer.invoke('repos:gitBranchDiffStat', { wtPath, targetBranch }),
@@ -150,6 +153,10 @@ contextBridge.exposeInMainWorld('worktreeSwitchAPI', {
 
 contextBridge.exposeInMainWorld('commitPushAPI', {
   ...makeApi('commitPush:data', 'commitPush:exit', 'commitPush:start', 'commitPush:ready'),
+});
+
+contextBridge.exposeInMainWorld('syncAPI', {
+  ...makeApi('sync:data', 'sync:exit', 'sync:start', 'sync:ready'),
 });
 
 contextBridge.exposeInMainWorld('prCreateAPI', {

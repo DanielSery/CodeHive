@@ -642,4 +642,205 @@ function buildCherryPickScript(wtPath, { sourceBranch, targetBranch, commits }) 
   return { cmd, cwd: wtPath, scriptPath };
 }
 
-module.exports = { buildWorktreeCmd, buildCloneCmd, buildDeleteScript, buildWorktreeRemoveScript, buildWorktreeSwitchScript, buildCommitPushScript, buildPrCreateScript, buildRebaseScript, buildForcePushScript, buildRegularPushScript, buildFastForwardScript, buildCherryPickScript, shellQuote, assertSafeRef };
+function buildPullScript(wtPath, branch) {
+  assertSafeRef(branch);
+  const isWin = process.platform === 'win32';
+  const scriptExt = isWin ? '.cmd' : '.sh';
+  const scriptPath = path.join(os.tmpdir(), `codehive-pull-${Date.now()}${scriptExt}`);
+
+  if (isWin) {
+    const lines = [
+      '@echo off',
+      `echo Fetching from origin...`,
+      `git fetch origin ${shellQuote(branch)}`,
+      'if %errorlevel% neq 0 exit /b %errorlevel%',
+      'echo.',
+      `echo Pulling origin/${branch}...`,
+      `git pull origin ${shellQuote(branch)}`,
+      'if %errorlevel% neq 0 (',
+      '  echo.',
+      '  echo Pull failed.',
+      '  exit /b 1',
+      ')',
+      'echo.',
+      'echo === PULL COMPLETE ===',
+    ];
+    fs.writeFileSync(scriptPath, lines.join('\r\n'), { encoding: 'utf8' });
+  } else {
+    const lines = [
+      '#!/bin/sh',
+      `echo "Fetching from origin..."`,
+      `git fetch origin ${shellQuote(branch)}`,
+      'echo ""',
+      `echo "Pulling origin/${branch}..."`,
+      `git pull origin ${shellQuote(branch)}`,
+      'STATUS=$?',
+      'if [ "$STATUS" -ne 0 ]; then',
+      '  echo ""',
+      '  echo "Pull failed."',
+      '  exit 1',
+      'fi',
+      'echo ""',
+      'echo "=== PULL COMPLETE ==="',
+    ];
+    fs.writeFileSync(scriptPath, lines.join('\n'), { encoding: 'utf8' });
+    fs.chmodSync(scriptPath, 0o755);
+  }
+
+  const cmd = isWin ? scriptPath : `sh ${shellQuote(scriptPath)}`;
+  return { cmd, cwd: wtPath, scriptPath };
+}
+
+function buildMergeRemoteScript(wtPath, branch) {
+  assertSafeRef(branch);
+  const isWin = process.platform === 'win32';
+  const scriptExt = isWin ? '.cmd' : '.sh';
+  const scriptPath = path.join(os.tmpdir(), `codehive-merge-remote-${Date.now()}${scriptExt}`);
+  const ref = `origin/${branch}`;
+
+  if (isWin) {
+    const lines = [
+      '@echo off',
+      `echo Fetching from origin...`,
+      `git fetch origin ${shellQuote(branch)}`,
+      'if %errorlevel% neq 0 exit /b %errorlevel%',
+      'echo.',
+      `echo Merging ${ref}...`,
+      `git merge ${shellQuote(ref)}`,
+      'if %errorlevel% neq 0 (',
+      '  echo.',
+      '  echo Merge failed.',
+      '  exit /b 1',
+      ')',
+      'echo.',
+      'echo === MERGE COMPLETE ===',
+    ];
+    fs.writeFileSync(scriptPath, lines.join('\r\n'), { encoding: 'utf8' });
+  } else {
+    const lines = [
+      '#!/bin/sh',
+      `echo "Fetching from origin..."`,
+      `git fetch origin ${shellQuote(branch)}`,
+      'echo ""',
+      `echo "Merging ${ref}..."`,
+      `git merge ${shellQuote(ref)}`,
+      'STATUS=$?',
+      'if [ "$STATUS" -ne 0 ]; then',
+      '  echo ""',
+      '  echo "Merge failed."',
+      '  exit 1',
+      'fi',
+      'echo ""',
+      'echo "=== MERGE COMPLETE ==="',
+    ];
+    fs.writeFileSync(scriptPath, lines.join('\n'), { encoding: 'utf8' });
+    fs.chmodSync(scriptPath, 0o755);
+  }
+
+  const cmd = isWin ? scriptPath : `sh ${shellQuote(scriptPath)}`;
+  return { cmd, cwd: wtPath, scriptPath };
+}
+
+function buildRebaseRemoteScript(wtPath, branch) {
+  assertSafeRef(branch);
+  const isWin = process.platform === 'win32';
+  const scriptExt = isWin ? '.cmd' : '.sh';
+  const scriptPath = path.join(os.tmpdir(), `codehive-rebase-remote-${Date.now()}${scriptExt}`);
+  const ref = `origin/${branch}`;
+
+  if (isWin) {
+    const lines = [
+      '@echo off',
+      `echo Fetching from origin...`,
+      `git fetch origin ${shellQuote(branch)}`,
+      'if %errorlevel% neq 0 exit /b %errorlevel%',
+      'echo.',
+      `echo Rebasing onto ${ref}...`,
+      `git rebase ${shellQuote(ref)}`,
+      'if %errorlevel% neq 0 (',
+      '  echo.',
+      '  echo Rebase failed. Aborting...',
+      '  git rebase --abort',
+      '  exit /b 1',
+      ')',
+      'echo.',
+      'echo === REBASE COMPLETE ===',
+    ];
+    fs.writeFileSync(scriptPath, lines.join('\r\n'), { encoding: 'utf8' });
+  } else {
+    const lines = [
+      '#!/bin/sh',
+      `echo "Fetching from origin..."`,
+      `git fetch origin ${shellQuote(branch)}`,
+      'echo ""',
+      `echo "Rebasing onto ${ref}..."`,
+      `git rebase ${shellQuote(ref)}`,
+      'STATUS=$?',
+      'if [ "$STATUS" -ne 0 ]; then',
+      '  echo ""',
+      '  echo "Rebase failed. Aborting..."',
+      '  git rebase --abort',
+      '  exit 1',
+      'fi',
+      'echo ""',
+      'echo "=== REBASE COMPLETE ==="',
+    ];
+    fs.writeFileSync(scriptPath, lines.join('\n'), { encoding: 'utf8' });
+    fs.chmodSync(scriptPath, 0o755);
+  }
+
+  const cmd = isWin ? scriptPath : `sh ${shellQuote(scriptPath)}`;
+  return { cmd, cwd: wtPath, scriptPath };
+}
+
+function buildResetToTheirsScript(wtPath, branch) {
+  assertSafeRef(branch);
+  const isWin = process.platform === 'win32';
+  const scriptExt = isWin ? '.cmd' : '.sh';
+  const scriptPath = path.join(os.tmpdir(), `codehive-reset-theirs-${Date.now()}${scriptExt}`);
+  const ref = `origin/${branch}`;
+
+  if (isWin) {
+    const lines = [
+      '@echo off',
+      `echo Fetching from origin...`,
+      `git fetch origin ${shellQuote(branch)}`,
+      'if %errorlevel% neq 0 exit /b %errorlevel%',
+      'echo.',
+      `echo Resetting to ${ref}...`,
+      `git reset --hard ${shellQuote(ref)}`,
+      'if %errorlevel% neq 0 (',
+      '  echo.',
+      '  echo Reset failed.',
+      '  exit /b 1',
+      ')',
+      'echo.',
+      'echo === RESET COMPLETE ===',
+    ];
+    fs.writeFileSync(scriptPath, lines.join('\r\n'), { encoding: 'utf8' });
+  } else {
+    const lines = [
+      '#!/bin/sh',
+      `echo "Fetching from origin..."`,
+      `git fetch origin ${shellQuote(branch)}`,
+      'echo ""',
+      `echo "Resetting to ${ref}..."`,
+      `git reset --hard ${shellQuote(ref)}`,
+      'STATUS=$?',
+      'if [ "$STATUS" -ne 0 ]; then',
+      '  echo ""',
+      '  echo "Reset failed."',
+      '  exit 1',
+      'fi',
+      'echo ""',
+      'echo "=== RESET COMPLETE ==="',
+    ];
+    fs.writeFileSync(scriptPath, lines.join('\n'), { encoding: 'utf8' });
+    fs.chmodSync(scriptPath, 0o755);
+  }
+
+  const cmd = isWin ? scriptPath : `sh ${shellQuote(scriptPath)}`;
+  return { cmd, cwd: wtPath, scriptPath };
+}
+
+module.exports = { buildWorktreeCmd, buildCloneCmd, buildDeleteScript, buildWorktreeRemoveScript, buildWorktreeSwitchScript, buildCommitPushScript, buildPrCreateScript, buildRebaseScript, buildForcePushScript, buildRegularPushScript, buildFastForwardScript, buildCherryPickScript, buildPullScript, buildMergeRemoteScript, buildRebaseRemoteScript, buildResetToTheirsScript, shellQuote, assertSafeRef };

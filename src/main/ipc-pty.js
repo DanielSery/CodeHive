@@ -1,6 +1,6 @@
 const { ipcMain } = require('electron');
 const { exec, spawn } = require('child_process');
-const { createWorktreePty, createClonePty, createDeletePty, createWorktreeRemovePty, createWorktreeSwitchPty, createCommitPushPty, createPrCreatePty, createAzInstallPty, createSetupInstallPty, createRebasePty, createForcePushPty, createFastForwardPty, createCherryPickPty, createPushPty } = require('./pty-manager');
+const { createWorktreePty, createClonePty, createDeletePty, createWorktreeRemovePty, createWorktreeSwitchPty, createCommitPushPty, createPrCreatePty, createAzInstallPty, createSetupInstallPty, createRebasePty, createForcePushPty, createFastForwardPty, createCherryPickPty, createPushPty, createSyncPty } = require('./pty-manager');
 
 let worktreePty = null;
 let clonePty = null;
@@ -16,6 +16,7 @@ let forcePushPty = null;
 let fastForwardPty = null;
 let cherryPickPty = null;
 let pushPty = null;
+let syncPty = null;
 
 function register(mainWindow) {
   // Worktree PTY
@@ -106,6 +107,14 @@ function register(mainWindow) {
   });
   ipcMain.on('push:ready', () => { if (pushPty) pushPty.flush(); });
 
+  // Sync PTY (pull / merge / rebase / reset-theirs)
+  ipcMain.handle('sync:start', (event, opts) => {
+    const result = createSyncPty(mainWindow, opts);
+    syncPty = result.proc;
+    return {};
+  });
+  ipcMain.on('sync:ready', () => { if (syncPty) syncPty.flush(); });
+
   // Cherry-pick PTY
   ipcMain.handle('cherryPick:start', (event, opts) => {
     const result = createCherryPickPty(mainWindow, opts);
@@ -156,7 +165,7 @@ function register(mainWindow) {
 }
 
 function killAllPtys() {
-  for (const pty of [worktreePty, clonePty, deletePty, worktreeRemovePty, worktreeSwitchPty, commitPushPty, prCreatePty, azInstallPty, rebasePty, forcePushPty, fastForwardPty, cherryPickPty, pushPty]) {
+  for (const pty of [worktreePty, clonePty, deletePty, worktreeRemovePty, worktreeSwitchPty, commitPushPty, prCreatePty, azInstallPty, rebasePty, forcePushPty, fastForwardPty, cherryPickPty, pushPty, syncPty]) {
     if (pty) pty.kill();
   }
 }

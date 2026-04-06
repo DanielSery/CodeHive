@@ -1,5 +1,5 @@
 const { ipcMain } = require('electron');
-const { scanDirectory, checkClaudeActive, getCachedBranches, fetchAndListBranches, getGitUser, getRemoteUrl, getLaunchConfigs, gitDiffStat, gitFileDiff, gitBranchDiffStat, gitBranchFileDiff, gitRevertLines, getFirstBranchCommit, hasUncommittedChanges, hasPushedCommits, gitRevertFile, getRebaseCommits, getCherryPickCommits, gitGetFileLines } = require('./repo-scanner');
+const { scanDirectory, checkClaudeActive, getCachedBranches, fetchAndListBranches, getGitUser, getRemoteUrl, getLaunchConfigs, gitDiffStat, gitFileDiff, gitBranchDiffStat, gitBranchFileDiff, gitRevertLines, getFirstBranchCommit, hasUncommittedChanges, hasPushedCommits, gitRevertFile, getRebaseCommits, getCherryPickCommits, gitGetFileLines, getSyncStatus, getCommitsAhead, getCommitsBehind } = require('./repo-scanner');
 const { watchClaude, unwatchClaude } = require('./claude-status');
 
 function register(mainWindow) {
@@ -89,6 +89,18 @@ function register(mainWindow) {
 
   ipcMain.handle('repos:cherryPickCommits', (event, { sourceWtPath, targetBranch }) => {
     return getCherryPickCommits(sourceWtPath, targetBranch);
+  });
+
+  ipcMain.handle('repos:getSyncStatus', (event, { wtPath, branch, sourceBranch }) => {
+    return getSyncStatus(wtPath, branch, sourceBranch);
+  });
+
+  ipcMain.handle('repos:getCommitsAhead', (event, { wtPath, branch, sourceBranch }) => {
+    return getCommitsAhead(wtPath, branch, sourceBranch);
+  });
+
+  ipcMain.handle('repos:getCommitsBehind', (event, { wtPath, branch }) => {
+    return getCommitsBehind(wtPath, branch);
   });
 }
 

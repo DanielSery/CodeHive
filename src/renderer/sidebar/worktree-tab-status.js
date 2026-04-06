@@ -1,9 +1,29 @@
 import { syncTitlebarToTab } from '../workspace-manager.js';
 import { parseAzureRemoteUrl, fetchPolicyEvaluations, fetchPrUnresolvedThreadCount, fetchWorkItemById, fetchLatestBuild, fetchBuildArtifacts, fetchActivePrsForBranch, fetchLatestCompletedPrForBranch } from '../azure-api.js';
 import { pipeline } from '../pipeline-service.js';
-import { PIPELINE_STATUS_CLASSES, PR_STATUS_CLASSES, INSTALL_BTN_SVG, DOT_SWITCH_SVG } from './worktree-tab-icons.js';
+import { PIPELINE_STATUS_CLASSES, PR_STATUS_CLASSES, INSTALL_BTN_SVG, DOT_SWITCH_SVG, DOT_SYNC_SVG } from './worktree-tab-icons.js';
 import { updateDotState } from './worktree-tab-dot-state.js';
 import { getWtState } from '../worktree-state.js';
+
+function computeSyncState({ uncommitted, localAhead, localBehind }) {
+  if ((localAhead > 0 || uncommitted) && localBehind > 0) return 'diverged';
+  if (uncommitted) return 'uncommitted';
+  if (localAhead > 0) return 'ahead';
+  if (localBehind > 0) return 'behind';
+  return 'clean';
+}
+
+function updateSyncButton(btn, state) {
+  if (!btn) return;
+  if (state === 'clean') { btn.style.display = 'none'; return; }
+  btn.style.display = '';
+  const colors = { uncommitted: 'var(--green)', ahead: 'var(--green)', behind: 'var(--accent)', diverged: 'var(--peach)' };
+  const icons = { uncommitted: DOT_SYNC_SVG, ahead: DOT_SYNC_SVG, behind: DOT_SYNC_SVG, diverged: DOT_SYNC_SVG };
+  const titles = { uncommitted: 'Commit & Push', ahead: 'Push', behind: 'Pull', diverged: 'Resolve Conflicts' };
+  btn.innerHTML = icons[state] || '';
+  btn.style.color = colors[state] || '';
+  btn.title = titles[state] || '';
+}
 
 function setDisplay(el, show) {
   if (el) el.style.display = show ? 'inline-flex' : 'none';
@@ -237,23 +257,35 @@ async function _refreshTabStatusInner(tabEl) {
   const ws = getWtState(tabEl._wtPath);
   if (!ws) return;
 
-  // Check for uncommitted changes and pushed commits
+  // Check sync status (uncommitted changes + ahead/behind remote)
   const commitPushBtn = tabEl.querySelector('.workspace-tab-commit-push');
   const switchBtn = tabEl.querySelector('.workspace-tab-switch');
   const isOpen = tabEl._workspaceId !== null;
-  try {
-    const ucResult = await window.reposAPI.hasUncommittedChanges(tabEl._wtPath);
-    ws.hasUncommittedChanges = ucResult.value;
-    if (ucResult.error) console.warn('[refreshTabStatus] hasUncommittedChanges error:', ucResult.message);
-  } catch { ws.hasUncommittedChanges = false; }
   const sourceBranch = tabEl._wtSourceBranch || 'master';
+  try {
+    const syncResult = await window.reposAPI.getSyncStatus(tabEl._wtPath, branch, sourceBranch);
+    if (syncResult.error) {
+      console.warn('[refreshTabStatus] getSyncStatus error:', syncResult.message);
+      ws.hasUncommittedChanges = false;
+      ws.syncState = 'clean';
+      if (commitPushBtn) commitPushBtn.style.display = 'none';
+    } else {
+      ws.hasUncommittedChanges = syncResult.uncommitted;
+      ws.syncState = computeSyncState(syncResult);
+      updateSyncButton(commitPushBtn, ws.syncState);
+    }
+  } catch {
+    ws.hasUncommittedChanges = false;
+    ws.syncState = 'clean';
+    if (commitPushBtn) commitPushBtn.style.display = 'none';
+  }
   try {
     const pcResult = await window.reposAPI.hasPushedCommits(tabEl._wtPath, branch, sourceBranch);
     ws.hasPushedCommits = pcResult.value;
     if (pcResult.error) console.warn('[refreshTabStatus] hasPushedCommits error:', pcResult.message);
   } catch { ws.hasPushedCommits = false; }
-  if (commitPushBtn) commitPushBtn.style.display = ws.hasUncommittedChanges ? '' : 'none';
-  if (isOpen || ws.hasUncommittedChanges) {
+  const syncShowing = ws.syncState && ws.syncState !== 'clean';
+  if (syncShowing || isOpen) {
     if (switchBtn) switchBtn.style.display = 'none';
   }
 

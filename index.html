@@ -30,18 +30,18 @@
       <button class="titlebar-action-btn" id="btn-titlebar-open-explorer" title="Open in Explorer"></button>
       <button class="titlebar-action-btn" id="btn-titlebar-git-app" title="Open in Git App"></button>
       <span class="titlebar-sep" id="titlebar-sep-1" style="display:none"></span>
-      <button class="titlebar-action-btn" id="btn-titlebar-switch" title="Switch Worktree (Alt+R)"></button>
-      <button class="titlebar-action-btn" id="btn-titlebar-commit" title="Commit &amp; Push"></button>
+      <button class="titlebar-action-btn" id="btn-titlebar-commit" title="Sync Changes"></button>
       <button class="titlebar-action-btn" id="btn-titlebar-create-pr" title="Create Pull Request"></button>
       <button class="titlebar-action-btn" id="btn-titlebar-complete-pr" title="Complete Pull Request"></button>
       <button class="titlebar-action-btn" id="btn-titlebar-open-pipeline" title="Open Pipeline"></button>
       <button class="titlebar-action-btn" id="btn-titlebar-install" title="Install Build"></button>
       <button class="titlebar-action-btn" id="btn-titlebar-resolve-task" title="Resolve Azure Task"></button>
-      <button class="titlebar-action-btn" id="btn-titlebar-set-task" title="Set Task"></button>
-<button class="titlebar-action-btn" id="btn-titlebar-open-task" title="Open Task"></button>
       <button class="titlebar-action-btn" id="btn-titlebar-open-pr" title="View Pull Request"></button>
       <button class="titlebar-action-btn" id="btn-titlebar-open-merged-pr" title="View Merged PR"></button>
+      <button class="titlebar-action-btn" id="btn-titlebar-switch" title="Switch Worktree (Alt+R)"></button>
       <span class="titlebar-sep" id="titlebar-sep-2" style="display:none"></span>
+      <button class="titlebar-action-btn" id="btn-titlebar-set-task" title="Set Task"></button>
+      <button class="titlebar-action-btn" id="btn-titlebar-open-task" title="Open Task"></button>
       <button class="titlebar-action-btn" id="btn-titlebar-remove" title="Remove Worktree"></button>
     </div>
     <div class="titlebar-controls">
@@ -247,45 +247,121 @@
     </div>
   </div>
 
-  <!-- Commit & Push dialog -->
-  <div id="commit-push-dialog-overlay" class="dialog-overlay">
-    <div id="commit-push-dialog-box" class="dialog-box">
-      <h3 class="dialog-title">Commit &amp; Push</h3>
-      <p class="dialog-desc">Stage all changes, commit, and push to the current branch</p>
-      <label class="dialog-label">Changed Files</label>
-      <div id="commit-push-diff-toolbar" class="commit-diff-controls"></div>
-      <div id="commit-push-file-list" class="commit-file-list">
-        <span class="commit-file-list-empty">Loading...</span>
+  <!-- Sync Changes dialog -->
+  <div id="sync-changes-dialog-overlay" class="dialog-overlay">
+    <div id="sync-changes-dialog-box" class="dialog-box">
+      <div class="sync-dialog-header">
+        <div>
+          <h3 id="sync-changes-title" class="dialog-title">Sync Changes</h3>
+          <p id="sync-changes-desc" class="dialog-desc"></p>
+        </div>
+        <div id="sync-step-indicator" class="sync-step-indicator" style="display:none">
+          <span id="sync-step-current">1</span> / <span id="sync-step-total">2</span>
+        </div>
       </div>
-      <label class="dialog-label">Commit Title</label>
-      <input id="commit-push-title-input" type="text" class="dialog-input" placeholder="e.g. Fix login validation" spellcheck="false" />
-      <label class="dialog-label">Description <span style="color: var(--text-muted); font-weight: 400;">(optional)</span></label>
-      <textarea id="commit-push-desc-input" class="dialog-input dialog-textarea" placeholder="Additional details about the changes..." spellcheck="false" rows="3"></textarea>
-      <div class="dialog-buttons">
-        <button id="commit-push-cancel-btn" class="dialog-btn dialog-btn-cancel" tabindex="-1">Cancel</button>
-        <button id="commit-push-confirm-btn" class="dialog-btn dialog-btn-confirm">Commit &amp; Push</button>
+
+      <!-- Scrollable content area -->
+      <div id="sync-scroll-body" class="sync-scroll-body">
+        <!-- Divergence notice shown in phase 1 when there are uncommitted changes -->
+        <div id="sync-diverge-notice" class="sync-diverge-notice" style="display:none">
+          <svg class="sync-diverge-notice__icon" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="8" cy="8" r="7" stroke="currentColor" stroke-width="1.5"/><rect x="7.25" y="7" width="1.5" height="5" rx="0.75" fill="currentColor"/><circle cx="8" cy="4.5" r="0.85" fill="currentColor"/></svg>
+          <span>Your branch has commits that differ from the remote. Commit your local changes first, then choose how to resolve the divergence.</span>
+        </div>
+
+        <!-- Commit lists: stacked for ahead/behind states, side-by-side for diverged -->
+        <div id="sync-commits-wrapper" class="sync-commits-wrapper">
+          <div id="sync-ahead-section" style="display:none">
+            <label id="sync-ahead-label" class="dialog-label">Your Commits</label>
+            <div id="sync-ahead-list" class="sync-commit-list"></div>
+          </div>
+          <div id="sync-behind-section" style="display:none">
+            <label id="sync-behind-label" class="dialog-label">Incoming Commits</label>
+            <div id="sync-behind-list" class="sync-commit-list"></div>
+          </div>
+        </div>
+
+        <!-- Uncommitted file changes (uncommitted / diverged phase 1) -->
+        <div id="sync-uncommitted-section" style="display:none">
+          <label class="dialog-label">Uncommitted Changes</label>
+          <div id="sync-diff-toolbar" class="commit-diff-controls"></div>
+          <div id="sync-file-list" class="commit-file-list">
+            <span class="commit-file-list-empty">Loading...</span>
+          </div>
+          <div id="sync-commit-inputs">
+            <label class="dialog-label">Commit Title</label>
+            <input id="sync-title-input" type="text" class="dialog-input" placeholder="e.g. Fix login validation" spellcheck="false" />
+            <label class="dialog-label">Description <span style="color: var(--text-muted); font-weight: 400;">(optional)</span></label>
+            <textarea id="sync-desc-input" class="dialog-input dialog-textarea" placeholder="Additional details about the changes..." spellcheck="false" rows="3"></textarea>
+          </div>
+          <div id="sync-rolled-back-notice" class="sync-rolled-back-notice" style="display:none">
+            <svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M13 5L6 12L3 9" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            All local changes have been reverted. You can proceed to the next step.
+          </div>
+        </div>
+
+        <!-- Resolve strategy cards (for diverged state / phase 2) -->
+        <div id="sync-resolve-strategy" style="display:none">
+          <label class="dialog-label">Choose how to resolve</label>
+          <div class="sync-resolve-cards">
+            <button id="sync-rebase-btn" class="sync-resolve-card sync-resolve-card--safe">
+              <span class="sync-resolve-card__title">Rebase</span>
+              <span class="sync-resolve-card__desc">Replay your commits on top of the remote branch</span>
+            </button>
+            <button id="sync-merge-btn" class="sync-resolve-card sync-resolve-card--safe">
+              <span class="sync-resolve-card__title">Merge</span>
+              <span class="sync-resolve-card__desc">Create a merge commit combining both histories</span>
+            </button>
+            <button id="sync-keep-mine-btn" class="sync-resolve-card sync-resolve-card--caution">
+              <span class="sync-resolve-card__title">Keep Mine</span>
+              <span class="sync-resolve-card__desc">Force push your commits, discarding remote changes</span>
+            </button>
+            <button id="sync-get-theirs-btn" class="sync-resolve-card sync-resolve-card--caution">
+              <span class="sync-resolve-card__title">Get Theirs</span>
+              <span class="sync-resolve-card__desc">Reset to remote state, discarding your local commits</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Standard buttons (uncommitted / ahead / behind states) -->
+      <div id="sync-standard-buttons" class="dialog-buttons sync-footer-buttons" style="display:none">
+        <button id="sync-cancel-btn" class="dialog-btn dialog-btn-cancel" tabindex="-1">Cancel</button>
+        <button id="sync-confirm-btn" class="dialog-btn dialog-btn-confirm">Sync</button>
+      </div>
+
+      <!-- Phase 1 footer: review uncommitted before resolving divergence -->
+      <div id="sync-phase1-footer" class="dialog-buttons sync-footer-buttons" style="display:none">
+        <button id="sync-phase1-cancel-btn" class="dialog-btn dialog-btn-cancel" tabindex="-1">Cancel</button>
+        <button id="sync-phase1-next-btn" class="dialog-btn dialog-btn-confirm">Next &rarr;</button>
+      </div>
+
+      <!-- Phase 2 / simple diverged footer -->
+      <div id="sync-resolve-section" class="dialog-buttons sync-footer-buttons" style="display:none">
+        <button id="sync-resolve-cancel-btn" class="dialog-btn dialog-btn-cancel" tabindex="-1">Cancel</button>
       </div>
     </div>
   </div>
 
   <!-- Create Pull Request dialog -->
   <div id="create-pr-dialog-overlay" class="dialog-overlay">
-    <div class="dialog-box dialog-box--wide">
+    <div id="create-pr-dialog-box" class="dialog-box dialog-box--wide">
       <h3 class="dialog-title">Create Pull Request</h3>
       <p class="dialog-desc">Create a pull request from the current branch</p>
-      <label class="dialog-label">Target Branch</label>
-      <div class="combobox" id="pr-branch-combobox">
-        <input id="pr-branch-search" type="text" class="dialog-input combobox-input" placeholder="Search branches..." spellcheck="false" autocomplete="off" />
-        <span class="combobox-arrow" tabindex="-1">&#x25BC;</span>
-        <div id="pr-branch-list" class="combobox-list" tabindex="-1"></div>
+      <div class="sync-scroll-body">
+        <label class="dialog-label">Target Branch</label>
+        <div class="combobox" id="pr-branch-combobox">
+          <input id="pr-branch-search" type="text" class="dialog-input combobox-input" placeholder="Search branches..." spellcheck="false" autocomplete="off" />
+          <span class="combobox-arrow" tabindex="-1">&#x25BC;</span>
+          <div id="pr-branch-list" class="combobox-list" tabindex="-1"></div>
+        </div>
+        <label class="dialog-label">Title</label>
+        <input id="pr-title-input" type="text" class="dialog-input" placeholder="e.g. Add user authentication" spellcheck="false" />
+        <label class="dialog-label">Description <span style="color: var(--text-muted); font-weight: 400;">(optional)</span></label>
+        <textarea id="pr-desc-input" class="dialog-input dialog-textarea" placeholder="Describe the changes in this pull request..." spellcheck="false" rows="3"></textarea>
+        <label class="dialog-label">Changes</label>
+        <div id="pr-file-list" class="pr-file-list"></div>
       </div>
-      <label class="dialog-label">Title</label>
-      <input id="pr-title-input" type="text" class="dialog-input" placeholder="e.g. Add user authentication" spellcheck="false" />
-      <label class="dialog-label">Description <span style="color: var(--text-muted); font-weight: 400;">(optional)</span></label>
-      <textarea id="pr-desc-input" class="dialog-input dialog-textarea" placeholder="Describe the changes in this pull request..." spellcheck="false" rows="3"></textarea>
-      <label class="dialog-label">Changes</label>
-      <div id="pr-file-list" class="pr-file-list"></div>
-      <div class="dialog-buttons">
+      <div class="dialog-buttons sync-footer-buttons">
         <button id="pr-cancel-btn" class="dialog-btn dialog-btn-cancel" tabindex="-1">Cancel</button>
         <button id="pr-confirm-btn" class="dialog-btn dialog-btn-confirm">Create PR</button>
       </div>
@@ -391,18 +467,18 @@
     <button class="context-menu-item" data-action="open-explorer">Open in Explorer</button>
     <button class="context-menu-item" data-action="open-git-app">Open in Git App</button>
     <hr class="context-menu-separator">
-    <button class="context-menu-item" data-action="switch">Switch Worktree<span class="context-menu-shortcut">Alt+R</span></button>
-    <button class="context-menu-item" data-action="commit-push">Commit &amp; Push</button>
+    <button class="context-menu-item" data-action="commit-push">Sync Changes</button>
     <button class="context-menu-item" data-action="create-pr">Create Pull Request</button>
     <button class="context-menu-item" data-action="complete-pr">Complete Pull Request</button>
     <button class="context-menu-item" data-action="open-pipeline">Open Pipeline</button>
     <button class="context-menu-item" data-action="install">Install Build</button>
     <button class="context-menu-item" data-action="resolve-task">Resolve Task</button>
-    <button class="context-menu-item" data-action="set-task">Set Task</button>
-<button class="context-menu-item" data-action="open-task">Open Task</button>
     <button class="context-menu-item" data-action="open-pr">Open Pull Request</button>
     <button class="context-menu-item" data-action="open-merged-pr">View Merged PR</button>
+    <button class="context-menu-item" data-action="switch">Switch Worktree<span class="context-menu-shortcut">Alt+R</span></button>
     <hr class="context-menu-separator">
+    <button class="context-menu-item" data-action="set-task">Set Task</button>
+    <button class="context-menu-item" data-action="open-task">Open Task</button>
     <button class="context-menu-item context-menu-item-danger" data-action="remove">Remove Worktree</button>
   </div>
 

@@ -1,8 +1,9 @@
 import {
   PR_STATUS_CLASSES,
-  DOT_COMMIT_PUSH_SVG, DOT_CREATE_PR_SVG, DOT_OPEN_PR_SVG, DOT_COMPLETE_PR_SVG,
+  DOT_CREATE_PR_SVG, DOT_OPEN_PR_SVG, DOT_COMPLETE_PR_SVG,
   DOT_RESOLVE_TASK_SVG, DOT_OPEN_TASK_SVG, DOT_SWITCH_SVG, DOT_DONE_SWITCH_SVG,
   DOT_PIPELINE_SVG, DOT_COMPLETE_TASK_RUNNING_SVG, DOT_TASK_DONE_RUNNING_SVG, INSTALL_BTN_SVG,
+  DOT_SYNC_SVG,
 } from './worktree-tab-icons.js';
 import { getWtState } from '../worktree-state.js';
 
@@ -41,7 +42,10 @@ export function getTabDotState(tabEl) {
   const switchBtn = tabEl.querySelector('.workspace-tab-switch');
 
   if (isButtonVisible(commitPushBtn)) {
-    return { icon: DOT_COMMIT_PUSH_SVG, color: 'var(--green)' };
+    const syncState = ws?.syncState;
+    if (syncState === 'behind') return { icon: DOT_SYNC_SVG, color: 'var(--accent)' };
+    if (syncState === 'diverged') return { icon: DOT_SYNC_SVG, color: 'var(--peach)' };
+    return { icon: DOT_SYNC_SVG, color: 'var(--green)' };
   }
   if (isButtonVisible(completePrBtn)) {
     return { icon: DOT_COMPLETE_PR_SVG, color: 'var(--green)' };
@@ -104,7 +108,13 @@ export function getTabActionTitle(tabEl) {
   const createPrBtn = tabEl.querySelector('.workspace-tab-create-pr');
   const switchBtn = tabEl.querySelector('.workspace-tab-switch');
 
-  if (isButtonVisible(commitPushBtn)) return 'Commit & Push';
+  if (isButtonVisible(commitPushBtn)) {
+    const syncState = ws?.syncState;
+    if (syncState === 'ahead') return 'Push';
+    if (syncState === 'behind') return 'Pull';
+    if (syncState === 'diverged') return 'Resolve Conflicts';
+    return 'Commit & Push';
+  }
   if (isButtonVisible(completePrBtn)) return 'Complete Pull Request';
   if (isButtonVisible(pipelineBtn)) {
     const num = ws?.pipelineBuildNumber ? ` ${ws.pipelineBuildNumber}` : '';

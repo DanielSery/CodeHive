@@ -2,7 +2,7 @@ const fs = require('fs');
 const path = require('path');
 const os = require('os');
 const { spawnProc } = require('./pty-spawn.js');
-const { buildWorktreeCmd, buildCloneCmd, buildDeleteScript, buildWorktreeRemoveScript, buildWorktreeSwitchScript, buildCommitPushScript, buildPrCreateScript, buildRebaseScript, buildForcePushScript, buildRegularPushScript, buildFastForwardScript, buildCherryPickScript } = require('./pty-scripts.js');
+const { buildWorktreeCmd, buildCloneCmd, buildDeleteScript, buildWorktreeRemoveScript, buildWorktreeSwitchScript, buildCommitPushScript, buildPrCreateScript, buildRebaseScript, buildForcePushScript, buildRegularPushScript, buildFastForwardScript, buildCherryPickScript, buildPullScript, buildMergeRemoteScript, buildRebaseRemoteScript, buildResetToTheirsScript } = require('./pty-scripts.js');
 const { createPackagesJunction } = require('./repo-scanner.js');
 
 function createWorktreePty(mainWindow, { barePath, repoDir, branchName, sourceBranch }) {
@@ -308,4 +308,27 @@ function createCherryPickPty(mainWindow, { wtPath, sourceBranch, targetBranch, c
   return { proc };
 }
 
-module.exports = { createWorktreePty, createClonePty, createDeletePty, createWorktreeRemovePty, createWorktreeSwitchPty, createCommitPushPty, createPrCreatePty, createAzInstallPty, createSetupInstallPty, createRebasePty, createForcePushPty, createFastForwardPty, createCherryPickPty, createPushPty };
+function createSyncPty(mainWindow, { wtPath, branch, mode }) {
+  let result;
+  if (mode === 'pull') result = buildPullScript(wtPath, branch);
+  else if (mode === 'merge') result = buildMergeRemoteScript(wtPath, branch);
+  else if (mode === 'rebase') result = buildRebaseRemoteScript(wtPath, branch);
+  else if (mode === 'reset-theirs') result = buildResetToTheirsScript(wtPath, branch);
+  else throw new Error(`Unknown sync mode: ${mode}`);
+
+  const { cmd, cwd, scriptPath } = result;
+  const proc = spawnProc(cmd, cwd);
+
+  proc.onData((data) => {
+    if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send('sync:data', data);
+  });
+
+  proc.onExit(({ exitCode }) => {
+    try { fs.unlinkSync(scriptPath); } catch {}
+    if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send('sync:exit', { exitCode });
+  });
+
+  return { proc };
+}
+
+module.exports = { createWorktreePty, createClonePty, createDeletePty, createWorktreeRemovePty, createWorktreeSwitchPty, createCommitPushPty, createPrCreatePty, createAzInstallPty, createSetupInstallPty, createRebasePty, createForcePushPty, createFastForwardPty, createCherryPickPty, createPushPty, createSyncPty };
