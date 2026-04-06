@@ -241,6 +241,19 @@ async function getSyncStatus(wtPath, branch, sourceBranch) {
         { cwd: wtPath, encoding: 'utf8', timeout: 8000 });
     } catch {}
 
+    // Check for conflict state (mid-merge or mid-rebase) before anything else.
+    let conflict = false;
+    try {
+      await execAsync('git rev-parse --verify MERGE_HEAD', { cwd: wtPath, encoding: 'utf8', timeout: 3000 });
+      conflict = true;
+    } catch {}
+    if (!conflict) {
+      try {
+        await execAsync('git rev-parse --verify REBASE_HEAD', { cwd: wtPath, encoding: 'utf8', timeout: 3000 });
+        conflict = true;
+      } catch {}
+    }
+
     let uncommitted = false;
     try {
       const { stdout } = await execAsync('git status --porcelain', { cwd: wtPath, encoding: 'utf8', timeout: 5000 });
@@ -266,7 +279,7 @@ async function getSyncStatus(wtPath, branch, sourceBranch) {
     }
     // If base is null we have no remote at all — localAhead/localBehind stay 0 (clean)
 
-    return { uncommitted, localAhead, localBehind, error: false };
+    return { uncommitted, localAhead, localBehind, conflict, error: false };
   } catch (err) {
     return { uncommitted: false, localAhead: 0, localBehind: 0, error: true, message: err.message };
   }

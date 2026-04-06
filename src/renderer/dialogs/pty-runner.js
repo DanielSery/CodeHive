@@ -12,7 +12,7 @@ import { toast } from '../toast.js';
  * @param {Function} [options.onSuccess] - Called with the full exit result on success
  * @param {Function} [options.onError] - Called with the full exit result on failure (showCloseButton is always called)
  */
-export function runPty(ptyApi, { successMsg, failMsg, onSuccess, onError } = {}) {
+export function runPty(ptyApi, { successMsg, failMsg, onSuccess, onError, autoCloseOnError } = {}) {
   const disposeData = ptyApi.onData((data) => terminal.write(data));
   ptyApi.onExit((result) => {
     disposeData();
@@ -24,7 +24,11 @@ export function runPty(ptyApi, { successMsg, failMsg, onSuccess, onError } = {})
     } else {
       if (failMsg) terminal.writeln(`\x1b[31m${failMsg}\x1b[0m`);
       if (failMsg) toast.error(`${failMsg} — see terminal for details`);
-      terminal.showCloseButton();
+      if (autoCloseOnError) {
+        setTimeout(() => terminal.close(), 1200);
+      } else {
+        terminal.showCloseButton();
+      }
       onError?.(result);
     }
   });

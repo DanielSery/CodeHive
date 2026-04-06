@@ -5,7 +5,8 @@ import { PIPELINE_STATUS_CLASSES, PR_STATUS_CLASSES, INSTALL_BTN_SVG, DOT_SWITCH
 import { updateDotState } from './worktree-tab-dot-state.js';
 import { getWtState } from '../worktree-state.js';
 
-function computeSyncState({ uncommitted, localAhead, localBehind }) {
+function computeSyncState({ uncommitted, localAhead, localBehind, conflict }) {
+  if (conflict) return 'conflict';
   if ((localAhead > 0 || uncommitted) && localBehind > 0) return 'diverged';
   if (uncommitted) return 'uncommitted';
   if (localAhead > 0) return 'ahead';
@@ -17,9 +18,9 @@ function updateSyncButton(btn, state) {
   if (!btn) return;
   if (state === 'clean') { btn.style.display = 'none'; return; }
   btn.style.display = '';
-  const colors = { uncommitted: 'var(--green)', ahead: 'var(--green)', behind: 'var(--accent)', diverged: 'var(--peach)' };
-  const icons = { uncommitted: DOT_SYNC_SVG, ahead: DOT_SYNC_SVG, behind: DOT_SYNC_SVG, diverged: DOT_SYNC_SVG };
-  const titles = { uncommitted: 'Commit & Push', ahead: 'Push', behind: 'Pull', diverged: 'Resolve Conflicts' };
+  const colors = { uncommitted: 'var(--green)', ahead: 'var(--green)', behind: 'var(--accent)', diverged: 'var(--peach)', conflict: 'var(--red)' };
+  const icons = { uncommitted: DOT_SYNC_SVG, ahead: DOT_SYNC_SVG, behind: DOT_SYNC_SVG, diverged: DOT_SYNC_SVG, conflict: DOT_SYNC_SVG };
+  const titles = { uncommitted: 'Commit & Push', ahead: 'Push', behind: 'Pull', diverged: 'Resolve Conflicts', conflict: 'Resolve Conflicts in Git App' };
   btn.innerHTML = icons[state] || '';
   btn.style.color = colors[state] || '';
   btn.title = titles[state] || '';

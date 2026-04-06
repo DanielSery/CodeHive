@@ -37,6 +37,7 @@ export function initWtState(wtPath, initial = {}) {
     // Git
     hasUncommittedChanges: false,
     hasPushedCommits: false,
+    syncState: 'clean',
     // UI
     switchMode: null,
     // Refresh guard

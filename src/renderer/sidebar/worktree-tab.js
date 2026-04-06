@@ -9,6 +9,7 @@ import { pr } from '../pr-service.js';
 import { showResolveTaskDialog } from '../dialogs/dialog-resolve.js';
 import { showInstallDialog } from '../dialogs/dialog-verify.js';
 import { BIN_ICON_SVG, DOT_SWITCH_SVG, INSTALL_BTN_SVG } from './worktree-tab-icons.js';
+import { toast } from '../toast.js';
 import { formatBranchLabel, extractTaskIdFromBranch, hasPrStatusClass } from './worktree-tab-dot-state.js';
 import { refreshTabStatus, showFallbackSwitch } from './worktree-tab-status.js';
 import { initWtState, getWtState } from '../worktree-state.js';
@@ -190,6 +191,13 @@ export function createWorktreeTab(wt) {
 
   tabEl.querySelector('.workspace-tab-commit-push').addEventListener('click', (e) => {
     e.stopPropagation();
+    const ws = getWtState(tabEl._wtPath);
+    if (ws?.syncState === 'conflict') {
+      window.shellAPI.openInGitApp(tabEl._wtPath).then(result => {
+        if (!result || !result.app) toast.error('No Git app found (Fork, SourceTree, GitKraken, Git Bash)');
+      });
+      return;
+    }
     if (_showCommitPushDialog) {
       const groupEl = tabEl.closest('.repo-group');
       _showCommitPushDialog(tabEl, groupEl);

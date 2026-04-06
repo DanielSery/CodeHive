@@ -86,7 +86,8 @@ const _resizeObserver = new ResizeObserver(() => {
 _resizeObserver.observe(syncDialogBox);
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
-function computeSyncState({ uncommitted, localAhead, localBehind }) {
+function computeSyncState({ uncommitted, localAhead, localBehind, conflict }) {
+  if (conflict) return 'conflict';
   if ((localAhead > 0 || uncommitted) && localBehind > 0) return 'diverged';
   if (uncommitted) return 'uncommitted';
   if (localAhead > 0) return 'ahead';
@@ -263,6 +264,10 @@ async function renderDialogForState(state, tabEl) {
       showDivergedPhase(2);
     }
 
+  } else if (state === 'conflict') {
+    hideSyncDialog();
+    window.shellAPI.openInGitApp(wtPath);
+
   } else {
     // clean — nothing to do, just show a close button (no separate cancel needed)
     syncTitle.textContent = 'Up to Date';
@@ -376,12 +381,16 @@ async function runSyncMode(tabEl, mode, termTitle, successMsg, failMsg) {
   const disposeData = runPty(window.syncAPI, {
     successMsg,
     failMsg,
+    autoCloseOnError: true,
     onSuccess: () => {
       terminal.setTitle(successMsg);
       if (_refreshTabStatus) _refreshTabStatus(tabEl);
       setTimeout(() => terminal.close(), 1200);
     },
-    onError: () => terminal.setTitle(failMsg),
+    onError: () => {
+      terminal.setTitle(failMsg);
+      if (_refreshTabStatus) _refreshTabStatus(tabEl);
+    },
   });
 
   try {
