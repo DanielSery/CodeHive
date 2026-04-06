@@ -1,6 +1,8 @@
 const path = require('path');
 const fs = require('fs');
 const { execSync, exec } = require('child_process');
+const util = require('util');
+const execAsync = util.promisify(exec);
 const { assertSafeRef, shellQuote } = require('./pty-scripts');
 
 function getCachedBranches(barePath) {
@@ -187,78 +189,77 @@ function hasUncommittedChanges(wtPath) {
   }
 }
 
-function hasPushedCommits(wtPath, branch, sourceBranch) {
+async function hasPushedCommits(wtPath, branch, sourceBranch) {
   try {
     assertSafeRef(branch);
     assertSafeRef(sourceBranch);
-    const out = execSync(`git rev-list --count origin/${sourceBranch}..origin/${branch}`, {
+    const { stdout } = await execAsync(`git rev-list --count origin/${sourceBranch}..origin/${branch}`, {
       cwd: wtPath,
       encoding: 'utf8',
-      timeout: 5000,
-      stdio: 'pipe'
+      timeout: 5000
     });
-    return { value: parseInt(out.trim(), 10) > 0, error: false };
+    return { value: parseInt(stdout.trim(), 10) > 0, error: false };
   } catch {
     // Source branch may not be fetched in this worktree — fall back to comparing
     // origin/branch against local HEAD (HEAD should be at or beyond the source tip after a fast-forward).
     try {
       assertSafeRef(branch);
-      const out = execSync(`git rev-list --count HEAD..origin/${branch}`, { cwd: wtPath, encoding: 'utf8', timeout: 5000, stdio: 'pipe' });
-      return { value: parseInt(out.trim(), 10) > 0, error: false };
+      const { stdout } = await execAsync(`git rev-list --count HEAD..origin/${branch}`, { cwd: wtPath, encoding: 'utf8', timeout: 5000 });
+      return { value: parseInt(stdout.trim(), 10) > 0, error: false };
     } catch (err) {
       return { value: false, error: true, message: err.message };
     }
   }
 }
 
-function _resolveAheadBase(wtPath, branch, sourceBranch) {
+async function _resolveAheadBase(wtPath, branch, sourceBranch) {
   // Prefer origin/branch as the base — gives the exact ahead count vs remote.
   // If origin/branch doesn't exist yet (never pushed), fall back to origin/sourceBranch
   // so we only show commits introduced on this branch, not the whole repo history.
   try {
-    execSync(`git rev-parse --verify refs/remotes/origin/${branch}`, { cwd: wtPath, encoding: 'utf8', timeout: 3000, stdio: 'pipe' });
+    await execAsync(`git rev-parse --verify refs/remotes/origin/${branch}`, { cwd: wtPath, encoding: 'utf8', timeout: 3000 });
     return { base: `refs/remotes/origin/${branch}`, remoteExists: true };
   } catch {}
   if (sourceBranch) {
     try {
       assertSafeRef(sourceBranch);
-      execSync(`git rev-parse --verify refs/remotes/origin/${sourceBranch}`, { cwd: wtPath, encoding: 'utf8', timeout: 3000, stdio: 'pipe' });
+      await execAsync(`git rev-parse --verify refs/remotes/origin/${sourceBranch}`, { cwd: wtPath, encoding: 'utf8', timeout: 3000 });
       return { base: `refs/remotes/origin/${sourceBranch}`, remoteExists: false };
     } catch {}
   }
   return { base: null, remoteExists: false };
 }
 
-function getSyncStatus(wtPath, branch, sourceBranch) {
+async function getSyncStatus(wtPath, branch, sourceBranch) {
   try {
     assertSafeRef(branch);
 
     // Pre-flight fetch: update remote-tracking refs before reading them.
     // Failures (offline, no remote) are swallowed — stale cached refs are fine.
     try {
-      execSync(`git fetch origin ${shellQuote(branch)} --no-tags --quiet`,
-        { cwd: wtPath, encoding: 'utf8', timeout: 8000, stdio: 'pipe' });
+      await execAsync(`git fetch origin ${shellQuote(branch)} --no-tags --quiet`,
+        { cwd: wtPath, encoding: 'utf8', timeout: 8000 });
     } catch {}
 
     let uncommitted = false;
     try {
-      const out = execSync('git status --porcelain', { cwd: wtPath, encoding: 'utf8', timeout: 5000 });
-      uncommitted = out.trim().length > 0;
+      const { stdout } = await execAsync('git status --porcelain', { cwd: wtPath, encoding: 'utf8', timeout: 5000 });
+      uncommitted = stdout.trim().length > 0;
     } catch {}
 
     let localAhead = 0;
     let localBehind = 0;
-    const { base, remoteExists } = _resolveAheadBase(wtPath, branch, sourceBranch);
+    const { base, remoteExists } = await _resolveAheadBase(wtPath, branch, sourceBranch);
 
     if (base) {
       try {
-        const aOut = execSync(`git rev-list --count ${base}..HEAD`, { cwd: wtPath, encoding: 'utf8', timeout: 5000, stdio: 'pipe' });
+        const { stdout: aOut } = await execAsync(`git rev-list --count ${base}..HEAD`, { cwd: wtPath, encoding: 'utf8', timeout: 5000 });
         localAhead = parseInt(aOut.trim(), 10) || 0;
       } catch {}
       // localBehind only makes sense when comparing against the actual remote branch
       if (remoteExists) {
         try {
-          const bOut = execSync(`git rev-list --count HEAD..refs/remotes/origin/${branch}`, { cwd: wtPath, encoding: 'utf8', timeout: 5000, stdio: 'pipe' });
+          const { stdout: bOut } = await execAsync(`git rev-list --count HEAD..refs/remotes/origin/${branch}`, { cwd: wtPath, encoding: 'utf8', timeout: 5000 });
           localBehind = parseInt(bOut.trim(), 10) || 0;
         } catch {}
       }

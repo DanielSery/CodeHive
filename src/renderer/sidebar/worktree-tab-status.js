@@ -257,33 +257,31 @@ async function _refreshTabStatusInner(tabEl) {
   const ws = getWtState(tabEl._wtPath);
   if (!ws) return;
 
-  // Check sync status (uncommitted changes + ahead/behind remote)
+  // Check sync status and pushed commits in parallel
   const commitPushBtn = tabEl.querySelector('.workspace-tab-commit-push');
   const switchBtn = tabEl.querySelector('.workspace-tab-switch');
   const isOpen = tabEl._workspaceId !== null;
   const sourceBranch = tabEl._wtSourceBranch || 'master';
-  try {
-    const syncResult = await window.reposAPI.getSyncStatus(tabEl._wtPath, branch, sourceBranch);
-    if (syncResult.error) {
-      console.warn('[refreshTabStatus] getSyncStatus error:', syncResult.message);
-      ws.hasUncommittedChanges = false;
-      ws.syncState = 'clean';
-      if (commitPushBtn) commitPushBtn.style.display = 'none';
-    } else {
-      ws.hasUncommittedChanges = syncResult.uncommitted;
-      ws.syncState = computeSyncState(syncResult);
-      updateSyncButton(commitPushBtn, ws.syncState);
+  const [syncSettled, pcSettled] = await Promise.allSettled([
+    window.reposAPI.getSyncStatus(tabEl._wtPath, branch, sourceBranch),
+    window.reposAPI.hasPushedCommits(tabEl._wtPath, branch, sourceBranch)
+  ]);
+  if (syncSettled.status === 'fulfilled' && !syncSettled.value.error) {
+    ws.hasUncommittedChanges = syncSettled.value.uncommitted;
+    ws.syncState = computeSyncState(syncSettled.value);
+    updateSyncButton(commitPushBtn, ws.syncState);
+  } else {
+    if (syncSettled.status === 'fulfilled' && syncSettled.value.error) {
+      console.warn('[refreshTabStatus] getSyncStatus error:', syncSettled.value.message);
     }
-  } catch {
     ws.hasUncommittedChanges = false;
     ws.syncState = 'clean';
     if (commitPushBtn) commitPushBtn.style.display = 'none';
   }
-  try {
-    const pcResult = await window.reposAPI.hasPushedCommits(tabEl._wtPath, branch, sourceBranch);
-    ws.hasPushedCommits = pcResult.value;
-    if (pcResult.error) console.warn('[refreshTabStatus] hasPushedCommits error:', pcResult.message);
-  } catch { ws.hasPushedCommits = false; }
+  if (pcSettled.status === 'fulfilled') {
+    ws.hasPushedCommits = pcSettled.value.value;
+    if (pcSettled.value.error) console.warn('[refreshTabStatus] hasPushedCommits error:', pcSettled.value.message);
+  } else { ws.hasPushedCommits = false; }
   const syncShowing = ws.syncState && ws.syncState !== 'clean';
   if (syncShowing || isOpen) {
     if (switchBtn) switchBtn.style.display = 'none';
