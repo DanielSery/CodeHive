@@ -1,7 +1,7 @@
 const path = require('path');
 const fs = require('fs');
 const { execSync, exec } = require('child_process');
-const { assertSafeRef } = require('./pty-scripts');
+const { assertSafeRef, shellQuote } = require('./pty-scripts');
 
 function getCachedBranches(barePath) {
   try {
@@ -232,6 +232,14 @@ function _resolveAheadBase(wtPath, branch, sourceBranch) {
 function getSyncStatus(wtPath, branch, sourceBranch) {
   try {
     assertSafeRef(branch);
+
+    // Pre-flight fetch: update remote-tracking refs before reading them.
+    // Failures (offline, no remote) are swallowed — stale cached refs are fine.
+    try {
+      execSync(`git fetch origin ${shellQuote(branch)} --no-tags --quiet`,
+        { cwd: wtPath, encoding: 'utf8', timeout: 8000, stdio: 'pipe' });
+    } catch {}
+
     let uncommitted = false;
     try {
       const out = execSync('git status --porcelain', { cwd: wtPath, encoding: 'utf8', timeout: 5000 });

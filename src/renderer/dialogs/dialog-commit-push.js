@@ -58,6 +58,7 @@ let _syncState = 'clean'; // 'uncommitted' | 'ahead' | 'behind' | 'diverged'
 let _hasUncommitted = false;
 let _localAhead = 0;
 let _divergedPhase = 1;   // 1 = commit form, 2 = resolve strategy (diverged+uncommitted only)
+let _sourceBranch = 'master';
 
 function saveDialogSize() {
   localStorage.setItem(DIALOG_SIZE_KEY, JSON.stringify({
@@ -127,6 +128,7 @@ function hideSyncDialog() {
   _syncState = 'clean';
   _hasUncommitted = false;
   _divergedPhase = 1;
+  _sourceBranch = 'master';
 }
 
 export async function showCommitPushDialog(tabEl, _groupEl) {
@@ -161,10 +163,10 @@ export async function showCommitPushDialog(tabEl, _groupEl) {
   const branch = tabEl._wtBranch;
   const wtPath = tabEl._wtPath;
 
-  const sourceBranch = tabEl._wtSourceBranch || 'master';
+  _sourceBranch = tabEl._wtSourceBranch || 'master';
   let syncResult;
   try {
-    syncResult = await window.reposAPI.getSyncStatus(wtPath, branch, sourceBranch);
+    syncResult = await window.reposAPI.getSyncStatus(wtPath, branch, _sourceBranch);
   } catch {
     syncResult = { uncommitted: false, localAhead: 0, localBehind: 0, error: true };
   }
@@ -183,6 +185,7 @@ async function renderDialogForState(state, tabEl) {
   const wtPath = tabEl._wtPath;
 
   syncDialogBox.dataset.state = state;
+  show(syncCancelBtn); // reset — hidden only for 'clean' where Close is the sole action
 
   if (state === 'uncommitted') {
     syncTitle.textContent = 'Commit & Push';
@@ -213,8 +216,7 @@ async function renderDialogForState(state, tabEl) {
     show(syncAheadSection);
     show(syncStandardButtons);
 
-    const sourceBranch = tabEl._wtSourceBranch || 'master';
-    const commits = await window.reposAPI.getCommitsAhead(wtPath, branch, sourceBranch);
+    const commits = await window.reposAPI.getCommitsAhead(wtPath, branch, _sourceBranch);
     if (!syncDialogOverlay.classList.contains('visible')) return;
     renderCommitItems(syncAheadList, commits, 'No commits found');
 
@@ -223,7 +225,6 @@ async function renderDialogForState(state, tabEl) {
     syncDesc.textContent  = 'Pull incoming commits from the remote branch.';
     syncConfirmBtn.textContent = 'Pull';
     syncConfirmBtn.className = 'dialog-btn dialog-btn-confirm';
-    syncConfirmBtn.style.background = 'var(--accent)';
 
     syncBehindLabel.textContent = 'Incoming Commits';
     show(syncBehindSection);
@@ -239,9 +240,8 @@ async function renderDialogForState(state, tabEl) {
     show(syncAheadSection);
     show(syncBehindSection);
 
-    const sourceBranch = tabEl._wtSourceBranch || 'master';
     const [ahead, behind] = await Promise.all([
-      window.reposAPI.getCommitsAhead(wtPath, branch, sourceBranch),
+      window.reposAPI.getCommitsAhead(wtPath, branch, _sourceBranch),
       window.reposAPI.getCommitsBehind(wtPath, branch),
     ]);
     if (!syncDialogOverlay.classList.contains('visible')) return;
@@ -264,18 +264,15 @@ async function renderDialogForState(state, tabEl) {
     }
 
   } else {
-    // clean — nothing to do, just show a message and close button
+    // clean — nothing to do, just show a close button (no separate cancel needed)
     syncTitle.textContent = 'Up to Date';
     syncDesc.textContent  = 'Your branch is in sync with the remote.';
     syncConfirmBtn.textContent = 'Close';
     syncConfirmBtn.className = 'dialog-btn dialog-btn-cancel';
+    hide(syncCancelBtn);
     show(syncStandardButtons);
   }
 
-  // Reset pull button color for non-behind states
-  if (state !== 'behind') {
-    syncConfirmBtn.style.background = '';
-  }
 }
 
 // ─── Phase 1 file state handler ──────────────────────────────────────────────
@@ -312,7 +309,10 @@ function showDivergedPhase(phase) {
     hide(syncUncommittedSection);
     hide(syncPhase1Footer);
 
-    const noLocalCommits = _localAhead === 0;
+    // A pending commit (files still selected in phase 1) counts as a local commit
+    // even before it is created, so we must not show a plain "Pull" in that case.
+    const hasPendingCommit = _hasUncommitted && (_fileTree?.getSelectedFiles()?.length ?? 0) > 0;
+    const noLocalCommits = !hasPendingCommit && _localAhead === 0;
     if (noLocalCommits) {
       // Nothing local to resolve — just pull
       syncTitle.textContent = 'Step 2 of 2 \u2014 Pull Changes';
@@ -347,39 +347,8 @@ async function confirmSync() {
   }
 
   if (_syncState === 'uncommitted') {
-    const title = syncTitleInput.value.trim();
-    if (!title) return;
-    const selectedFiles = _fileTree?.getSelectedFiles() || [];
-    if (selectedFiles.length === 0) return;
-    const desc = syncDescInput.value.trim();
-
-    hideSyncDialog();
-    terminal.show(`Commit & Push: ${branch}`);
-
-    const disposeData = runPty(window.commitPushAPI, {
-      successMsg: `Committed ${branch}`,
-      failMsg: 'Commit failed',
-      onSuccess: () => {
-        terminal.setTitle('Commit complete');
-        runPushFlow(wtPath, {
-          onSuccess: () => {
-            if (_refreshTabStatus) _refreshTabStatus(tabEl);
-            setTimeout(() => terminal.close(), 1200);
-          }
-        });
-      },
-      onError: () => terminal.setTitle('Commit failed'),
-    });
-
-    try {
-      await window.commitPushAPI.start({ wtPath, title, description: desc, branch, files: selectedFiles });
-      window.commitPushAPI.ready();
-    } catch (err) {
-      disposeData();
-      terminal.writeln(`\x1b[31m${err.message || err}\x1b[0m`);
-      terminal.setTitle('Commit & push failed');
-      terminal.showCloseButton();
-    }
+    await commitThenPush(tabEl);
+    return;
 
   } else if (_syncState === 'ahead') {
     hideSyncDialog();
@@ -422,6 +391,46 @@ async function runSyncMode(tabEl, mode, termTitle, successMsg, failMsg) {
     disposeData();
     terminal.writeln(`\x1b[31m${err.message || err}\x1b[0m`);
     terminal.setTitle(failMsg);
+    terminal.showCloseButton();
+  }
+}
+
+// ─── Commit then push ────────────────────────────────────────────────────────
+async function commitThenPush(tabEl) {
+  const wtPath = tabEl._wtPath;
+  const branch = tabEl._wtBranch;
+  const title  = syncTitleInput.value.trim();
+
+  if (!title) { syncTitleInput.focus(); return; }
+  const selectedFiles = _fileTree?.getSelectedFiles() || [];
+  if (selectedFiles.length === 0) return;
+  const desc = syncDescInput.value.trim();
+
+  hideSyncDialog();
+  terminal.show(`Commit & Push: ${branch}`);
+
+  const disposeCommit = runPty(window.commitPushAPI, {
+    successMsg: `Committed ${branch}`,
+    failMsg: 'Commit failed',
+    onSuccess: () => {
+      terminal.setTitle('Commit complete');
+      runPushFlow(wtPath, {
+        onSuccess: () => {
+          if (_refreshTabStatus) _refreshTabStatus(tabEl);
+          setTimeout(() => terminal.close(), 1200);
+        }
+      });
+    },
+    onError: () => terminal.setTitle('Commit failed'),
+  });
+
+  try {
+    await window.commitPushAPI.start({ wtPath, title, description: desc, branch, files: selectedFiles });
+    window.commitPushAPI.ready();
+  } catch (err) {
+    disposeCommit();
+    terminal.writeln(`\x1b[31m${err.message || err}\x1b[0m`);
+    terminal.setTitle('Commit & push failed');
     terminal.showCloseButton();
   }
 }
@@ -501,38 +510,7 @@ syncKeepMineBtn.addEventListener('click', async () => {
   const selectedFiles = _fileTree?.getSelectedFiles() || [];
 
   if (_hasUncommitted && selectedFiles.length > 0) {
-    // Commit first, then force push
-    const title = syncTitleInput.value.trim();
-    if (!title) { syncTitleInput.focus(); return; }
-    const desc = syncDescInput.value.trim();
-
-    hideSyncDialog();
-    terminal.show(`Keep Mine: ${branch}`);
-
-    const disposeCommit = runPty(window.commitPushAPI, {
-      successMsg: `Committed ${branch}`,
-      failMsg: 'Commit failed',
-      onSuccess: () => {
-        terminal.setTitle('Commit complete — force pushing…');
-        runPushFlow(wtPath, {
-          onSuccess: () => {
-            if (_refreshTabStatus) _refreshTabStatus(tabEl);
-            setTimeout(() => terminal.close(), 1200);
-          }
-        });
-      },
-      onError: () => terminal.setTitle('Commit failed'),
-    });
-
-    try {
-      await window.commitPushAPI.start({ wtPath, title, description: desc, branch, files: selectedFiles });
-      window.commitPushAPI.ready();
-    } catch (err) {
-      disposeCommit();
-      terminal.writeln(`\x1b[31m${err.message || err}\x1b[0m`);
-      terminal.setTitle('Keep mine failed');
-      terminal.showCloseButton();
-    }
+    await commitThenPush(tabEl);
   } else {
     hideSyncDialog();
     runPushFlow(wtPath, {

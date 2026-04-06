@@ -1197,6 +1197,13 @@ html, body {
   max-height: 120px;
 }
 
+/* Pull button accent — driven by data-state; avoids JS inline style mutations */
+#sync-changes-dialog-box[data-state="behind"] #sync-confirm-btn {
+  background: var(--accent);
+  color: #1e1e2e;
+  border-color: var(--accent);
+}
+
 /* Resolve strategy cards */
 .sync-resolve-cards {
   display: grid;
