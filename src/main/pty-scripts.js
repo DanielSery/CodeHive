@@ -66,10 +66,9 @@ function buildWorktreeCmd(barePath, { repoDir, branchName, sourceBranch }) {
     branchExists = true;
   } catch {}
 
-  const setUpstream = `git branch --set-upstream-to=origin/${shellQuote(branchName)} ${shellQuote(branchName)}`;
   const cmd = branchExists
     ? `git worktree add ${shellQuote(wtPath)} ${shellQuote(branchName)}`
-    : `git worktree add ${shellQuote(wtPath)} -b ${shellQuote(branchName)} ${shellQuote(startPoint)} && ${setUpstream}`;
+    : `git worktree add --no-track ${shellQuote(wtPath)} -b ${shellQuote(branchName)} ${shellQuote(startPoint)}`;
 
   return { cmd, cwd: barePath, wtPath, dirName };
 }
