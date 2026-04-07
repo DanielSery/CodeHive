@@ -995,6 +995,15 @@ html, body {
   margin-top: -6px;
 }
 
+.resolve-task-pipeline-warning {
+  color: var(--red);
+  background: color-mix(in srgb, var(--red) 10%, transparent);
+  border: 1px solid color-mix(in srgb, var(--red) 30%, transparent);
+  border-radius: 4px;
+  padding: 6px 8px;
+  margin-top: -6px;
+}
+
 .dialog-input {
   width: 100%;
   box-sizing: border-box;

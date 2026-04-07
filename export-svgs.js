@@ -18,22 +18,22 @@ const COLORS = {
 };
 
 // All colors each icon can appear in, derived from worktree-tab-dot-state.js
-const PIPELINE_COLORS = ['yellow', 'red', 'green', 'accent']; // running, failed, succeeded, waiting
+const PIPELINE_COLORS = ['yellow', 'red', 'accent']; // running, failed, open/waiting/succeeded
 const ICON_COLORS = {
   BIN_ICON_SVG:                  ['text-muted'],
-  DOT_COMMIT_PUSH_SVG:           ['green'],
-  DOT_CREATE_PR_SVG:             ['accent'],
-  DOT_OPEN_PR_SVG:               ['accent', 'green', 'red', 'peach', 'yellow'],
+  DOT_SYNC_SVG:                  ['green', 'accent', 'peach'],    // push, pull/behind, diverged
+  DOT_CREATE_PR_SVG:             ['green'],
+  DOT_OPEN_PR_SVG:               ['yellow', 'green', 'red', 'peach'], // default, approved/succeeded, failed, comments
   DOT_COMPLETE_PR_SVG:           ['green'],
-  DOT_RESOLVE_TASK_SVG:          ['green'],
-  DOT_OPEN_TASK_SVG:             ['accent'],
+  DOT_RESOLVE_TASK_SVG:          ['green', 'accent', 'red'],      // default, pipeline running, failed
+  DOT_OPEN_TASK_SVG:             ['text-muted'],
   DOT_SWITCH_SVG:                ['text-muted'],
-  DOT_DONE_SWITCH_SVG:           ['green'],
+  DOT_DONE_SWITCH_SVG:           ['text-muted', 'yellow', 'red'], // default, pipeline running, failed
   DOT_DONE_SVG:                  ['green'],
   DOT_PIPELINE_SVG:              PIPELINE_COLORS,
   DOT_COMPLETE_TASK_RUNNING_SVG: PIPELINE_COLORS,
   DOT_TASK_DONE_RUNNING_SVG:     PIPELINE_COLORS,
-  INSTALL_BTN_SVG:               ['text-muted'],
+  INSTALL_BTN_SVG:               ['green', 'accent', 'red'],      // installed, pipeline running, failed
   INSTALL_PIPELINE_RUNNING_SVG:  ['yellow'],
 };
 

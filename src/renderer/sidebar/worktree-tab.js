@@ -240,7 +240,7 @@ export function createWorktreeTab(wt) {
     if (!d || !tabEl._wtTaskId) return;
     const ctx = { org: d.org, project: d.project, auth: d.auth, apiBase: `https://dev.azure.com/${encodeURIComponent(d.org)}/${encodeURIComponent(d.project)}/_apis` };
     const targetBranch = d.targetRefName || `refs/heads/${tabEl._wtSourceBranch || 'master'}`;
-    const result = await showResolveTaskDialog(ctx, tabEl._wtTaskId, { org: d.org, project: d.project, auth: d.auth, targetBranch, mergeTime: ws.pipelineMergeTime });
+    const result = await showResolveTaskDialog(ctx, tabEl._wtTaskId, { org: d.org, project: d.project, auth: d.auth, targetBranch, mergeTime: ws.pipelineMergeTime, pipelineStatus: ws.pipelineStatus });
     if (result === 'resolved') {
       ws.taskResolved = true;
       ws.canResolveTask = false;

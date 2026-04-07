@@ -1,7 +1,7 @@
 import { syncTitlebarToTab } from '../workspace-manager.js';
 import { parseAzureRemoteUrl, fetchPolicyEvaluations, fetchPrUnresolvedThreadCount, fetchWorkItemById, fetchLatestBuild, fetchBuildArtifacts, fetchActivePrsForBranch, fetchLatestCompletedPrForBranch } from '../azure-api.js';
 import { pipeline } from '../pipeline-service.js';
-import { PIPELINE_STATUS_CLASSES, PR_STATUS_CLASSES, INSTALL_BTN_SVG, DOT_SWITCH_SVG, DOT_SYNC_SVG } from './worktree-tab-icons.js';
+import { PIPELINE_STATUS_CLASSES, PR_STATUS_CLASSES, INSTALL_BTN_SVG, DOT_SWITCH_SVG, DOT_SYNC_SVG, DOT_RESOLVE_TASK_SVG, DOT_COMPLETE_TASK_RUNNING_SVG } from './worktree-tab-icons.js';
 import { updateDotState } from './worktree-tab-dot-state.js';
 import { getWtState } from '../worktree-state.js';
 
@@ -154,8 +154,14 @@ async function applyPostPipelineButtons(tabEl, { pipelineStatus, build, org, pro
   if (ws.pipelineInstalled) {
     setDisplay(pipelineBtn, false);
     setDisplay(installBtn, false);
-    resetActionState(tabEl);
     ws.canResolveTask = true;
+    if (pipelineStatus === 'failed') {
+      setActionState(tabEl, DOT_RESOLVE_TASK_SVG, 'var(--red)', 'Complete Azure Task (pipeline failed)');
+    } else if (pipelineStatus === 'running') {
+      setActionState(tabEl, DOT_COMPLETE_TASK_RUNNING_SVG, 'var(--yellow)', 'Complete Task (pipeline running)');
+    } else {
+      setActionState(tabEl, DOT_RESOLVE_TASK_SVG, 'var(--green)', 'Complete Azure Task');
+    }
     if (resolveTaskBtn && tabEl._wtTaskId) {
       resolveTaskBtn.style.display = 'inline-flex';
       resolveTaskBtn.title = pipelineStatus === 'running' ? 'Complete Task' : 'Complete Azure Task';
