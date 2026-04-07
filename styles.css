@@ -955,7 +955,11 @@ html, body {
   display: flex;
   flex-direction: column;
   height: 600px;
+  min-height: 300px;
   max-height: 90vh;
+  min-width: 500px;
+  resize: both;
+  overflow: hidden;
 }
 
 .pr-file-list {

@@ -21,7 +21,7 @@ function getAllIndices(node) {
   return out;
 }
 
-function renderTreeNode(container, node, depth, files, folderUpdaters, wtPath, allEntries, { showCheckboxes, showRevert, onLoadDiff, notifyChange }) {
+function renderTreeNode(container, node, depth, files, folderUpdaters, wtPath, allEntries, { showCheckboxes, showRevert, onLoadDiff, onClearDiffCache, notifyChange }) {
   const folders = [...node.children.entries()].sort((a, b) => a[0].localeCompare(b[0]));
   const fileEntries = [...node.files].sort((a, b) => a.name.localeCompare(b.name));
 
@@ -110,7 +110,7 @@ function renderTreeNode(container, node, depth, files, folderUpdaters, wtPath, a
     arrow.addEventListener('click', (e) => { e.preventDefault(); toggleCollapse(); });
     nameSpan.addEventListener('click', toggleCollapse);
 
-    renderTreeNode(childContainer, child, depth + 1, files, folderUpdaters, wtPath, allEntries, { showCheckboxes, showRevert, onLoadDiff, notifyChange });
+    renderTreeNode(childContainer, child, depth + 1, files, folderUpdaters, wtPath, allEntries, { showCheckboxes, showRevert, onLoadDiff, onClearDiffCache, notifyChange });
     container.appendChild(folderRow);
     container.appendChild(childContainer);
   }
@@ -181,7 +181,7 @@ function renderTreeNode(container, node, depth, files, folderUpdaters, wtPath, a
       renderFileDiff(diffPanel, result.ok ? result.diff : '', {
         onRevertLines: async (changes) => {
           const r = await window.reposAPI.gitRevertLines(wtPath, f.path, changes);
-          if (r.ok) loadDiff();
+          if (r.ok) { if (onClearDiffCache) onClearDiffCache(f.path); loadDiff(); }
         },
         onExpandGap: async (startLine, endLine) => {
           const r = await window.reposAPI.gitGetFileLines(wtPath, f.path, startLine, endLine);
@@ -223,9 +223,9 @@ export function renderCommitFileList(container, rawFiles, wtPath, { toolbar, sho
   const folderUpdaters = [];
   const notifyChange = () => { if (onChange) onChange(); };
 
-  let expandAll = true;
-
   const allEntries = [];
+  // diffCache: path → diff string, so re-opening a collapsed file doesn't re-fetch
+  const diffCache = new Map();
 
   container.innerHTML = '';
   if (files.length === 0) {
@@ -234,8 +234,16 @@ export function renderCommitFileList(container, rawFiles, wtPath, { toolbar, sho
     return { getSelectedFiles: () => [], isEmpty: () => true };
   }
 
+  const cachedLoadDiff = async (wt, fp) => {
+    if (diffCache.has(fp)) return diffCache.get(fp);
+    const result = await onLoadDiff(wt, fp);
+    if (result.ok) diffCache.set(fp, result);
+    return result;
+  };
+  const clearDiffCache = (fp) => diffCache.delete(fp);
+
   const tree = buildFileTree(files);
-  renderTreeNode(container, tree, 0, files, folderUpdaters, wtPath, allEntries, { showCheckboxes, showRevert, onLoadDiff, notifyChange });
+  renderTreeNode(container, tree, 0, files, folderUpdaters, wtPath, allEntries, { showCheckboxes, showRevert, onLoadDiff: cachedLoadDiff, onClearDiffCache: clearDiffCache, notifyChange });
 
   function openEntry(entry) {
     const { diffPanel, loadDiff, nameSpan, f } = entry;
@@ -245,18 +253,26 @@ export function renderCommitFileList(container, rawFiles, wtPath, { toolbar, sho
       diffPanel._loaded = true;
       if (f.isNew) {
         diffPanel.innerHTML = '<div class="commit-diff-empty">New untracked file — no diff available</div>';
-      } else {
-        loadDiff();
+        return Promise.resolve();
       }
+      return loadDiff();
     }
+    return Promise.resolve();
   }
+
+  // Expand all files, loading diffs in parallel with a concurrency cap
+  const CONCURRENCY = 6;
+  const nonNew = allEntries.filter(e => !e.f.isNew);
+  const newFiles = allEntries.filter(e => e.f.isNew);
+  newFiles.forEach(e => openEntry(e));
+  (async () => {
+    for (let i = 0; i < nonNew.length; i += CONCURRENCY) {
+      await Promise.all(nonNew.slice(i, i + CONCURRENCY).map(e => openEntry(e)));
+    }
+  })();
 
   if (toolbar) {
     toolbar.innerHTML = '';
-  }
-
-  if (expandAll) {
-    for (const entry of allEntries) openEntry(entry);
   }
 
   return {

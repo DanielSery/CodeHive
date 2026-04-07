@@ -529,7 +529,11 @@ export function renderFileDiff(panel, diff, { onRevertLines, onExpandGap } = {})
       outer.appendChild(block);
 
       const cb = seg.changeBlocks;
-      const ro = new ResizeObserver(() => drawBlockConnectors(connSvg, cb));
+      let rafId;
+      const ro = new ResizeObserver(() => {
+        cancelAnimationFrame(rafId);
+        rafId = requestAnimationFrame(() => drawBlockConnectors(connSvg, cb));
+      });
       ro.observe(block);
 
       allPanes.push(leftPane, rightPane);
