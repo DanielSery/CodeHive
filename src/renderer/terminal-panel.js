@@ -8,6 +8,7 @@ const closeBtn = document.getElementById('clone-terminal-close');
 const placeholder = document.getElementById('editor-placeholder');
 const sidebarTab = document.getElementById('sidebar-terminal-tab');
 const collapsedTerminalBtn = document.getElementById('collapsed-terminal-btn');
+const terminalContextMenu = document.getElementById('terminal-context-menu');
 
 let xterm = null;
 let fitAddon = null;
@@ -129,6 +130,35 @@ function isActive() {
 closeBtn.addEventListener('click', closeTerminal);
 sidebarTab.addEventListener('click', toggleTerminal);
 collapsedTerminalBtn.addEventListener('click', toggleTerminal);
+
+xtermContainerEl.addEventListener('contextmenu', (e) => {
+  e.preventDefault();
+  const selection = xterm?.getSelection();
+  if (!selection) return;
+  terminalContextMenu.style.left = e.clientX + 'px';
+  terminalContextMenu.style.top = e.clientY + 'px';
+  terminalContextMenu.classList.add('visible');
+  requestAnimationFrame(() => {
+    const rect = terminalContextMenu.getBoundingClientRect();
+    if (rect.right > window.innerWidth) terminalContextMenu.style.left = (window.innerWidth - rect.width - 4) + 'px';
+    if (rect.bottom > window.innerHeight) terminalContextMenu.style.top = (window.innerHeight - rect.height - 4) + 'px';
+  });
+});
+
+terminalContextMenu.addEventListener('click', (e) => {
+  const item = e.target.closest('.context-menu-item');
+  if (!item) return;
+  terminalContextMenu.classList.remove('visible');
+  if (item.dataset.action === 'copy') {
+    const selection = xterm?.getSelection();
+    if (selection) navigator.clipboard.writeText(selection);
+  }
+});
+
+document.addEventListener('click', () => terminalContextMenu.classList.remove('visible'));
+document.addEventListener('contextmenu', (e) => {
+  if (!terminalContextMenu.contains(e.target)) terminalContextMenu.classList.remove('visible');
+});
 
 window.addEventListener('resize', () => {
   if (!isActive()) return;
