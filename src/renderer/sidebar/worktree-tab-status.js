@@ -340,6 +340,7 @@ async function _refreshTabStatusInner(tabEl) {
     if (!ws.canResolveTask) {
       // If already in pipeline monitoring mode, just refresh the pipeline status
       if (ws.canOpenPipeline) {
+        if (commitPushBtn) commitPushBtn.style.display = 'none';
         if (!ws.hasUncommittedChanges) {
           await updatePipelineForTab(tabEl, { org, project, auth });
         } else {
@@ -368,6 +369,7 @@ async function _refreshTabStatusInner(tabEl) {
             if (completePrBtn) completePrBtn.style.display = 'none';
             if (resolveTaskBtn) resolveTaskBtn.style.display = 'none';
             if (createPrBtn) createPrBtn.style.display = 'none';
+            if (commitPushBtn) commitPushBtn.style.display = 'none';
             pipeline.startMonitoring(tabEl, cPr.targetRefName, cPr.closedDate || null);
             await updatePipelineForTab(tabEl, { org, project, auth });
             return;
@@ -376,6 +378,7 @@ async function _refreshTabStatusInner(tabEl) {
           ws.canCompletePr = false;
           if (createPrBtn) createPrBtn.style.display = 'none';
           if (completePrBtn) completePrBtn.style.display = 'none';
+          if (commitPushBtn) commitPushBtn.style.display = 'none';
           if (ws.hasUncommittedChanges) {
             if (resolveTaskBtn) resolveTaskBtn.style.display = 'none';
           } else {

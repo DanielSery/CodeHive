@@ -234,12 +234,10 @@ async function getSyncStatus(wtPath, branch, sourceBranch) {
   try {
     assertSafeRef(branch);
 
-    // Pre-flight fetch: update remote-tracking refs before reading them.
-    // Failures (offline, no remote) are swallowed — stale cached refs are fine.
-    try {
-      await execAsync(`git fetch origin ${shellQuote(branch)} --no-tags --quiet`,
-        { cwd: wtPath, encoding: 'utf8', timeout: 8000 });
-    } catch {}
+    // Pre-flight fetch: update remote-tracking refs in the background.
+    // We don't await it — the dialog opens immediately using cached refs.
+    execAsync(`git fetch origin ${shellQuote(branch)} --no-tags --quiet`,
+      { cwd: wtPath, encoding: 'utf8', timeout: 8000 }).catch(() => {});
 
     // Check for conflict state (mid-merge or mid-rebase) before anything else.
     let conflict = false;
@@ -285,13 +283,13 @@ async function getSyncStatus(wtPath, branch, sourceBranch) {
   }
 }
 
-function getCommitsAhead(wtPath, branch, sourceBranch) {
+async function getCommitsAhead(wtPath, branch, sourceBranch) {
   try {
     assertSafeRef(branch);
-    const { base } = _resolveAheadBase(wtPath, branch, sourceBranch);
+    const { base } = await _resolveAheadBase(wtPath, branch, sourceBranch);
     if (!base) return [];
-    const out = execSync(`git log --format=%H%x09%s%x09%ai ${base}..HEAD`, { cwd: wtPath, encoding: 'utf8', timeout: 5000 });
-    return out.trim().split('\n').filter(Boolean).map(line => {
+    const { stdout } = await execAsync(`git log --format=%H%x09%s%x09%ai ${base}..HEAD`, { cwd: wtPath, encoding: 'utf8', timeout: 5000 });
+    return stdout.trim().split('\n').filter(Boolean).map(line => {
       const parts = line.split('\t');
       return { hash: parts[0] ? parts[0].substring(0, 8) : '', message: parts[1] || '', date: parts[2] || '' };
     });
