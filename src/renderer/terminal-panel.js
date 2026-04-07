@@ -27,6 +27,16 @@ function createTerminal() {
   xterm.loadAddon(fitAddon);
   xterm.open(xtermContainerEl);
   fitAddon.fit();
+  xterm.attachCustomKeyEventHandler((e) => {
+    if (e.ctrlKey && e.key === 'c' && e.type === 'keydown') {
+      const selection = xterm.getSelection();
+      if (selection) {
+        navigator.clipboard.writeText(selection);
+        return false;
+      }
+    }
+    return true;
+  });
   return xterm;
 }
 
