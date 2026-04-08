@@ -61,7 +61,6 @@ async function loadPrDiff(targetBranch) {
   const files = await window.reposAPI.gitBranchDiffStat(wtPath, targetBranch);
   if (!createPrDialogOverlay.classList.contains('visible')) return;
   renderCommitFileList(prFileList, files, wtPath, {
-    showCheckboxes: false,
     showRevert: false,
     onLoadDiff: (wt, fp) => window.reposAPI.gitBranchFileDiff(wt, fp, targetBranch, 3),
   });

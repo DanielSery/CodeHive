@@ -21,36 +21,8 @@ function getAllIndices(node) {
   return out;
 }
 
-function showContextMenu(x, y, items) {
-  const existing = document.getElementById('commit-tree-context-menu');
-  if (existing) existing.remove();
 
-  const menu = document.createElement('div');
-  menu.id = 'commit-tree-context-menu';
-  menu.className = 'commit-context-menu';
-  menu.style.left = `${x}px`;
-  menu.style.top = `${y}px`;
-
-  for (const item of items) {
-    const menuItem = document.createElement('div');
-    menuItem.className = 'commit-context-menu-item' + (item.danger ? ' commit-context-menu-item--danger' : '');
-    menuItem.textContent = item.label;
-    menuItem.addEventListener('click', () => { menu.remove(); item.action(); });
-    menu.appendChild(menuItem);
-  }
-
-  document.body.appendChild(menu);
-
-  // Adjust if menu overflows viewport
-  const rect = menu.getBoundingClientRect();
-  if (rect.right > window.innerWidth) menu.style.left = `${x - rect.width}px`;
-  if (rect.bottom > window.innerHeight) menu.style.top = `${y - rect.height}px`;
-
-  const close = (e) => { if (!menu.contains(e.target)) { menu.remove(); document.removeEventListener('click', close, true); } };
-  document.addEventListener('click', close, true);
-}
-
-function renderTreeNode(treeContainer, diffArea, rowRefs, node, depth, files, folderUpdaters, wtPath, allEntries, { showCheckboxes, showRevert, onLoadDiff, onClearDiffCache, notifyChange }, folderPath = '') {
+function renderTreeNode(treeContainer, diffArea, rowRefs, node, depth, files, wtPath, allEntries, { showRevert, onLoadDiff, onClearDiffCache, notifyChange }, folderPath = '') {
   const folders = [...node.children.entries()].sort((a, b) => a[0].localeCompare(b[0]));
   const fileEntries = [...node.files].sort((a, b) => a.name.localeCompare(b.name));
 
@@ -76,63 +48,33 @@ function renderTreeNode(treeContainer, diffArea, rowRefs, node, depth, files, fo
     folderRow.appendChild(nameSpan);
 
     if (showRevert) {
-      folderRow.addEventListener('contextmenu', (e) => {
+      const folderRevertBtn = document.createElement('button');
+      folderRevertBtn.className = 'commit-file-revert-btn';
+      folderRevertBtn.title = 'Revert all changes in folder';
+      folderRevertBtn.innerHTML = '<svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 10l4-4M2 10l4 4"/><path d="M2 10h7a4 4 0 0 0 0-8H8"/></svg>';
+      folderRevertBtn.addEventListener('click', async (e) => {
         e.preventDefault();
         e.stopPropagation();
-        showContextMenu(e.clientX, e.clientY, [{
-          label: 'Revert all changes in folder',
-          danger: true,
-          action: async () => {
-            const live = indices.filter(i => files[i]);
-            if (live.length === 0) return;
-            for (const i of live) {
-              const f = files[i];
-              const result = await window.reposAPI.gitRevertFile(wtPath, f.path, f.isNew);
-              if (result.ok) {
-                files[i] = null;
-                const refs = rowRefs.get(i);
-                if (refs) { refs.treeRow.remove(); refs.diffSection.remove(); }
-              }
-            }
-            folderUpdaters.forEach(fn => fn());
-            if (indices.every(i => !files[i])) { folderRow.remove(); childContainer.remove(); }
-            if (files.every(f => !f)) {
-              treeContainer.innerHTML = '<span class="commit-file-list-empty">No changes detected</span>';
-              diffArea.innerHTML = '';
-            }
-            notifyChange();
+        const live = indices.filter(i => files[i]);
+        if (live.length === 0) return;
+        for (const i of live) {
+          const folderFile = files[i];
+          const result = await window.reposAPI.gitRevertFile(wtPath, folderFile.path, folderFile.isNew);
+          if (result.ok) {
+            files[i] = null;
+            const refs = rowRefs.get(i);
+            if (refs) { refs.treeRow.remove(); refs.diffSection.remove(); }
           }
-        }]);
+        }
+        if (indices.every(i => !files[i])) { folderRow.remove(); childContainer.remove(); }
+        if (files.every(folderFile => !folderFile)) {
+          treeContainer.innerHTML = '<span class="commit-file-list-empty">No changes detected</span>';
+          diffArea.innerHTML = '';
+        }
+        notifyChange();
       });
+      folderRow.appendChild(folderRevertBtn);
     }
-
-    const cb = document.createElement('input');
-    cb.type = 'checkbox';
-    cb.checked = true;
-    cb.className = 'commit-file-checkbox';
-
-    const updateCb = () => {
-      const live = indices.filter(i => files[i]);
-      if (live.length === 0) { cb.checked = false; cb.indeterminate = false; return; }
-      const n = live.filter(i => files[i].checked).length;
-      if (n === 0) { cb.checked = false; cb.indeterminate = false; }
-      else if (n === live.length) { cb.checked = true; cb.indeterminate = false; }
-      else { cb.indeterminate = true; }
-    };
-    folderUpdaters.push(updateCb);
-
-    cb.addEventListener('change', () => {
-      cb.indeterminate = false;
-      for (const i of indices) {
-        if (!files[i]) continue;
-        files[i].checked = cb.checked;
-        const refs = rowRefs.get(i);
-        if (refs?.fileCb) refs.fileCb.checked = cb.checked;
-      }
-      folderUpdaters.forEach(fn => fn());
-    });
-
-    if (showCheckboxes) folderRow.appendChild(cb);
 
     const fullPath = folderPath + displayName + '/';
     const collapseKey = `codehive:folder-collapse:${wtPath}:${fullPath}`;
@@ -149,7 +91,7 @@ function renderTreeNode(treeContainer, diffArea, rowRefs, node, depth, files, fo
     arrow.addEventListener('click', (e) => { e.preventDefault(); toggleCollapse(); });
     nameSpan.addEventListener('click', toggleCollapse);
 
-    renderTreeNode(childContainer, diffArea, rowRefs, effectiveChild, depth + 1, files, folderUpdaters, wtPath, allEntries, { showCheckboxes, showRevert, onLoadDiff, onClearDiffCache, notifyChange }, fullPath);
+    renderTreeNode(childContainer, diffArea, rowRefs, effectiveChild, depth + 1, files, wtPath, allEntries, { showRevert, onLoadDiff, onClearDiffCache, notifyChange }, fullPath);
     treeContainer.appendChild(folderRow);
     treeContainer.appendChild(childContainer);
   }
@@ -177,45 +119,30 @@ function renderTreeNode(treeContainer, diffArea, rowRefs, node, depth, files, fo
 
     const statSpan = null;
 
+    row.appendChild(fileInfo);
+
     if (showRevert) {
-      row.addEventListener('contextmenu', (e) => {
+      const fileRevertBtn = document.createElement('button');
+      fileRevertBtn.className = 'commit-file-revert-btn';
+      fileRevertBtn.title = f.isNew ? 'Remove file' : 'Revert changes';
+      fileRevertBtn.innerHTML = '<svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 10l4-4M2 10l4 4"/><path d="M2 10h7a4 4 0 0 0 0-8H8"/></svg>';
+      fileRevertBtn.addEventListener('click', async (e) => {
         e.preventDefault();
         e.stopPropagation();
-        showContextMenu(e.clientX, e.clientY, [{
-          label: f.isNew ? 'Remove file' : 'Revert changes',
-          danger: true,
-          action: async () => {
-            const result = await window.reposAPI.gitRevertFile(wtPath, f.path, f.isNew);
-            if (result.ok) {
-              files[idx] = null;
-              const refs = rowRefs.get(idx);
-              if (refs) { refs.treeRow.remove(); refs.diffSection.remove(); }
-              folderUpdaters.forEach(fn => fn());
-              if (files.every(f => !f)) {
-                treeContainer.innerHTML = '<span class="commit-file-list-empty">No changes detected</span>';
-                diffArea.innerHTML = '';
-              }
-              notifyChange();
-            }
+        const result = await window.reposAPI.gitRevertFile(wtPath, f.path, f.isNew);
+        if (result.ok) {
+          files[idx] = null;
+          const refs = rowRefs.get(idx);
+          if (refs) { refs.treeRow.remove(); refs.diffSection.remove(); }
+          if (files.every(file => !file)) {
+            treeContainer.innerHTML = '<span class="commit-file-list-empty">No changes detected</span>';
+            diffArea.innerHTML = '';
           }
-        }]);
+          notifyChange();
+        }
       });
+      row.appendChild(fileRevertBtn);
     }
-
-    row.appendChild(fileInfo);
-    if (statSpan) row.appendChild(statSpan);
-
-    const cb = document.createElement('input');
-    cb.type = 'checkbox';
-    cb.checked = true;
-    cb.className = 'commit-file-checkbox';
-    cb.dataset.fileIdx = idx;
-    cb.addEventListener('change', () => {
-      files[idx].checked = cb.checked;
-      folderUpdaters.forEach(fn => fn());
-      notifyChange();
-    });
-    if (showCheckboxes) row.appendChild(cb);
 
     treeContainer.appendChild(row);
 
@@ -263,8 +190,7 @@ function renderTreeNode(treeContainer, diffArea, rowRefs, node, depth, files, fo
           files[idx] = null;
           const refs = rowRefs.get(idx);
           if (refs) { refs.treeRow.remove(); refs.diffSection.remove(); }
-          folderUpdaters.forEach(fn => fn());
-          if (files.every(f => !f)) {
+          if (files.every(file => !file)) {
             treeContainer.innerHTML = '<span class="commit-file-list-empty">No changes detected</span>';
             diffArea.innerHTML = '';
           }
@@ -281,36 +207,11 @@ function renderTreeNode(treeContainer, diffArea, rowRefs, node, depth, files, fo
     diffSection.appendChild(diffPanel);
     diffArea.appendChild(diffSection);
 
-    if (showRevert) {
-      diffSection.addEventListener('contextmenu', (e) => {
-        e.preventDefault();
-        showContextMenu(e.clientX, e.clientY, [{
-          label: f.isNew ? 'Remove file' : 'Revert changes',
-          danger: true,
-          action: async () => {
-            const result = await window.reposAPI.gitRevertFile(wtPath, f.path, f.isNew);
-            if (result.ok) {
-              files[idx] = null;
-              const refs = rowRefs.get(idx);
-              if (refs) { refs.treeRow.remove(); refs.diffSection.remove(); }
-              folderUpdaters.forEach(fn => fn());
-              if (files.every(f => !f)) {
-                treeContainer.innerHTML = '<span class="commit-file-list-empty">No changes detected</span>';
-                diffArea.innerHTML = '';
-              }
-              notifyChange();
-            }
-          }
-        }]);
-      });
-    }
-
-    rowRefs.set(idx, { treeRow: row, diffSection, fileCb: showCheckboxes ? cb : null });
+    rowRefs.set(idx, { treeRow: row, diffSection });
 
     // Click on tree row → scroll diff section into view and mark it active
     row.addEventListener('click', (e) => {
-      if (e.target === cb) return;
-      e.preventDefault(); // prevent label default from toggling the checkbox
+      e.preventDefault();
       // Scroll the diff area directly so we target the right scroll container
       const areaRect = diffArea.getBoundingClientRect();
       const sectionRect = diffSection.getBoundingClientRect();
@@ -345,9 +246,8 @@ function renderTreeNode(treeContainer, diffArea, rowRefs, node, depth, files, fo
  * Renders the commit file list as a split view into `container`.
  * Returns { getSelectedFiles } to read which files are checked.
  */
-export function renderCommitFileList(container, rawFiles, wtPath, { toolbar, showCheckboxes = true, showRevert = true, onLoadDiff = (wt, fp) => window.reposAPI.gitFileDiff(wt, fp, 3), onChange = null } = {}) {
-  const files = (rawFiles || []).map(f => ({ ...f, checked: true }));
-  const folderUpdaters = [];
+export function renderCommitFileList(container, rawFiles, wtPath, { toolbar, showRevert = true, onLoadDiff = (wt, fp) => window.reposAPI.gitFileDiff(wt, fp, 3), onChange = null } = {}) {
+  const files = (rawFiles || []).map(f => ({ ...f }));
   const notifyChange = () => { if (onChange) onChange(); };
   const allEntries = [];
   const diffCache = new Map();
@@ -433,7 +333,7 @@ export function renderCommitFileList(container, rawFiles, wtPath, { toolbar, sho
   const clearDiffCache = (fp) => diffCache.delete(fp);
 
   const tree = buildFileTree(files);
-  renderTreeNode(treePanelBody, diffArea, rowRefs, tree, 0, files, folderUpdaters, wtPath, allEntries, { showCheckboxes, showRevert, onLoadDiff: cachedLoadDiff, onClearDiffCache: clearDiffCache, notifyChange });
+  renderTreeNode(treePanelBody, diffArea, rowRefs, tree, 0, files, wtPath, allEntries, { showRevert, onLoadDiff: cachedLoadDiff, onClearDiffCache: clearDiffCache, notifyChange });
 
   // Load all diffs in parallel with concurrency cap
   const CONCURRENCY = 6;
@@ -450,7 +350,7 @@ export function renderCommitFileList(container, rawFiles, wtPath, { toolbar, sho
   if (toolbar) toolbar.innerHTML = '';
 
   return {
-    getSelectedFiles: () => files.filter(f => f && f.checked).map(f => f.path),
+    getSelectedFiles: () => files.filter(f => f).map(f => f.path),
     isEmpty: () => files.every(f => !f),
   };
 }

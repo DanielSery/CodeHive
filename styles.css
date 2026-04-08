@@ -1451,18 +1451,22 @@ html, body {
   margin-right: 2px;
 }
 
-.commit-file-checkbox {
+.commit-file-revert-btn {
   flex-shrink: 0;
-  width: 13px;
-  height: 13px;
-  accent-color: var(--accent, #0078d4);
+  background: none;
+  border: none;
+  padding: 2px 3px;
+  border-radius: 3px;
   cursor: pointer;
-  margin-right: 2px;
+  color: var(--text-muted, #888);
+  display: flex;
+  align-items: center;
   opacity: 0;
-  transition: opacity 0.15s;
+  transition: opacity 0.15s, color 0.15s, background 0.15s;
 }
-.commit-file-row:hover .commit-file-checkbox,
-.commit-tree-folder:hover > .commit-file-checkbox { opacity: 1; }
+.commit-file-row:hover .commit-file-revert-btn,
+.commit-tree-folder:hover > .commit-file-revert-btn { opacity: 1; }
+.commit-file-revert-btn:hover { color: var(--red); background: color-mix(in srgb, var(--red) 12%, transparent); opacity: 1; }
 
 .commit-file-stat {
   flex-shrink: 0;
@@ -1483,27 +1487,6 @@ html, body {
 .commit-file-status-dot--new { background: var(--green, #4ec9b0); }
 .commit-file-status-dot--modified { background: #e2c08d; }
 
-/* Context menu for file tree right-click actions */
-.commit-context-menu {
-  position: fixed;
-  z-index: 10001;
-  background: var(--bg-secondary, #252526);
-  border: 1px solid var(--border);
-  border-radius: 4px;
-  padding: 3px 0;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.4);
-  min-width: 160px;
-}
-.commit-context-menu-item {
-  padding: 5px 14px;
-  font-size: 12px;
-  color: var(--text);
-  cursor: pointer;
-  white-space: nowrap;
-}
-.commit-context-menu-item:hover { background: var(--hover, rgba(255,255,255,0.08)); }
-.commit-context-menu-item--danger { color: var(--red); }
-.commit-context-menu-item--danger:hover { background: color-mix(in srgb, var(--red) 12%, transparent); }
 
 .commit-tree-folder {
   display: flex;

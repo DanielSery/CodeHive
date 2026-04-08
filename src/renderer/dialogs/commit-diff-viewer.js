@@ -545,8 +545,8 @@ export function renderFileDiff(panel, diff, { onRevertLines, onExpandGap } = {})
   for (let i = 0; i < segments.length; i++) {
     const seg = segments[i];
     if (seg.type === 'gap') {
-      const prevSeg = segments[i - 1]; // content above (may be undefined)
-      const nextSeg = segments[i + 1]; // content below (may be undefined)
+      const prevSeg = segments[i - 1]?.rows?.length ? segments[i - 1] : undefined;
+      const nextSeg = segments[i + 1]?.rows?.length ? segments[i + 1] : undefined;
       outer.appendChild(makeGapDiv(seg.group, prevSeg, nextSeg));
     } else {
       if (seg.rows.length === 0) continue;
