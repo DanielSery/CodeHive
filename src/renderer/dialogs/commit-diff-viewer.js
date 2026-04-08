@@ -422,62 +422,104 @@ export function renderFileDiff(panel, diff, { onRevertLines, onExpandGap } = {})
         return s;
       };
 
-      // ↑ N: load N lines from top of gap → append to prevSeg's tables
-      [15, 10, 5].forEach(n => {
-        bar.appendChild(makeArrowBtn('up', n, async () => {
-          const end = gapEnd !== null ? Math.min(gapStart + n - 1, gapEnd) : gapStart + n - 1;
-          const lines = await onExpandGap(gapStart, end);
+      if (!prevSeg) {
+        // First (top-edge) gap: "Show hidden lines" (all) + ↓5 ↓10 ↓15
+        bar.appendChild(makeTextBtn('Show hidden lines', async () => {
+          const lines = await onExpandGap(gapStart, gapEnd);
+          if (lines?.length && nextSeg) {
+            const firstLeft = nextSeg.leftTable.firstChild;
+            const firstRight = nextSeg.rightTable.firstChild;
+            lines.forEach(line => {
+              const { leftTr, rightTr } = makeCtxRow(line);
+              if (firstLeft) nextSeg.leftTable.insertBefore(leftTr, firstLeft);
+              else nextSeg.leftTable.appendChild(leftTr);
+              if (firstRight) nextSeg.rightTable.insertBefore(rightTr, firstRight);
+              else nextSeg.rightTable.appendChild(rightTr);
+            });
+          }
+          div.remove();
+        }));
+        if (gapEnd !== null) {
+          bar.appendChild(makeSep());
+          [5, 10, 15].forEach(n => {
+            bar.appendChild(makeArrowBtn('down', n, async () => {
+              const start = Math.max(gapEnd - n + 1, gapStart);
+              const lines = await onExpandGap(start, gapEnd);
+              if (lines?.length && nextSeg) {
+                const firstLeft = nextSeg.leftTable.firstChild;
+                const firstRight = nextSeg.rightTable.firstChild;
+                lines.forEach(line => {
+                  const { leftTr, rightTr } = makeCtxRow(line);
+                  if (firstLeft) nextSeg.leftTable.insertBefore(leftTr, firstLeft);
+                  else nextSeg.leftTable.appendChild(leftTr);
+                  if (firstRight) nextSeg.rightTable.insertBefore(rightTr, firstRight);
+                  else nextSeg.rightTable.appendChild(rightTr);
+                });
+                gapEnd -= lines.length;
+              }
+              if (gapStart > gapEnd) { div.remove(); return; }
+              rebuild();
+            }));
+          });
+        }
+      } else {
+        // ↑ N: load N lines from top of gap → append to prevSeg's tables
+        [15, 10, 5].forEach(n => {
+          bar.appendChild(makeArrowBtn('up', n, async () => {
+            const end = gapEnd !== null ? Math.min(gapStart + n - 1, gapEnd) : gapStart + n - 1;
+            const lines = await onExpandGap(gapStart, end);
+            if (lines?.length && prevSeg) {
+              lines.forEach(line => {
+                const { leftTr, rightTr } = makeCtxRow(line);
+                prevSeg.leftTable.appendChild(leftTr);
+                prevSeg.rightTable.appendChild(rightTr);
+              });
+              gapStart += lines.length;
+            }
+            if (gapEnd !== null && gapStart > gapEnd) { div.remove(); return; }
+            rebuild();
+          }));
+        });
+
+        bar.appendChild(makeSep());
+
+        // Show all
+        bar.appendChild(makeTextBtn('Show hidden lines', async () => {
+          const lines = await onExpandGap(gapStart, gapEnd);
           if (lines?.length && prevSeg) {
             lines.forEach(line => {
               const { leftTr, rightTr } = makeCtxRow(line);
               prevSeg.leftTable.appendChild(leftTr);
               prevSeg.rightTable.appendChild(rightTr);
             });
-            gapStart += lines.length;
           }
-          if (gapEnd !== null && gapStart > gapEnd) { div.remove(); return; }
-          rebuild();
+          div.remove();
         }));
-      });
 
-      bar.appendChild(makeSep());
-
-      // Show all
-      bar.appendChild(makeTextBtn('Show hidden lines', async () => {
-        const lines = await onExpandGap(gapStart, gapEnd);
-        if (lines?.length && prevSeg) {
-          lines.forEach(line => {
-            const { leftTr, rightTr } = makeCtxRow(line);
-            prevSeg.leftTable.appendChild(leftTr);
-            prevSeg.rightTable.appendChild(rightTr);
+        // ↓ N: load N lines from bottom of gap → prepend to nextSeg's tables
+        if (gapEnd !== null) {
+          bar.appendChild(makeSep());
+          [5, 10, 15].forEach(n => {
+            bar.appendChild(makeArrowBtn('down', n, async () => {
+              const start = Math.max(gapEnd - n + 1, gapStart);
+              const lines = await onExpandGap(start, gapEnd);
+              if (lines?.length && nextSeg) {
+                const firstLeft = nextSeg.leftTable.firstChild;
+                const firstRight = nextSeg.rightTable.firstChild;
+                lines.forEach(line => {
+                  const { leftTr, rightTr } = makeCtxRow(line);
+                  if (firstLeft) nextSeg.leftTable.insertBefore(leftTr, firstLeft);
+                  else nextSeg.leftTable.appendChild(leftTr);
+                  if (firstRight) nextSeg.rightTable.insertBefore(rightTr, firstRight);
+                  else nextSeg.rightTable.appendChild(rightTr);
+                });
+                gapEnd -= lines.length;
+              }
+              if (gapStart > gapEnd) { div.remove(); return; }
+              rebuild();
+            }));
           });
         }
-        div.remove();
-      }));
-
-      // ↓ N: load N lines from bottom of gap → prepend to nextSeg's tables
-      if (gapEnd !== null) {
-        bar.appendChild(makeSep());
-        [5, 10, 15].forEach(n => {
-          bar.appendChild(makeArrowBtn('down', n, async () => {
-            const start = Math.max(gapEnd - n + 1, gapStart);
-            const lines = await onExpandGap(start, gapEnd);
-            if (lines?.length && nextSeg) {
-              const firstLeft = nextSeg.leftTable.firstChild;
-              const firstRight = nextSeg.rightTable.firstChild;
-              lines.forEach(line => {
-                const { leftTr, rightTr } = makeCtxRow(line);
-                if (firstLeft) nextSeg.leftTable.insertBefore(leftTr, firstLeft);
-                else nextSeg.leftTable.appendChild(leftTr);
-                if (firstRight) nextSeg.rightTable.insertBefore(rightTr, firstRight);
-                else nextSeg.rightTable.appendChild(rightTr);
-              });
-              gapEnd -= lines.length;
-            }
-            if (gapStart > gapEnd) { div.remove(); return; }
-            rebuild();
-          }));
-        });
       }
 
       div.appendChild(bar);
