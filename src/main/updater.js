@@ -104,10 +104,14 @@ function installUpdate(zipPath) {
   const scriptPath = path.join(os.tmpdir(), 'codehive-update.ps1');
   fs.writeFileSync(scriptPath, script, 'utf8');
 
-  spawn('powershell.exe', [
-    '-WindowStyle', 'Hidden',
+  // Use cmd /c start to break out of Electron's Windows Job Object so the
+  // PowerShell process survives app.quit() on all Windows configurations.
+  spawn('cmd.exe', [
+    '/c', 'start', '', '/min',
+    'powershell.exe',
     '-ExecutionPolicy', 'Bypass',
     '-NonInteractive',
+    '-WindowStyle', 'Hidden',
     '-File', scriptPath
   ], { detached: true, stdio: 'ignore' }).unref();
 
