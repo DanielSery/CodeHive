@@ -326,10 +326,10 @@ function renderTreeNode(treeContainer, diffArea, rowRefs, node, depth, files, fo
       diffPanel.innerHTML = '<div class="commit-diff-empty">Loading…</div>';
       const result = await onLoadDiff(wtPath, f.path);
       renderFileDiff(diffPanel, result.ok ? result.diff : '', {
-        onRevertLines: async (changes) => {
+        onRevertLines: showRevert ? async (changes) => {
           const r = await window.reposAPI.gitRevertLines(wtPath, f.path, changes);
           if (r.ok) { if (onClearDiffCache) onClearDiffCache(f.path); loadDiff(); }
-        },
+        } : null,
         onExpandGap: async (startLine, endLine) => {
           const r = await window.reposAPI.gitGetFileLines(wtPath, f.path, startLine, endLine);
           return r.ok ? r.lines : [];
