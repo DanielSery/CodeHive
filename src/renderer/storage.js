@@ -82,6 +82,26 @@ export function saveCheckUpdatesOnStartup(value) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
 }
 
+export function saveTaskResolved(wtPath, resolved) {
+  const state = getState();
+  if (!state.taskResolved) state.taskResolved = {};
+  const key = normalizePath(wtPath);
+  if (resolved) {
+    state.taskResolved[key] = true;
+  } else {
+    delete state.taskResolved[key];
+  }
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  console.log('[storage] saveTaskResolved', key, resolved);
+}
+
+export function getTaskResolved(wtPath) {
+  const state = getState();
+  const result = !!(state.taskResolved && state.taskResolved[normalizePath(wtPath)]);
+  console.log('[storage] getTaskResolved', normalizePath(wtPath), result);
+  return result;
+}
+
 export function savePipelineInstalled(wtPath, installed) {
   const state = getState();
   if (!state.pipelineInstalled) state.pipelineInstalled = {};
@@ -105,6 +125,7 @@ export function clearWorktreeStorage(wtPath) {
   const key = normalizePath(wtPath);
   if (state.sourceBranches) delete state.sourceBranches[key];
   if (state.taskIds) delete state.taskIds[key];
+  if (state.taskResolved) delete state.taskResolved[key];
   if (state.pipelineInstalled) delete state.pipelineInstalled[key];
   localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
 }

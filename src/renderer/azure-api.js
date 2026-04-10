@@ -369,11 +369,50 @@ export async function fetchLatestBuildNumber(org, project, auth, branchName, min
 
 /**
  * Resolve a work item: set state to Resolved and optionally set Integrated in Build and Release Note fields.
+ * Also removes the 'waiting_for_dod' tag if present.
  */
 export async function resolveWorkItem(ctx, id, { integrationBuild, releaseNote } = {}) {
-  const ops = [{ op: 'add', path: '/fields/System.State', value: 'Resolved' }];
+  console.log('[resolveWorkItem] start', { id, org: ctx.org, project: ctx.project });
+  let resolvedStateName = 'Resolved';
+  const ops = [];
   if (integrationBuild) ops.push({ op: 'add', path: '/fields/Microsoft.VSTS.Build.IntegrationBuild', value: integrationBuild });
   if (releaseNote) ops.push({ op: 'add', path: '/fields/Custom.Releasenote', value: releaseNote });
+  try {
+    const wiResp = await fetch(
+      `${ctx.apiBase}/wit/workitems/${id}?fields=System.Tags,System.WorkItemType&api-version=7.0`,
+      { headers: { Authorization: `Basic ${ctx.auth}` } }
+    );
+    console.log('[resolveWorkItem] wi fetch status:', wiResp.status);
+    if (wiResp.ok) {
+      const wiData = await wiResp.json();
+      const currentTags = wiData.fields?.['System.Tags'] || '';
+      const updatedTags = currentTags.split(';').map(tag => tag.trim()).filter(tag => tag && tag.toLowerCase() !== 'waiting_for_dod').join('; ');
+      if (updatedTags !== currentTags.trim()) {
+        ops.push({ op: 'add', path: '/fields/System.Tags', value: updatedTags });
+      }
+      const workItemType = wiData.fields?.['System.WorkItemType'];
+      console.log('[resolveWorkItem] workItemType:', workItemType);
+      if (workItemType) {
+        const statesUrl = `${ctx.apiBase}/wit/workitemtypes/${encodeURIComponent(workItemType)}/states?api-version=7.0`;
+        console.log('[resolveWorkItem] states url:', statesUrl);
+        const statesResp = await fetch(statesUrl, { headers: { Authorization: `Basic ${ctx.auth}` } });
+        console.log('[resolveWorkItem] states fetch status:', statesResp.status);
+        if (statesResp.ok) {
+          const statesData = await statesResp.json();
+          const stateNames = (statesData.value || []).map(s => s.name);
+          console.log('[resolveWorkItem] states:', stateNames);
+          const preferred = ['Resolved', 'Closed', 'Done', 'Completed', 'Fixed'];
+          const match = preferred.find(name => stateNames.includes(name));
+          console.log('[resolveWorkItem] resolvedState:', match);
+          if (match) {
+            resolvedStateName = match;
+          }
+        }
+      }
+    }
+  } catch (err) { console.warn('[resolveWorkItem] pre-fetch error:', err); }
+  ops.unshift({ op: 'add', path: '/fields/System.State', value: resolvedStateName });
+  console.log('[resolveWorkItem] using state:', resolvedStateName, 'ops:', JSON.stringify(ops));
   try {
     const resp = await fetch(
       `${ctx.apiBase}/wit/workitems/${id}?api-version=7.0`,
@@ -383,8 +422,14 @@ export async function resolveWorkItem(ctx, id, { integrationBuild, releaseNote }
         body: JSON.stringify(ops)
       }
     );
+    console.log('[resolveWorkItem] PATCH status:', resp.status, 'ok:', resp.ok);
+    if (!resp.ok) {
+      const body = await resp.text().catch(() => '');
+      console.warn('[resolveWorkItem] PATCH failed body:', body);
+    }
     return resp.ok;
-  } catch {
+  } catch (err) {
+    console.error('[resolveWorkItem] PATCH error:', err);
     return false;
   }
 }

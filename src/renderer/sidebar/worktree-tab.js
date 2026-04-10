@@ -1,6 +1,6 @@
 import { setTabStatus } from '../claude-poll.js';
 import { openWorktree, closeWorkspace } from '../workspace-manager.js';
-import { getSourceBranch, getTaskId, getPipelineInstalled } from '../storage.js';
+import { getSourceBranch, getTaskId, getPipelineInstalled, getTaskResolved, saveTaskResolved } from '../storage.js';
 import { pipeline } from '../pipeline-service.js';
 import { rebuildCollapsedDots, collapsedDotsEl } from './collapsed-dots.js';
 import { showContextMenu } from './context-menu.js';
@@ -112,7 +112,10 @@ export function createWorktreeTab(wt) {
   tabEl._workspaceId = null;
 
   // All volatile business state lives in the state store
-  initWtState(wt.path, { pipelineInstalled: getPipelineInstalled(wt.path) });
+  const initialTaskResolved = getTaskResolved(wt.path);
+  const initialPipelineInstalled = getPipelineInstalled(wt.path);
+  console.log('[createWorktreeTab]', wt.path, { taskResolved: initialTaskResolved, pipelineInstalled: initialPipelineInstalled });
+  initWtState(wt.path, { pipelineInstalled: initialPipelineInstalled, taskResolved: initialTaskResolved });
 
   const dotEl = document.createElement('button');
   dotEl.className = 'collapsed-dot';
@@ -140,6 +143,7 @@ export function createWorktreeTab(wt) {
         return;
       }
     }
+    tabEl.querySelector('.workspace-tab-switch')?.click();
   });
   dotEl.addEventListener('contextmenu', (e) => {
     e.preventDefault();
@@ -168,6 +172,7 @@ export function createWorktreeTab(wt) {
         return;
       }
     }
+    tabEl.querySelector('.workspace-tab-switch')?.click();
   });
 
   tabEl.querySelector('.workspace-tab-switch').addEventListener('click', (e) => {
@@ -237,6 +242,7 @@ export function createWorktreeTab(wt) {
     e.stopPropagation();
     const ws = getWtState(tabEl._wtPath);
     const d = ws?.prData;
+    console.log('[resolve-task click]', tabEl._wtPath, { hasPrData: !!d, taskId: tabEl._wtTaskId, taskResolved: ws?.taskResolved, canResolveTask: ws?.canResolveTask });
     if (!d || !tabEl._wtTaskId) return;
     const ctx = { org: d.org, project: d.project, auth: d.auth, apiBase: `https://dev.azure.com/${encodeURIComponent(d.org)}/${encodeURIComponent(d.project)}/_apis` };
     const targetBranch = d.targetRefName || `refs/heads/${tabEl._wtSourceBranch || 'master'}`;
@@ -244,6 +250,7 @@ export function createWorktreeTab(wt) {
     if (result === 'resolved') {
       ws.taskResolved = true;
       ws.canResolveTask = false;
+      saveTaskResolved(tabEl._wtPath, true);
     }
     if (result === 'resolved' || result === 'commented') {
       const resolveBtn = tabEl.querySelector('.workspace-tab-resolve-task');

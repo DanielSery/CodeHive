@@ -84,13 +84,21 @@ function gitDiffStat(wtPath) {
   const result = [];
   const seen = new Set();
 
+  const deletedFiles = new Set();
+  try {
+    const deletedOut = execSync('git diff --name-only --diff-filter=D HEAD', { cwd: wtPath, encoding: 'utf8', timeout: 5000 });
+    for (const line of deletedOut.trim().split('\n').filter(Boolean)) {
+      deletedFiles.add(line.trim());
+    }
+  } catch {}
+
   try {
     const diffOut = execSync('git diff --numstat HEAD', { cwd: wtPath, encoding: 'utf8', timeout: 5000 });
     for (const line of diffOut.trim().split('\n').filter(Boolean)) {
       const parts = line.split('\t');
       if (parts.length < 3) continue;
       const filePath = parts[2];
-      result.push({ path: filePath, added: parseInt(parts[0]) || 0, removed: parseInt(parts[1]) || 0, isNew: false });
+      result.push({ path: filePath, added: parseInt(parts[0]) || 0, removed: parseInt(parts[1]) || 0, isNew: false, isDeleted: deletedFiles.has(filePath) });
       seen.add(filePath);
     }
   } catch {}
@@ -101,7 +109,7 @@ function gitDiffStat(wtPath) {
       if (line.startsWith('?? ')) {
         const filePath = line.substring(3).trim();
         if (!seen.has(filePath)) {
-          result.push({ path: filePath, added: null, removed: null, isNew: true });
+          result.push({ path: filePath, added: null, removed: null, isNew: true, isDeleted: false });
         }
       }
     }
@@ -125,11 +133,26 @@ function gitBranchDiffStat(wtPath, targetBranch) {
   const result = [];
   try {
     assertSafeRef(targetBranch);
+    const newFiles = new Set();
+    try {
+      const addedOut = execSync(`git diff --name-only --diff-filter=A origin/${targetBranch}...HEAD`, { cwd: wtPath, encoding: 'utf8', timeout: 5000 });
+      for (const line of addedOut.trim().split('\n').filter(Boolean)) {
+        newFiles.add(line.trim());
+      }
+    } catch {}
+    const deletedFiles = new Set();
+    try {
+      const deletedOut = execSync(`git diff --name-only --diff-filter=D origin/${targetBranch}...HEAD`, { cwd: wtPath, encoding: 'utf8', timeout: 5000 });
+      for (const line of deletedOut.trim().split('\n').filter(Boolean)) {
+        deletedFiles.add(line.trim());
+      }
+    } catch {}
     const out = execSync(`git diff --numstat origin/${targetBranch}...HEAD`, { cwd: wtPath, encoding: 'utf8', timeout: 5000 });
     for (const line of out.trim().split('\n').filter(Boolean)) {
       const parts = line.split('\t');
       if (parts.length < 3) continue;
-      result.push({ path: parts[2], added: parseInt(parts[0]) || 0, removed: parseInt(parts[1]) || 0, isNew: false });
+      const filePath = parts[2];
+      result.push({ path: filePath, added: parseInt(parts[0]) || 0, removed: parseInt(parts[1]) || 0, isNew: newFiles.has(filePath), isDeleted: deletedFiles.has(filePath) });
     }
   } catch {}
   return result;

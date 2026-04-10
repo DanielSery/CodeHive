@@ -109,7 +109,8 @@ function renderTreeNode(treeContainer, diffArea, rowRefs, node, depth, files, wt
     fileInfo.className = 'commit-file-info';
 
     const statusDot = document.createElement('span');
-    statusDot.className = 'commit-file-status-dot' + (f.isNew ? ' commit-file-status-dot--new' : ' commit-file-status-dot--modified');
+    const statusModifier = f.isNew ? ' commit-file-status-dot--new' : f.isDeleted ? ' commit-file-status-dot--deleted' : ' commit-file-status-dot--modified';
+    statusDot.className = 'commit-file-status-dot' + statusModifier;
     fileInfo.appendChild(statusDot);
 
     const fileNameSpan = document.createElement('span');
@@ -171,6 +172,8 @@ function renderTreeNode(treeContainer, diffArea, rowRefs, node, depth, files, wt
     diffStat.className = 'commit-file-stat-group';
     if (f.isNew) {
       diffStat.innerHTML = '<span class="commit-file-stat commit-file-new">new</span>';
+    } else if (f.isDeleted) {
+      diffStat.innerHTML = '<span class="commit-file-stat commit-file-removed">deleted</span>';
     } else {
       diffStat.innerHTML = `<span class="commit-file-stat commit-file-added">+${f.added}</span><span class="commit-file-stat commit-file-removed"> -${f.removed}</span>`;
     }
@@ -228,6 +231,10 @@ function renderTreeNode(treeContainer, diffArea, rowRefs, node, depth, files, wt
       const result = await onLoadDiff(wtPath, f.path);
       renderFileDiff(diffPanel, result.ok ? result.diff : '', {
         onRevertLines: showRevert ? async (changes) => {
+          const r = await window.reposAPI.gitRevertLines(wtPath, f.path, changes);
+          if (r.ok) { if (onClearDiffCache) onClearDiffCache(f.path); loadDiff(); }
+        } : null,
+        onSaveLines: showRevert ? async (changes) => {
           const r = await window.reposAPI.gitRevertLines(wtPath, f.path, changes);
           if (r.ok) { if (onClearDiffCache) onClearDiffCache(f.path); loadDiff(); }
         } : null,

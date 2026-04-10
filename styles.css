@@ -1486,6 +1486,7 @@ html, body {
 }
 .commit-file-status-dot--new { background: var(--green, #4ec9b0); }
 .commit-file-status-dot--modified { background: #e2c08d; }
+.commit-file-status-dot--deleted { background: var(--red); }
 
 
 .commit-tree-folder {

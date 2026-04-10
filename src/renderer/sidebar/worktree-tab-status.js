@@ -4,6 +4,7 @@ import { pipeline } from '../pipeline-service.js';
 import { PIPELINE_STATUS_CLASSES, PR_STATUS_CLASSES, INSTALL_BTN_SVG, DOT_SWITCH_SVG, DOT_SYNC_SVG, DOT_RESOLVE_TASK_SVG, DOT_COMPLETE_TASK_RUNNING_SVG } from './worktree-tab-icons.js';
 import { updateDotState } from './worktree-tab-dot-state.js';
 import { getWtState } from '../worktree-state.js';
+import { saveTaskResolved } from '../storage.js';
 
 function computeSyncState({ uncommitted, localAhead, localBehind, conflict }) {
   if (conflict) return 'conflict';
@@ -141,6 +142,7 @@ async function applyPostPipelineButtons(tabEl, { pipelineStatus, build, org, pro
   const installBtn = tabEl.querySelector('.workspace-tab-install-btn');
   const resolveTaskBtn = tabEl.querySelector('.workspace-tab-resolve-task');
   const switchBtn = tabEl.querySelector('.workspace-tab-switch');
+  console.log('[applyPostPipelineButtons]', tabEl._wtPath, { taskResolved: ws.taskResolved, pipelineInstalled: ws.pipelineInstalled, pipelineStatus, canResolveTask: ws.canResolveTask });
 
   if (ws.taskResolved) {
     setDisplay(resolveTaskBtn, false);
@@ -335,6 +337,8 @@ async function _refreshTabStatusInner(tabEl) {
   if (openPrBtn) { openPrBtn.style.display = 'none'; openPrBtn.classList.remove(...PR_STATUS_CLASSES); }
   if (completePrBtn) completePrBtn.style.display = 'none';
 
+  console.log('[refreshTabStatus]', tabEl._wtPath, { activePrs: activePrs.length, canResolveTask: ws.canResolveTask, canOpenPipeline: ws.canOpenPipeline, taskResolved: ws.taskResolved, pipelineInstalled: ws.pipelineInstalled });
+
   if (activePrs.length === 0) {
     // No active PR — check for completed PR (resolve task / pipeline flow)
     if (!ws.canResolveTask) {
@@ -354,6 +358,7 @@ async function _refreshTabStatusInner(tabEl) {
       }
       try {
         const cPr = await fetchLatestCompletedPrForBranch(org, project, auth, branch);
+        console.log('[refreshTabStatus] completedPr:', cPr ? `#${cPr.pullRequestId}` : 'none');
         if (cPr) {
           const mergedPrUrl = `https://dev.azure.com/${encodeURIComponent(org)}/${encodeURIComponent(project)}/_git/${encodeURIComponent(cPr.repository.name)}/pullrequest/${cPr.pullRequestId}`;
           ws.mergedPrUrl = mergedPrUrl;
@@ -361,11 +366,14 @@ async function _refreshTabStatusInner(tabEl) {
           if (tabEl._wtTaskId) {
             const taskCtx = { org, project, auth, apiBase: `https://dev.azure.com/${encodeURIComponent(org)}/${encodeURIComponent(project)}/_apis` };
             const wi = await fetchWorkItemById(taskCtx, tabEl._wtTaskId);
+            console.log('[refreshTabStatus] workItem:', wi ? `state=${wi.state}` : 'null');
             taskIsDone = !!(wi && ['Resolved', 'Closed', 'Done', 'Removed'].includes(wi.state));
           }
+          console.log('[refreshTabStatus] taskIsDone:', taskIsDone);
           if (taskIsDone) {
             ws.taskResolved = true;
             ws.canResolveTask = false;
+            saveTaskResolved(tabEl._wtPath, true);
             if (completePrBtn) completePrBtn.style.display = 'none';
             if (resolveTaskBtn) resolveTaskBtn.style.display = 'none';
             if (createPrBtn) createPrBtn.style.display = 'none';
@@ -396,6 +404,7 @@ async function _refreshTabStatusInner(tabEl) {
         const wi = await fetchWorkItemById(taskCtx, tabEl._wtTaskId);
         if (wi && ['Resolved', 'Closed', 'Done', 'Removed'].includes(wi.state)) {
           ws.taskResolved = true;
+          saveTaskResolved(tabEl._wtPath, true);
         }
       } catch {}
     }
