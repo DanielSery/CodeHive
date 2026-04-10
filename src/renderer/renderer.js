@@ -174,9 +174,17 @@ window.startupAPI.onStatus((msg) => {
 
 initPatButton();
 
-// ===== Check for Updates button =====
+// ===== Check for Updates / Publish Update button =====
 
-document.getElementById('btn-check-updates').addEventListener('click', () => showUpdateDialog(false));
+updaterAPI.isPackaged().then(isPackaged => {
+  const updateButton = document.getElementById('btn-check-updates');
+  if (isPackaged) {
+    updateButton.addEventListener('click', () => showUpdateDialog(false));
+  } else {
+    updateButton.title = 'Publish Update';
+    updateButton.addEventListener('click', () => updaterAPI.publish());
+  }
+});
 
 // ===== Restore on startup =====
 

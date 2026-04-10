@@ -6,6 +6,7 @@ registerPtyApi(window.worktreeAPI);
 import { getCachedBranchesFromState, saveBranchCache, saveSourceBranch, saveTaskId } from '../storage.js';
 import { fetchAzureTasks, createAzureWorkItem, buildAzureTaskUrl, fetchWorkItemById, updateWorkItemState } from '../azure-api.js';
 import { inferWorkItemType, sanitizePathPart, userToPrefix, nameToBranch, loadStoredPat, getCachedTasks, saveTaskCache, stripHtml } from './utils.js';
+import { showPatDialog } from './dialog-pat.js';
 import { toast } from '../toast.js';
 import { createCombobox } from './combobox.js';
 
@@ -263,6 +264,7 @@ async function fetchTasksForDialog(barePath, gen) {
   const result = await fetchAzureTasks(barePath, pat);
   if (_wtDialogGen !== gen) return;
   if (result.error === 'no-pat') { if (!cached) { wtTaskSearch.placeholder = 'Configure PAT to load tasks'; wtTaskSearch.disabled = false; focusTaskSearch(); } return; }
+  if (result.error === 'pat-invalid') { const newPat = await showPatDialog(); if (newPat) { await fetchTasksForDialog(barePath, gen); } else if (!cached) { wtTaskSearch.placeholder = 'PAT expired — configure to load tasks'; wtTaskSearch.disabled = false; focusTaskSearch(); } return; }
   if (result.error === 'not-azure') { if (!cached) { wtTaskSearch.placeholder = 'Not an Azure DevOps repository'; wtTaskSearch.disabled = false; wtChangeName.focus(); } return; }
   if (result.error) { if (!cached) { wtTaskSearch.placeholder = 'Could not load tasks'; wtTaskSearch.disabled = false; focusTaskSearch(); } return; }
   saveTaskCache(barePath, { tasks: result.tasks, azureContext: result.azureContext });

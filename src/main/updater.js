@@ -98,6 +98,7 @@ function installUpdate(zipPath) {
     '$items = Get-ChildItem $extractDir',
     'if ($items.Count -eq 1 -and $items[0].PSIsContainer) { $srcDir = $items[0].FullName } else { $srcDir = $extractDir }',
     'Copy-Item -Path "$srcDir\\*" -Destination $appDir -Recurse -Force',
+    'Write-Host "Update complete. Launching CodeHive..."',
     'Start-Process -FilePath $exePath',
   ].join("\r\n");
 
@@ -107,11 +108,11 @@ function installUpdate(zipPath) {
   // Use cmd /c start to break out of Electron's Windows Job Object so the
   // PowerShell process survives app.quit() on all Windows configurations.
   spawn('cmd.exe', [
-    '/c', 'start', '', '/min',
+    '/c', 'start', '', '/normal',
     'powershell.exe',
     '-ExecutionPolicy', 'Bypass',
     '-NonInteractive',
-    '-WindowStyle', 'Hidden',
+    '-WindowStyle', 'Normal',
     '-File', scriptPath
   ], { detached: true, stdio: 'ignore' }).unref();
 

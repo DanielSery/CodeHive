@@ -71,9 +71,10 @@ export function getTabDotState(tabEl) {
   if (isButtonVisible(openPrBtn)) {
     let color = 'var(--yellow)';
     if (openPrBtn.classList.contains('has-pr-approved')) color = 'var(--green)';
-    else if (openPrBtn.classList.contains('has-pr-succeeded')) color = 'var(--peach)';
+    else if (openPrBtn.classList.contains('has-pr-succeeded')) color = 'var(--green)';
     else if (openPrBtn.classList.contains('has-pr-failed')) color = 'var(--red)';
     else if (openPrBtn.classList.contains('has-pr-comments')) color = 'var(--peach)';
+    else if (openPrBtn.classList.contains('has-pr-no-work-item')) color = 'var(--peach)';
     return { icon: DOT_OPEN_PR_SVG, color };
   }
   if (isButtonVisible(createPrBtn)) {

@@ -1984,7 +1984,11 @@ html, body {
   border-left: 3px solid #4ec9b0;
   padding-left: 7px;
   background: rgba(78, 201, 176, 0.08);
-  color: #c8f0e8;
+  color: inherit;
+}
+
+:root[data-theme="light"] .combobox-item--my-new {
+  color: #1a5c50;
 }
 
 .combobox-item--my-new:hover,

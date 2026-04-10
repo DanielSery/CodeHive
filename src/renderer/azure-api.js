@@ -5,6 +5,9 @@ export function parseAzureRemoteUrl(url) {
   // https://dev.azure.com/org/project/_git/repo  (with optional user@ prefix)
   const m = url.match(/https?:\/\/(?:[^@/]+@)?dev\.azure\.com\/([^/]+)\/([^/]+)\/_git\//);
   if (m) return { org: decodeURIComponent(m[1]), project: decodeURIComponent(m[2]) };
+  // https://dev.azure.com/org/_git/repo  (project-less, project = org)
+  const m3 = url.match(/https?:\/\/(?:[^@/]+@)?dev\.azure\.com\/([^/]+)\/_git\//);
+  if (m3) { const org = decodeURIComponent(m3[1]); return { org, project: org }; }
   // https://org.visualstudio.com/project/_git/repo
   const m2 = url.match(/https?:\/\/(?:[^@/]+@)?([^.]+)\.visualstudio\.com\/([^/]+)\/_git\//);
   if (m2) return { org: m2[1], project: decodeURIComponent(m2[2]) };
@@ -31,7 +34,8 @@ export async function fetchAzureTasks(barePath, pat) {
   let remoteUrl;
   try { remoteUrl = await window.reposAPI.remoteUrl(barePath); } catch {}
 
-  const parsed = parseAzureRemoteUrl(remoteUrl);
+  let parsed;
+  try { parsed = parseAzureRemoteUrl(remoteUrl); } catch { return { error: 'fetch-failed' }; }
   if (!parsed) return { error: 'not-azure' };
 
   try {
@@ -50,6 +54,7 @@ export async function fetchAzureTasks(barePath, pat) {
       })
     ]);
 
+    if (wiqlResp.status === 401) return { error: 'pat-invalid' };
     if (!wiqlResp.ok) return { error: 'fetch-failed' };
 
     const [wiqlData, myNewWiqlData] = await Promise.all([
@@ -141,7 +146,8 @@ export async function fetchNewAzureTasks(barePath, pat) {
   let remoteUrl;
   try { remoteUrl = await window.reposAPI.remoteUrl(barePath); } catch {}
 
-  const parsed = parseAzureRemoteUrl(remoteUrl);
+  let parsed;
+  try { parsed = parseAzureRemoteUrl(remoteUrl); } catch { return { error: 'fetch-failed' }; }
   if (!parsed) return { error: 'not-azure' };
 
   try {
@@ -153,6 +159,7 @@ export async function fetchNewAzureTasks(barePath, pat) {
       body: JSON.stringify({ query: `SELECT [System.Id] FROM WorkItems WHERE [System.State] = 'New' AND [System.AssignedTo] = @me ORDER BY [System.ChangedDate] DESC` })
     });
 
+    if (wiqlResp.status === 401) return { error: 'pat-invalid' };
     if (!wiqlResp.ok) return { error: 'fetch-failed' };
 
     const wiqlData = await wiqlResp.json();
@@ -374,9 +381,6 @@ export async function fetchLatestBuildNumber(org, project, auth, branchName, min
 export async function resolveWorkItem(ctx, id, { integrationBuild, releaseNote } = {}) {
   console.log('[resolveWorkItem] start', { id, org: ctx.org, project: ctx.project });
   let resolvedStateName = 'Resolved';
-  const ops = [];
-  if (integrationBuild) ops.push({ op: 'add', path: '/fields/Microsoft.VSTS.Build.IntegrationBuild', value: integrationBuild });
-  if (releaseNote) ops.push({ op: 'add', path: '/fields/Custom.Releasenote', value: releaseNote });
   try {
     const wiResp = await fetch(
       `${ctx.apiBase}/wit/workitems/${id}?fields=System.Tags,System.WorkItemType&api-version=7.0`,
@@ -385,34 +389,29 @@ export async function resolveWorkItem(ctx, id, { integrationBuild, releaseNote }
     console.log('[resolveWorkItem] wi fetch status:', wiResp.status);
     if (wiResp.ok) {
       const wiData = await wiResp.json();
-      const currentTags = wiData.fields?.['System.Tags'] || '';
-      const updatedTags = currentTags.split(';').map(tag => tag.trim()).filter(tag => tag && tag.toLowerCase() !== 'waiting_for_dod').join('; ');
-      if (updatedTags !== currentTags.trim()) {
-        ops.push({ op: 'add', path: '/fields/System.Tags', value: updatedTags });
-      }
+      console.log('[resolveWorkItem] fields:', JSON.stringify(wiData.fields));
       const workItemType = wiData.fields?.['System.WorkItemType'];
-      console.log('[resolveWorkItem] workItemType:', workItemType);
       if (workItemType) {
-        const statesUrl = `${ctx.apiBase}/wit/workitemtypes/${encodeURIComponent(workItemType)}/states?api-version=7.0`;
-        console.log('[resolveWorkItem] states url:', statesUrl);
-        const statesResp = await fetch(statesUrl, { headers: { Authorization: `Basic ${ctx.auth}` } });
-        console.log('[resolveWorkItem] states fetch status:', statesResp.status);
+        const statesResp = await fetch(
+          `${ctx.apiBase}/wit/workitemtypes/${encodeURIComponent(workItemType)}/states?api-version=7.0`,
+          { headers: { Authorization: `Basic ${ctx.auth}` } }
+        );
         if (statesResp.ok) {
           const statesData = await statesResp.json();
           const stateNames = (statesData.value || []).map(s => s.name);
-          console.log('[resolveWorkItem] states:', stateNames);
           const preferred = ['Resolved', 'Closed', 'Done', 'Completed', 'Fixed'];
           const match = preferred.find(name => stateNames.includes(name));
-          console.log('[resolveWorkItem] resolvedState:', match);
-          if (match) {
-            resolvedStateName = match;
-          }
+          console.log('[resolveWorkItem] workItemType:', workItemType, 'states:', stateNames, 'using:', match);
+          if (match) resolvedStateName = match;
         }
       }
     }
   } catch (err) { console.warn('[resolveWorkItem] pre-fetch error:', err); }
-  ops.unshift({ op: 'add', path: '/fields/System.State', value: resolvedStateName });
-  console.log('[resolveWorkItem] using state:', resolvedStateName, 'ops:', JSON.stringify(ops));
+
+  const ops = [{ op: 'add', path: '/fields/System.State', value: resolvedStateName }];
+  if (integrationBuild) ops.push({ op: 'add', path: '/fields/Microsoft.VSTS.Build.IntegrationBuild', value: integrationBuild });
+  if (releaseNote) ops.push({ op: 'add', path: '/fields/Custom.Releasenote', value: releaseNote });
+  console.log('[resolveWorkItem] PATCH ops:', JSON.stringify(ops));
   try {
     const resp = await fetch(
       `${ctx.apiBase}/wit/workitems/${id}?api-version=7.0`,
@@ -426,12 +425,42 @@ export async function resolveWorkItem(ctx, id, { integrationBuild, releaseNote }
     if (!resp.ok) {
       const body = await resp.text().catch(() => '');
       console.warn('[resolveWorkItem] PATCH failed body:', body);
+      return false;
     }
-    return resp.ok;
   } catch (err) {
     console.error('[resolveWorkItem] PATCH error:', err);
     return false;
   }
+
+  // Separate PATCH to remove waiting_for_dod tag, so a tag failure doesn't block the resolve result
+  try {
+    const tagsResp = await fetch(
+      `${ctx.apiBase}/wit/workitems/${id}?fields=System.Tags&api-version=7.0`,
+      { headers: { Authorization: `Basic ${ctx.auth}` } }
+    );
+    if (tagsResp.ok) {
+      const tagsData = await tagsResp.json();
+      const currentTags = tagsData.fields?.['System.Tags'] || '';
+      console.log('[resolveWorkItem] currentTags after resolve:', currentTags);
+      const updatedTags = currentTags.split(';').map(t => t.trim()).filter(t => t && t.toLowerCase() !== 'waiting_for_dod').join('; ');
+      if (updatedTags !== currentTags.trim()) {
+        console.log('[resolveWorkItem] removing waiting_for_dod tag, new value:', updatedTags);
+        const tagResp = await fetch(
+          `${ctx.apiBase}/wit/workitems/${id}?api-version=7.0`,
+          {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json-patch+json', 'Authorization': `Basic ${ctx.auth}` },
+            body: JSON.stringify([{ op: 'add', path: '/fields/System.Tags', value: updatedTags }])
+          }
+        );
+        console.log('[resolveWorkItem] tag PATCH status:', tagResp.status);
+      } else {
+        console.log('[resolveWorkItem] no waiting_for_dod tag found, skipping tag PATCH');
+      }
+    }
+  } catch (err) { console.warn('[resolveWorkItem] tag removal error:', err); }
+
+  return true;
 }
 
 /**

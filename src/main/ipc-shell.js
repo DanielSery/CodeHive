@@ -77,6 +77,18 @@ function register(mainWindow, getServerPort) {
   const updater = require('./updater');
 
   ipcMain.handle('updater:getVersion', () => app.getVersion());
+  ipcMain.handle('updater:isPackaged', () => app.isPackaged);
+  ipcMain.handle('updater:publish', () => {
+    const scriptPath = path.join(__dirname, '..', '..', 'publish.ps1');
+    spawn('cmd.exe', [
+      '/c', 'start', '', '/normal',
+      'powershell.exe',
+      '-ExecutionPolicy', 'Bypass',
+      '-NoExit',
+      '-File', scriptPath
+    ], { detached: true, stdio: 'ignore' }).unref();
+    app.quit();
+  });
   ipcMain.handle('updater:check', () => updater.checkForUpdates());
   ipcMain.handle('updater:download', async (event, downloadUrl) => {
     return updater.downloadUpdate(downloadUrl, (pct) => {

@@ -39,8 +39,13 @@ function computePrStatusClass(reviewers, evaluations, unresolvedCount) {
 
   if (evaluations.length > 0 || reviewerRejected) {
     const nonCommentEvals = evaluations.filter(e => e.configuration?.type?.displayName !== 'Comment requirements');
-    const hasFailed = reviewerRejected || nonCommentEvals.some(e => e.status === 'rejected' || e.status === 'broken');
-    if (hasFailed) return 'has-pr-failed';
+    const failedEvals = nonCommentEvals.filter(e => e.status === 'rejected' || e.status === 'broken');
+    const hasFailed = reviewerRejected || failedEvals.length > 0;
+    if (hasFailed) {
+      const onlyWorkItemLinkingFailed = !reviewerRejected && failedEvals.every(e => e.configuration?.type?.displayName === 'Work item linking');
+      if (onlyWorkItemLinkingFailed) return 'has-pr-no-work-item';
+      return 'has-pr-failed';
+    }
 
     const buildEvals = evaluations.filter(e => e.context?.buildId);
     const nonBuildEvals = evaluations.filter(e => !e.context?.buildId);
