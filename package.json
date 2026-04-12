@@ -1,6 +1,6 @@
 {
   "name": "codehive",
-  "version": "0.3.9",
+  "version": "0.3.11",
   "description": "CodeHive - VS Code workspace manager with bare repo/worktree workflow",
   "main": "src/main/main.js",
   "scripts": {

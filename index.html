@@ -382,6 +382,20 @@
     </div>
   </div>
 
+  <!-- Publish Update dialog -->
+  <div id="publish-dialog-overlay" class="dialog-overlay" style="z-index:10001;">
+    <div class="dialog-box">
+      <h3 class="dialog-title">Publish Update</h3>
+      <p class="dialog-desc">The app will close and publish.ps1 will run in a terminal.</p>
+      <label class="dialog-label">Version</label>
+      <input id="publish-version-input" type="text" class="dialog-input" spellcheck="false" autocomplete="off" />
+      <div class="dialog-buttons">
+        <button id="publish-cancel-btn" class="dialog-btn dialog-btn-cancel" tabindex="-1">Cancel</button>
+        <button id="publish-confirm-btn" class="dialog-btn dialog-btn-confirm">Publish</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Resolve Task dialog -->
   <div id="resolve-task-dialog-overlay" class="dialog-overlay">
     <div class="dialog-box">

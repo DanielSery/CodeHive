@@ -1,5 +1,12 @@
+param(
+    [string]$Version = ''
+)
+
 $ErrorActionPreference = 'Stop'
 Set-Location $PSScriptRoot
+
+# Wait for the app process to fully release file locks before building
+Start-Sleep -Seconds 3
 
 # --- Ensure gh is on PATH ---
 if (-not (Get-Command gh -ErrorAction SilentlyContinue)) {
@@ -12,10 +19,20 @@ if (-not (Get-Command gh -ErrorAction SilentlyContinue)) {
     }
 }
 
-# --- Read version from package.json ---
-$packageJson = Get-Content 'package.json' -Raw | ConvertFrom-Json
-$version = $packageJson.version
-$tag = "v$version"
+# --- Resolve version ---
+$packageJsonRaw = Get-Content 'package.json' -Raw
+$packageJson = $packageJsonRaw | ConvertFrom-Json
+if ($Version -eq '') {
+    $parts = $packageJson.version -split '\.'
+    $Version = "$($parts[0]).$($parts[1]).$([int]$parts[2] + 1)"
+}
+if ($Version -ne $packageJson.version) {
+    $packageJsonRaw = $packageJsonRaw -replace '"version"\s*:\s*"[^"]*"', """version"": ""$Version"""
+    Set-Content 'package.json' $packageJsonRaw -NoNewline
+    Write-Host "Version bumped: $($packageJson.version) -> $Version" -ForegroundColor Cyan
+}
+
+$tag = "v$Version"
 $zipName = "CodeHive-$tag-win.zip"
 $zipPath = "dist\win-unpacked\$zipName"
 
@@ -26,7 +43,7 @@ $ErrorActionPreference = 'Continue'
 $null = gh release view $tag 2>&1
 $ErrorActionPreference = 'Stop'
 if ($LASTEXITCODE -eq 0) {
-    Write-Error "Release $tag already exists. Bump the version in package.json first."
+    Write-Error "Release $tag already exists."
     exit 1
 }
 

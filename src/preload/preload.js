@@ -215,7 +215,7 @@ contextBridge.exposeInMainWorld('appSession', {
 contextBridge.exposeInMainWorld('updaterAPI', {
   getVersion: () => ipcRenderer.invoke('updater:getVersion'),
   isPackaged: () => ipcRenderer.invoke('updater:isPackaged'),
-  publish: () => ipcRenderer.invoke('updater:publish'),
+  publish: (version) => ipcRenderer.invoke('updater:publish', version),
   check: () => ipcRenderer.invoke('updater:check'),
   download: (url) => ipcRenderer.invoke('updater:download', url),
   install: (zipPath) => ipcRenderer.invoke('updater:install', zipPath),

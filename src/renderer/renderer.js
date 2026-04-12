@@ -12,6 +12,7 @@ import { saveDirectories } from './storage.js';
 import { saveState, restoreState, onOpenDirectory } from './app-state-service.js';
 import { checkAndInstallAz, initPatButton } from './az-service.js';
 import { showUpdateDialog } from './dialogs/dialog-update.js';
+import { showPublishDialog } from './dialogs/dialog-publish.js';
 import { toast } from './toast.js';
 
 // Wire cross-module dependencies (avoids circular imports)
@@ -182,7 +183,10 @@ updaterAPI.isPackaged().then(isPackaged => {
     updateButton.addEventListener('click', () => showUpdateDialog(false));
   } else {
     updateButton.title = 'Publish Update';
-    updateButton.addEventListener('click', () => updaterAPI.publish());
+    updateButton.addEventListener('click', async () => {
+      const version = await showPublishDialog();
+      if (version) { updaterAPI.publish(version); }
+    });
   }
 });
 
