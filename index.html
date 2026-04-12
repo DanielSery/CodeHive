@@ -34,7 +34,6 @@
       <button class="titlebar-action-btn" id="btn-titlebar-create-pr" title="Create Pull Request"></button>
       <button class="titlebar-action-btn" id="btn-titlebar-complete-pr" title="Complete Pull Request"></button>
       <button class="titlebar-action-btn" id="btn-titlebar-open-pipeline" title="Open Pipeline"></button>
-      <button class="titlebar-action-btn" id="btn-titlebar-install" title="Install Build"></button>
       <button class="titlebar-action-btn" id="btn-titlebar-resolve-task" title="Resolve Azure Task"></button>
       <button class="titlebar-action-btn" id="btn-titlebar-open-pr" title="View Pull Request"></button>
       <button class="titlebar-action-btn" id="btn-titlebar-open-merged-pr" title="View Merged PR"></button>
@@ -398,17 +397,35 @@
 
   <!-- Resolve Task dialog -->
   <div id="resolve-task-dialog-overlay" class="dialog-overlay">
-    <div class="dialog-box">
-      <h3 class="dialog-title">Resolve Task</h3>
-      <p class="dialog-desc">Set the task to Resolved with build and release info &mdash; <a id="resolve-task-link" href="#" style="display:none">Open Task</a></p>
-      <p class="dialog-desc resolve-task-test-reminder">Before resolving, ensure you have installed the build and tested your changes in the application.</p>
-      <p id="resolve-task-pipeline-warning" class="dialog-desc resolve-task-pipeline-warning" style="display:none"></p>
-      <label class="dialog-label">Comment <span style="color: var(--text-muted); font-weight: 400;">(optional)</span></label>
-      <textarea id="resolve-task-comment-input" class="dialog-input dialog-textarea" placeholder="Add a comment to the task..." spellcheck="false" rows="3"></textarea>
-      <label class="dialog-label">Integrated in Build</label>
-      <input id="resolve-task-build-input" type="text" class="dialog-input" placeholder="Loading build number..." spellcheck="false" />
-      <label class="dialog-label">Release Note</label>
-      <input id="resolve-task-release-input" type="text" class="dialog-input" value="internal" spellcheck="false" />
+    <div class="dialog-box" id="resolve-task-dialog-box">
+      <div class="resolve-task-header">
+        <h3 class="dialog-title">Resolve Task</h3>
+        <a id="resolve-task-link" href="#" style="display:none" class="resolve-task-open-link">Open Task</a>
+      </div>
+
+      <div class="resolve-task-section">
+        <p class="resolve-task-section-title">Install Build</p>
+        <p id="resolve-task-install-desc" class="dialog-desc">Loading build info&hellip;</p>
+        <p id="resolve-task-pipeline-warning" class="dialog-desc resolve-task-pipeline-warning" style="display:none"></p>
+        <div id="resolve-task-build-selector" class="verify-build-selector" style="display:none">
+          <span class="verify-build-selector-label">Build</span>
+          <select id="resolve-task-build-select" class="verify-build-select"></select>
+        </div>
+        <div id="resolve-task-artifacts-list" class="verify-artifacts-list"></div>
+      </div>
+
+      <div class="resolve-task-divider"></div>
+
+      <div class="resolve-task-section">
+        <p class="resolve-task-section-title">Complete Task</p>
+        <p class="dialog-desc resolve-task-test-reminder">Install and verify the build before marking as complete.</p>
+        <label class="dialog-label">Integrated in Build</label>
+        <input id="resolve-task-build-input" type="text" class="dialog-input" placeholder="Loading build number..." spellcheck="false" />
+        <label class="dialog-label">Release Note <span class="dialog-label-hint">e.g. internal, v2.5.1</span></label>
+        <input id="resolve-task-release-input" type="text" class="dialog-input" value="internal" spellcheck="false" />
+        <label class="dialog-label">Comment <span class="dialog-label-hint">(optional)</span></label>
+        <textarea id="resolve-task-comment-input" class="dialog-input dialog-textarea" placeholder="Add a comment to the task..." spellcheck="false" rows="3"></textarea>
+      </div>
       <div class="dialog-buttons">
         <button id="resolve-task-cancel-btn" class="dialog-btn dialog-btn-cancel" tabindex="-1">Cancel</button>
         <button id="resolve-task-comment-btn" class="dialog-btn dialog-btn-secondary">Comment Only</button>
@@ -486,7 +503,6 @@
     <button class="context-menu-item" data-action="create-pr">Create Pull Request</button>
     <button class="context-menu-item" data-action="complete-pr">Complete Pull Request</button>
     <button class="context-menu-item" data-action="open-pipeline">Open Pipeline</button>
-    <button class="context-menu-item" data-action="install">Install Build</button>
     <button class="context-menu-item" data-action="resolve-task">Resolve Task</button>
     <button class="context-menu-item" data-action="open-pr">Open Pull Request</button>
     <button class="context-menu-item" data-action="open-merged-pr">View Merged PR</button>

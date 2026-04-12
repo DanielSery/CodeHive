@@ -91,13 +91,6 @@ document.getElementById('btn-titlebar-switch').addEventListener('click', () => {
   const ws = getActive();
   if (ws) showWorktreeSwitchDialog(ws.tabEl, ws.tabEl.closest('.repo-group'));
 });
-document.getElementById('btn-titlebar-install').addEventListener('click', () => {
-  const ws = getActive();
-  if (ws) {
-    const btn = ws.tabEl.querySelector('.workspace-tab-install-btn');
-    if (btn) btn.click();
-  }
-});
 document.getElementById('btn-titlebar-set-task').addEventListener('click', () => {
   const ws = getActive();
   if (ws) showSetTaskDialog(ws.tabEl);

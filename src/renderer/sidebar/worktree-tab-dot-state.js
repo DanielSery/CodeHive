@@ -2,7 +2,7 @@ import {
   PR_STATUS_CLASSES,
   DOT_CREATE_PR_SVG, DOT_OPEN_PR_SVG, DOT_COMPLETE_PR_SVG,
   DOT_RESOLVE_TASK_SVG, DOT_OPEN_TASK_SVG, DOT_SWITCH_SVG, DOT_DONE_SWITCH_SVG,
-  DOT_PIPELINE_SVG, DOT_COMPLETE_TASK_RUNNING_SVG, DOT_TASK_DONE_RUNNING_SVG, INSTALL_BTN_SVG,
+  DOT_PIPELINE_SVG, DOT_COMPLETE_TASK_RUNNING_SVG, DOT_TASK_DONE_RUNNING_SVG,
   DOT_SYNC_SVG,
 } from './worktree-tab-icons.js';
 import { getWtState } from '../worktree-state.js';
@@ -35,7 +35,6 @@ export function getTabDotState(tabEl) {
   const commitPushBtn = tabEl.querySelector('.workspace-tab-commit-push');
   const completePrBtn = tabEl.querySelector('.workspace-tab-complete-pr');
   const pipelineBtn = tabEl.querySelector('.workspace-tab-open-pipeline');
-  const installBtn = tabEl.querySelector('.workspace-tab-install-btn');
   const resolveTaskBtn = tabEl.querySelector('.workspace-tab-resolve-task');
   const openPrBtn = tabEl.querySelector('.workspace-tab-open-pr');
   const createPrBtn = tabEl.querySelector('.workspace-tab-create-pr');
@@ -55,12 +54,6 @@ export function getTabDotState(tabEl) {
     if (pipelineBtn.classList.contains('pipeline-running')) pipelineColor = 'var(--yellow)';
     else if (pipelineBtn.classList.contains('pipeline-failed')) pipelineColor = 'var(--red)';
     return { icon: DOT_PIPELINE_SVG, color: pipelineColor };
-  }
-  if (isButtonVisible(installBtn)) {
-    let color = 'var(--green)';
-    if (ws?.pipelineStatus === 'running') color = 'var(--accent)';
-    else if (ws?.pipelineStatus === 'failed') color = 'var(--red)';
-    return { icon: INSTALL_BTN_SVG, color };
   }
   if (isButtonVisible(resolveTaskBtn)) {
     let color = 'var(--green)';
@@ -103,7 +96,6 @@ export function getTabActionTitle(tabEl) {
   const commitPushBtn = tabEl.querySelector('.workspace-tab-commit-push');
   const completePrBtn = tabEl.querySelector('.workspace-tab-complete-pr');
   const pipelineBtn = tabEl.querySelector('.workspace-tab-open-pipeline');
-  const installBtn = tabEl.querySelector('.workspace-tab-install-btn');
   const resolveTaskBtn = tabEl.querySelector('.workspace-tab-resolve-task');
   const openPrBtn = tabEl.querySelector('.workspace-tab-open-pr');
   const createPrBtn = tabEl.querySelector('.workspace-tab-create-pr');
@@ -122,12 +114,6 @@ export function getTabActionTitle(tabEl) {
     if (ws?.pipelineStatus === 'running') return `Pipeline${num} running\u2026`;
     if (ws?.pipelineStatus === 'failed') return `Pipeline${num} failed`;
     return `Open Pipeline${num}`;
-  }
-  if (isButtonVisible(installBtn)) {
-    const num = ws?.pipelineBuildNumber ? ` ${ws.pipelineBuildNumber}` : '';
-    if (ws?.pipelineStatus === 'running') return `Pipeline${num} running \u2014 Download build`;
-    if (ws?.pipelineStatus === 'failed') return `Pipeline${num} failed \u2014 Download build`;
-    return `Download build${num}`;
   }
   if (isButtonVisible(resolveTaskBtn)) {
     const num = ws?.pipelineBuildNumber ? ` ${ws.pipelineBuildNumber}` : '';

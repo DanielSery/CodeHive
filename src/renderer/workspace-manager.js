@@ -21,7 +21,6 @@ const titlebarCommitBtn = document.getElementById('btn-titlebar-commit');
 const titlebarCreatePrBtn = document.getElementById('btn-titlebar-create-pr');
 const titlebarCompletePrBtn = document.getElementById('btn-titlebar-complete-pr');
 const titlebarOpenPipelineBtn = document.getElementById('btn-titlebar-open-pipeline');
-const titlebarInstallBtn = document.getElementById('btn-titlebar-install');
 const titlebarResolveTaskBtn = document.getElementById('btn-titlebar-resolve-task');
 const titlebarSetTaskBtn = document.getElementById('btn-titlebar-set-task');
 const titlebarOpenTaskBtn = document.getElementById('btn-titlebar-open-task');
@@ -117,7 +116,7 @@ const serverReady = new Promise((resolve) => {
   });
 });
 
-const allTitlebarActionBtns = [titlebarOpenExplorerBtn, titlebarGitAppBtn, titlebarSwitchBtn, titlebarCommitBtn, titlebarCreatePrBtn, titlebarCompletePrBtn, titlebarOpenPipelineBtn, titlebarInstallBtn, titlebarResolveTaskBtn, titlebarSetTaskBtn, titlebarOpenTaskBtn, titlebarOpenPrBtn, titlebarOpenMergedPrBtn, titlebarRemoveBtn];
+const allTitlebarActionBtns = [titlebarOpenExplorerBtn, titlebarGitAppBtn, titlebarSwitchBtn, titlebarCommitBtn, titlebarCreatePrBtn, titlebarCompletePrBtn, titlebarOpenPipelineBtn, titlebarResolveTaskBtn, titlebarSetTaskBtn, titlebarOpenTaskBtn, titlebarOpenPrBtn, titlebarOpenMergedPrBtn, titlebarRemoveBtn];
 
 function updateTitlebarActions(hasActive) {
   if (!hasActive) {
@@ -148,8 +147,6 @@ function syncTitlebarToTab() {
   const showCreatePr = !hasChanges && hasPushed && !hasPr && !canComplete && !canResolve;
 
   const canOpenPipeline = !!wtState?.canOpenPipeline && !!wtState?.pipelineUrl && wtState?.pipelineStatus !== 'succeeded';
-  const installBtn = tabEl.querySelector('.workspace-tab-install-btn');
-  const canInstall = !!installBtn && installBtn.style.display !== 'none';
 
   titlebarSwitchBtn.innerHTML = wtState?.taskResolved ? DOT_DONE_SWITCH_SVG : DOT_SWITCH_SVG;
 
@@ -165,7 +162,6 @@ function syncTitlebarToTab() {
   titlebarCreatePrBtn.classList.toggle('visible', showCreatePr);
   titlebarCompletePrBtn.classList.toggle('visible', !hasChanges && canComplete);
   titlebarOpenPipelineBtn.classList.toggle('visible', !hasChanges && canOpenPipeline);
-  titlebarInstallBtn.classList.toggle('visible', !hasChanges && canInstall);
   titlebarResolveTaskBtn.classList.toggle('visible', !hasChanges && canResolve);
   titlebarSetTaskBtn.classList.toggle('visible', !hasTask);
 titlebarOpenTaskBtn.classList.toggle('visible', hasTask);

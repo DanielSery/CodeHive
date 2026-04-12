@@ -1,14 +1,13 @@
 import { setTabStatus } from '../claude-poll.js';
 import { openWorktree, closeWorkspace } from '../workspace-manager.js';
-import { getSourceBranch, getTaskId, getPipelineInstalled, getTaskResolved, saveTaskResolved } from '../storage.js';
+import { getSourceBranch, getTaskId, getTaskResolved, saveTaskResolved } from '../storage.js';
 import { pipeline } from '../pipeline-service.js';
 import { rebuildCollapsedDots, collapsedDotsEl } from './collapsed-dots.js';
 import { showContextMenu } from './context-menu.js';
 import { _showWorktreeSwitchDialog, _showWorktreeRemoveDialog, _showCommitPushDialog, _showCreatePrDialog, _onStateChange } from './registers.js';
 import { pr } from '../pr-service.js';
 import { showResolveTaskDialog } from '../dialogs/dialog-resolve.js';
-import { showInstallDialog } from '../dialogs/dialog-verify.js';
-import { BIN_ICON_SVG, DOT_SWITCH_SVG, INSTALL_BTN_SVG } from './worktree-tab-icons.js';
+import { BIN_ICON_SVG, DOT_SWITCH_SVG } from './worktree-tab-icons.js';
 import { toast } from '../toast.js';
 import { formatBranchLabel, extractTaskIdFromBranch, hasPrStatusClass } from './worktree-tab-dot-state.js';
 import { refreshTabStatus, showFallbackSwitch } from './worktree-tab-status.js';
@@ -44,7 +43,6 @@ export function showTabRemoveButton(tabEl) {
   const openPrBtn = tabEl.querySelector('.workspace-tab-open-pr');
   const completePrBtn = tabEl.querySelector('.workspace-tab-complete-pr');
   const pipelineBtn = tabEl.querySelector('.workspace-tab-open-pipeline');
-  const installBtn = tabEl.querySelector('.workspace-tab-install-btn');
   const resolveTaskBtn = tabEl.querySelector('.workspace-tab-resolve-task');
   const closeBtn = tabEl.querySelector('.workspace-tab-close');
   if (switchBtn) switchBtn.style.display = 'none';
@@ -54,7 +52,6 @@ export function showTabRemoveButton(tabEl) {
   if (openPrBtn) openPrBtn.style.display = 'none';
   if (completePrBtn) completePrBtn.style.display = 'none';
   if (pipelineBtn) pipelineBtn.style.display = 'none';
-  if (installBtn) installBtn.style.display = 'none';
   if (resolveTaskBtn) resolveTaskBtn.style.display = 'none';
   if (closeBtn) closeBtn.style.display = 'none';
   const ws = getWtState(tabEl._wtPath);
@@ -91,7 +88,6 @@ export function createWorktreeTab(wt) {
   tabEl.innerHTML = `
     <span class="workspace-tab-status"></span>
     <button class="workspace-tab-action" title="Switch Worktree">${DOT_SWITCH_SVG}</button>
-    <button class="workspace-tab-install-btn" style="display:none" title="Install Build">${INSTALL_BTN_SVG}</button>
     <button class="workspace-tab-commit-push" style="display:none"></button>
     <button class="workspace-tab-complete-pr" style="display:none"></button>
     <button class="workspace-tab-open-pipeline" style="display:none"></button>
@@ -113,9 +109,8 @@ export function createWorktreeTab(wt) {
 
   // All volatile business state lives in the state store
   const initialTaskResolved = getTaskResolved(wt.path);
-  const initialPipelineInstalled = getPipelineInstalled(wt.path);
-  console.log('[createWorktreeTab]', wt.path, { taskResolved: initialTaskResolved, pipelineInstalled: initialPipelineInstalled });
-  initWtState(wt.path, { pipelineInstalled: initialPipelineInstalled, taskResolved: initialTaskResolved });
+  console.log('[createWorktreeTab]', wt.path, { taskResolved: initialTaskResolved });
+  initWtState(wt.path, { taskResolved: initialTaskResolved });
 
   const dotEl = document.createElement('button');
   dotEl.className = 'collapsed-dot';
@@ -131,7 +126,6 @@ export function createWorktreeTab(wt) {
       '.workspace-tab-complete-pr',
       '.workspace-tab-resolve-task',
       '.workspace-tab-open-pipeline',
-      '.workspace-tab-install-btn',
       '.workspace-tab-create-pr',
       '.workspace-tab-open-pr',
       '.workspace-tab-switch'
@@ -160,7 +154,6 @@ export function createWorktreeTab(wt) {
       '.workspace-tab-complete-pr',
       '.workspace-tab-resolve-task',
       '.workspace-tab-open-pipeline',
-      '.workspace-tab-install-btn',
       '.workspace-tab-open-pr',
       '.workspace-tab-create-pr',
       '.workspace-tab-switch'
@@ -246,7 +239,7 @@ export function createWorktreeTab(wt) {
     if (!d || !tabEl._wtTaskId) return;
     const ctx = { org: d.org, project: d.project, auth: d.auth, apiBase: `https://dev.azure.com/${encodeURIComponent(d.org)}/${encodeURIComponent(d.project)}/_apis` };
     const targetBranch = d.targetRefName || `refs/heads/${tabEl._wtSourceBranch || 'master'}`;
-    const result = await showResolveTaskDialog(ctx, tabEl._wtTaskId, { org: d.org, project: d.project, auth: d.auth, targetBranch, mergeTime: ws.pipelineMergeTime, pipelineStatus: ws.pipelineStatus });
+    const result = await showResolveTaskDialog(ctx, tabEl._wtTaskId, { org: d.org, project: d.project, auth: d.auth, targetBranch, mergeTime: ws.pipelineMergeTime, pipelineStatus: ws.pipelineStatus, buildId: ws.pipelineBuildId ?? null, buildNumber: ws.pipelineBuildNumber ?? null, definitionId: ws.pipelineDefinitionId ?? null });
     if (result === 'resolved') {
       ws.taskResolved = true;
       ws.canResolveTask = false;
@@ -265,20 +258,8 @@ export function createWorktreeTab(wt) {
     pipeline.open(tabEl);
   });
 
-  tabEl.querySelector('.workspace-tab-install-btn').addEventListener('click', async (e) => {
-    e.stopPropagation();
-    const ws = getWtState(tabEl._wtPath);
-    const d = ws?.prData;
-    if (!d || !ws?.pipelineBuildId) return;
-    const result = await showInstallDialog(d.org, d.project, d.auth, ws.pipelineBuildId, ws.pipelineBuildNumber, ws.pipelineStatus === 'succeeded', ws.pipelineDefinitionId, ws.taskUrl || null);
-    if (result === 'installed' || result === 'skipped') {
-      pipeline.markInstalled(tabEl);
-    }
-    refreshTabStatus(tabEl);
-  });
-
   tabEl.addEventListener('click', (e) => {
-    if (e.target.closest('.workspace-tab-close') || e.target.closest('.workspace-tab-switch') || e.target.closest('.workspace-tab-remove') || e.target.closest('.workspace-tab-commit-push') || e.target.closest('.workspace-tab-create-pr') || e.target.closest('.workspace-tab-open-pr') || e.target.closest('.workspace-tab-complete-pr') || e.target.closest('.workspace-tab-open-pipeline') || e.target.closest('.workspace-tab-verify') || e.target.closest('.workspace-tab-resolve-task') || e.target.closest('.workspace-tab-action') || e.target.closest('.workspace-tab-install-btn')) return;
+    if (e.target.closest('.workspace-tab-close') || e.target.closest('.workspace-tab-switch') || e.target.closest('.workspace-tab-remove') || e.target.closest('.workspace-tab-commit-push') || e.target.closest('.workspace-tab-create-pr') || e.target.closest('.workspace-tab-open-pr') || e.target.closest('.workspace-tab-complete-pr') || e.target.closest('.workspace-tab-open-pipeline') || e.target.closest('.workspace-tab-verify') || e.target.closest('.workspace-tab-resolve-task') || e.target.closest('.workspace-tab-action')) return;
     openWorktree(tabEl, wt);
   });
 
@@ -290,7 +271,6 @@ export function createWorktreeTab(wt) {
       '.workspace-tab-complete-pr',
       '.workspace-tab-resolve-task',
       '.workspace-tab-open-pipeline',
-      '.workspace-tab-install-btn',
       '.workspace-tab-create-pr',
       '.workspace-tab-open-pr',
       '.workspace-tab-switch'

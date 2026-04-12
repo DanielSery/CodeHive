@@ -22,8 +22,6 @@ export function showContextMenu(x, y, tabEl) {
   const hasChanges = !!ws?.hasUncommittedChanges;
   const hasPushed = !!ws?.hasPushedCommits;
   const canOpenPipeline = !!ws?.canOpenPipeline && !!ws?.pipelineUrl && ws?.pipelineStatus !== 'succeeded';
-  const installBtn = tabEl.querySelector('.workspace-tab-install-btn');
-  const canInstall = !!installBtn && installBtn.style.display !== 'none';
   // Create PR only when no uncommitted changes, pushed commits exist, no active PR or completion state
   const showCreatePr = !hasChanges && hasPushed && !hasPr && !canComplete && !canResolve;
 
@@ -32,7 +30,6 @@ export function showContextMenu(x, y, tabEl) {
   contextMenu.querySelector('[data-action="create-pr"]').style.display = showCreatePr ? '' : 'none';
   contextMenu.querySelector('[data-action="complete-pr"]').style.display = !hasChanges && canComplete ? '' : 'none';
   contextMenu.querySelector('[data-action="open-pipeline"]').style.display = !hasChanges && canOpenPipeline ? '' : 'none';
-  contextMenu.querySelector('[data-action="install"]').style.display = !hasChanges && canInstall ? '' : 'none';
   contextMenu.querySelector('[data-action="resolve-task"]').style.display = !hasChanges && canResolve ? '' : 'none';
   contextMenu.querySelector('[data-action="set-task"]').style.display = !hasTask ? '' : 'none';
   contextMenu.querySelector('[data-action="open-task"]').style.display = hasTask ? '' : 'none';
@@ -130,9 +127,6 @@ contextMenu.addEventListener('click', (e) => {
     if (btn) btn.click();
   } else if (action === 'open-pipeline') {
     pipeline.open(tabEl);
-  } else if (action === 'install') {
-    const btn = tabEl.querySelector('.workspace-tab-install-btn');
-    if (btn) btn.click();
   } else if (action === 'resolve-task') {
     const btn = tabEl.querySelector('.workspace-tab-resolve-task');
     if (btn) btn.click();

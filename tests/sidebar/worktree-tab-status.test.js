@@ -7,7 +7,6 @@ vi.mock('../../src/renderer/azure-api.js', () => ({
   fetchPrUnresolvedThreadCount: vi.fn(),
   fetchWorkItemById: vi.fn(),
   fetchLatestBuild: vi.fn(),
-  fetchBuildArtifacts: vi.fn(),
 }));
 vi.mock('../../src/renderer/sidebar/worktree-tab-dot-state.js', () => ({ updateDotState: vi.fn() }));
 vi.mock('../../src/renderer/workspace-manager.js', () => ({ syncTitlebarToTab: vi.fn() }));
@@ -18,7 +17,6 @@ import {
   fetchPrUnresolvedThreadCount,
   fetchWorkItemById,
   fetchLatestBuild,
-  fetchBuildArtifacts,
 } from '../../src/renderer/azure-api.js';
 import { updateDotState } from '../../src/renderer/sidebar/worktree-tab-dot-state.js';
 import { syncTitlebarToTab } from '../../src/renderer/workspace-manager.js';
@@ -67,7 +65,7 @@ function makeTabEl(overrides = {}) {
   [
     'workspace-tab-commit-push', 'workspace-tab-switch', 'workspace-tab-open-pr',
     'workspace-tab-complete-pr', 'workspace-tab-create-pr', 'workspace-tab-resolve-task',
-    'workspace-tab-open-pipeline', 'workspace-tab-install-btn', 'workspace-tab-action',
+    'workspace-tab-open-pipeline', 'workspace-tab-action',
   ].forEach(cls => {
     const el = document.createElement('button');
     el.className = cls;
@@ -86,7 +84,6 @@ function makeTabEl(overrides = {}) {
     _canResolveTask: false,
     _canOpenPipeline: false,
     _canCompletePr: false,
-    _pipelineInstalled: false,
     _hasUncommittedChanges: false,
     _hasPushedCommits: true,
     _workspaceId: null,
@@ -135,7 +132,6 @@ beforeEach(() => {
 
   parseAzureRemoteUrl.mockReturnValue({ org: 'myorg', project: 'myproject' });
   fetchLatestBuild.mockResolvedValue(null);
-  fetchBuildArtifacts.mockResolvedValue([]);
   fetchPolicyEvaluations.mockResolvedValue([]);
   fetchPrUnresolvedThreadCount.mockResolvedValue(0);
   fetchWorkItemById.mockResolvedValue(null);
@@ -205,12 +201,12 @@ describe('updatePipelineForTab', () => {
   });
 
   describe('no build yet — waiting for pipeline to start', () => {
-    it('shows pipeline button in "waiting" state; install, resolve-task, and switch are hidden', async () => {
+    it('shows pipeline button in "waiting" state; resolve-task and switch are hidden', async () => {
       const tab = makeTabEl();
       await updatePipelineForTab(tab, CTX);
       assertButtons(tab,
         ['open-pipeline'],
-        ['install-btn', 'switch', 'resolve-task'],
+        ['switch', 'resolve-task'],
       );
       expect(btn(tab, 'open-pipeline').title).toMatch(/waiting/i);
       expect(tab._pipelineStatus).toBeNull();
@@ -220,115 +216,59 @@ describe('updatePipelineForTab', () => {
   describe('pipeline running', () => {
     beforeEach(() => fetchLatestBuild.mockResolvedValue(RUNNING_BUILD));
 
-    it('no artifact yet → pipeline-running button is shown; install and switch hidden', async () => {
-      fetchBuildArtifacts.mockResolvedValue([]);
-      const tab = makeTabEl();
-      await updatePipelineForTab(tab, CTX);
-      assertButtons(tab,
-        ['open-pipeline'],
-        ['install-btn', 'switch'],
-      );
-      expect(btn(tab, 'open-pipeline').classList.contains('pipeline-running')).toBe(true);
-      expect(tab._pipelineStatus).toBe('running');
-    });
-
-    it('Setups artifact ready → action shows install icon; install-btn shown as semantic target', async () => {
-      fetchBuildArtifacts.mockResolvedValue([{ name: 'Setups' }]);
-      const tab = makeTabEl();
-      await updatePipelineForTab(tab, CTX);
-      assertButtons(tab,
-        ['action', 'install-btn'],
-        ['switch'],
-      );
-      expect(btn(tab, 'action').style.color).toBe('var(--accent)');
-      expect(btn(tab, 'action').title).toMatch(/download/i);
-    });
-
-    it('non-Setups artifact (e.g. Symbols, Logs) → install button stays hidden', async () => {
-      fetchBuildArtifacts.mockResolvedValue([{ name: 'Symbols' }, { name: 'Logs' }]);
-      const tab = makeTabEl();
-      await updatePipelineForTab(tab, CTX);
-      assertButtons(tab, [], ['install-btn']);
-    });
-
-    it('already installed + task linked → action and resolve-task shown; install and switch hidden', async () => {
-      const tab = makeTabEl({ _wtTaskId: 99, _pipelineInstalled: true });
+    it('task linked → resolve-task shown; pipeline and switch hidden', async () => {
+      const tab = makeTabEl({ _wtTaskId: 99 });
       await updatePipelineForTab(tab, CTX);
       assertButtons(tab,
         ['action', 'resolve-task'],
-        ['install-btn', 'switch'],
+        ['open-pipeline', 'switch'],
       );
       expect(btn(tab, 'resolve-task').title).toMatch(/complete task/i);
       expect(tab._canResolveTask).toBe(true);
+      expect(tab._pipelineStatus).toBe('running');
     });
 
-    it('task already resolved (no task id) → pipeline-running shown; install and resolve-task hidden', async () => {
-      // Represents the "no task linked" pipeline monitoring path: PR merged with no task → _taskResolved=true, _wtTaskId=null
-      fetchBuildArtifacts.mockResolvedValue([]);
-      const tab = makeTabEl({ _taskResolved: true, _wtTaskId: null });
+    it('no task linked → action shown; pipeline, resolve-task, and switch hidden', async () => {
+      const tab = makeTabEl({ _wtTaskId: null });
       await updatePipelineForTab(tab, CTX);
       assertButtons(tab,
-        ['open-pipeline'],
-        ['install-btn', 'resolve-task', 'switch'],
+        ['action'],
+        ['open-pipeline', 'resolve-task', 'switch'],
       );
+      expect(tab._canResolveTask).toBe(true);
     });
 
-    it('task resolved mid-flight (task id still set) → pipeline-running shown; install and resolve-task hidden', async () => {
-      // Workflow: user clicked resolve-task while pipeline was running → _taskResolved=true, _wtTaskId still set.
-      // Takes the taskResolved+wtTaskId path (no artifact check), different from the no-task path above.
+    it('task already resolved → switch shown; pipeline and resolve-task hidden', async () => {
       const tab = makeTabEl({ _taskResolved: true, _wtTaskId: 99 });
       await updatePipelineForTab(tab, CTX);
       assertButtons(tab,
-        ['open-pipeline', 'action'],
-        ['install-btn', 'resolve-task', 'switch'],
+        ['switch'],
+        ['open-pipeline', 'resolve-task'],
       );
-    });
-
-    it('task resolved + Setups artifact → action shows install icon; install-btn shown as semantic target', async () => {
-      fetchBuildArtifacts.mockResolvedValue([{ name: 'Setups' }]);
-      const tab = makeTabEl({ _taskResolved: true });
-      await updatePipelineForTab(tab, CTX);
-      assertButtons(tab,
-        ['action', 'install-btn'],
-        ['switch', 'resolve-task'],
-      );
-      expect(btn(tab, 'action').style.color).toBe('var(--accent)');
     });
   });
 
   describe('pipeline succeeded', () => {
     beforeEach(() => fetchLatestBuild.mockResolvedValue(SUCCEEDED_BUILD));
 
-    it('task resolved → switch is the call to action; pipeline and install are gone', async () => {
+    it('task resolved → switch is the call to action; pipeline and resolve-task are gone', async () => {
       const tab = makeTabEl({ _taskResolved: true });
       await updatePipelineForTab(tab, CTX);
       assertButtons(tab,
         ['switch'],
-        ['open-pipeline', 'install-btn', 'resolve-task'],
+        ['open-pipeline', 'resolve-task'],
       );
       expect(tab._pipelineStatus).toBe('succeeded');
     });
 
     it('task linked but not yet resolved → resolve-task is the call to action; switch hidden', async () => {
-      // Workflow: user did not install during running (or pipeline was fast) → pipeline done, task still open
       const tab = makeTabEl({ _wtTaskId: 99, _taskResolved: false });
       await updatePipelineForTab(tab, CTX);
       assertButtons(tab,
         ['resolve-task'],
-        ['open-pipeline', 'install-btn', 'switch'],
+        ['open-pipeline', 'switch'],
       );
       expect(btn(tab, 'resolve-task').title).toMatch(/complete azure task/i);
-      expect(tab._canResolveTask).toBe(true);
-    });
-
-    it('installed during running, pipeline then succeeds → resolve-task is still the call to action', async () => {
-      // Workflow: user downloaded installer while pipeline ran, pipeline completes → still needs to resolve task
-      const tab = makeTabEl({ _wtTaskId: 99, _taskResolved: false, _pipelineInstalled: true });
-      await updatePipelineForTab(tab, CTX);
-      assertButtons(tab,
-        ['resolve-task'],
-        ['open-pipeline', 'install-btn', 'switch'],
-      );
       expect(tab._canResolveTask).toBe(true);
     });
 
@@ -338,7 +278,7 @@ describe('updatePipelineForTab', () => {
       await updatePipelineForTab(tab, CTX);
       assertButtons(tab,
         ['switch'],
-        ['open-pipeline', 'install-btn'],
+        ['open-pipeline'],
       );
       expect(tab._pipelineStatus).toBe('succeeded');
     });
@@ -347,16 +287,16 @@ describe('updatePipelineForTab', () => {
   describe('pipeline failed', () => {
     beforeEach(() => fetchLatestBuild.mockResolvedValue(FAILED_BUILD));
 
-    it('shows pipeline-failed button; install and resolve-task hidden', async () => {
+    it('task linked → resolve-task shown; pipeline and switch hidden', async () => {
       const tab = makeTabEl({ _wtTaskId: 99 });
       await updatePipelineForTab(tab, CTX);
       assertButtons(tab,
-        ['open-pipeline'],
-        ['install-btn', 'resolve-task'],
+        ['action', 'resolve-task'],
+        ['open-pipeline', 'switch'],
       );
-      expect(btn(tab, 'open-pipeline').classList.contains('pipeline-failed')).toBe(true);
-      expect(btn(tab, 'open-pipeline').title).toMatch(/failed/i);
+      expect(btn(tab, 'action').style.color).toBe('var(--red)');
       expect(tab._pipelineStatus).toBe('failed');
+      expect(tab._canResolveTask).toBe(true);
     });
   });
 });
@@ -651,13 +591,12 @@ describe('refreshTabStatus', () => {
         expect(tab._canCompletePr).toBe(false);
       });
 
-      it('active PR clears any stale pipeline and install buttons left from a previous state', async () => {
+      it('active PR clears any stale pipeline button left from a previous state', async () => {
         mockActivePr();
         const tab = makeTabEl();
         btn(tab, 'open-pipeline').style.display = 'inline-flex';
-        btn(tab, 'install-btn').style.display = 'inline-flex';
         await refreshTabStatus(tab);
-        assertButtons(tab, [], ['open-pipeline', 'install-btn']);
+        assertButtons(tab, [], ['open-pipeline']);
       });
 
       it('active PR stores _existingPrUrl and _prData for use by click handlers', async () => {
@@ -752,20 +691,18 @@ describe('refreshTabStatus', () => {
       // Regression: a stale in-flight poll can re-show completePrBtn via applyActionButtonVisibility.
       // The next fast-path refresh must hide it regardless.
       fetchLatestBuild.mockResolvedValue(RUNNING_BUILD);
-      fetchBuildArtifacts.mockResolvedValue([]);
       const tab = makeTabEl({ _canOpenPipeline: true, _wtTaskId: 99 });
       btn(tab, 'complete-pr').style.display = 'inline-flex'; // simulates stale poll re-showing it
       await refreshTabStatus(tab);
-      assertButtons(tab, ['open-pipeline'], ['complete-pr', 'open-pr', 'switch']);
+      assertButtons(tab, ['action', 'resolve-task'], ['open-pipeline', 'complete-pr', 'open-pr', 'switch']);
     });
 
-    it('uncommitted changes while in pipeline mode → hides pipeline and install buttons', async () => {
+    it('uncommitted changes while in pipeline mode → hides pipeline button', async () => {
       window.reposAPI.hasUncommittedChanges = vi.fn().mockResolvedValue({ value: true });
       const tab = makeTabEl({ _canOpenPipeline: true, _taskResolved: true });
       btn(tab, 'open-pipeline').style.display = 'inline-flex';
-      btn(tab, 'install-btn').style.display = 'inline-flex';
       await refreshTabStatus(tab);
-      assertButtons(tab, [], ['open-pipeline', 'install-btn']);
+      assertButtons(tab, [], ['open-pipeline']);
     });
 
     it('_canResolveTask=true → skips completed PR check; only the active PR URL is fetched', async () => {
