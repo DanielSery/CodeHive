@@ -13,6 +13,7 @@ import { saveState, restoreState, onOpenDirectory } from './app-state-service.js
 import { checkAndInstallAz, initPatButton } from './az-service.js';
 import { showUpdateDialog } from './dialogs/dialog-update.js';
 import { showPublishDialog } from './dialogs/dialog-publish.js';
+import { openSolution } from './dialogs/dialog-open-solution.js';
 import { toast } from './toast.js';
 
 // Wire cross-module dependencies (avoids circular imports)
@@ -86,6 +87,14 @@ document.getElementById('btn-titlebar-git-app').addEventListener('click', () => 
   if (ws) window.shellAPI.openInGitApp(ws.tabEl._wtPath).then(result => {
     if (!result || !result.app) toast.error('No Git app found (Fork, SourceTree, GitKraken, Git Bash)');
   });
+});
+document.getElementById('btn-titlebar-open-powershell').addEventListener('click', () => {
+  const ws = getActive();
+  if (ws) window.shellAPI.openInPowerShell(ws.tabEl._wtPath);
+});
+document.getElementById('btn-titlebar-open-solution').addEventListener('click', () => {
+  const ws = getActive();
+  if (ws) openSolution(ws.tabEl._wtPath);
 });
 document.getElementById('btn-titlebar-switch').addEventListener('click', () => {
   const ws = getActive();

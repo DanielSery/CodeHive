@@ -353,11 +353,27 @@ function gitRevertFile(wtPath, filePath, isNew) {
   } else {
     try {
       const escaped = filePath.replace(/"/g, '\\"');
-      execSync(`git checkout HEAD -- "${escaped}"`, { cwd: wtPath, encoding: 'utf8', timeout: 5000 });
-      // If the path is a submodule, also update it to match the checked-out pointer
+
+      // Check if this path is a submodule (mode 160000 = gitlink)
+      let isSubmodule = false;
       try {
-        execSync(`git submodule update --init -- "${escaped}"`, { cwd: wtPath, encoding: 'utf8', timeout: 15000 });
+        const lsOut = execSync(`git ls-files -s -- "${escaped}"`, { cwd: wtPath, encoding: 'utf8', timeout: 5000 });
+        isSubmodule = lsOut.trim().startsWith('160000');
       } catch {}
+
+      if (isSubmodule) {
+        // git checkout may fail for submodules if the working tree is dirty;
+        // silently attempt to restore the parent's index pointer, then update the working tree
+        try {
+          execSync(`git checkout HEAD -- "${escaped}"`, { cwd: wtPath, encoding: 'utf8', timeout: 5000 });
+        } catch {}
+        execSync(`git submodule update --init -- "${escaped}"`, { cwd: wtPath, encoding: 'utf8', timeout: 30000 });
+      } else {
+        execSync(`git checkout HEAD -- "${escaped}"`, { cwd: wtPath, encoding: 'utf8', timeout: 5000 });
+        try {
+          execSync(`git submodule update --init -- "${escaped}"`, { cwd: wtPath, encoding: 'utf8', timeout: 15000 });
+        } catch {}
+      }
       return { ok: true };
     } catch (err) {
       return { ok: false, message: err.message };

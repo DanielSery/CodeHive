@@ -182,6 +182,9 @@ contextBridge.exposeInMainWorld('shellAPI', {
   openInExplorer: (folderPath) => ipcRenderer.invoke('shell:openInExplorer', folderPath),
   openExternal: (url) => ipcRenderer.invoke('shell:openExternal', url),
   openInGitApp: (repoPath) => ipcRenderer.invoke('shell:openInGitApp', repoPath),
+  openInPowerShell: (folderPath) => ipcRenderer.invoke('shell:openInPowerShell', folderPath),
+  findSolutions: (folderPath) => ipcRenderer.invoke('shell:findSolutions', folderPath),
+  openSolution: (slnPath) => ipcRenderer.invoke('shell:openSolution', slnPath),
 });
 
 contextBridge.exposeInMainWorld('setupInstallAPI', {

@@ -16,6 +16,8 @@ const editorArea = document.getElementById('editor-area');
 const placeholder = document.getElementById('editor-placeholder');
 const titlebarOpenExplorerBtn = document.getElementById('btn-titlebar-open-explorer');
 const titlebarGitAppBtn = document.getElementById('btn-titlebar-git-app');
+const titlebarOpenPowershellBtn = document.getElementById('btn-titlebar-open-powershell');
+const titlebarOpenSolutionBtn = document.getElementById('btn-titlebar-open-solution');
 const titlebarSwitchBtn = document.getElementById('btn-titlebar-switch');
 const titlebarCommitBtn = document.getElementById('btn-titlebar-commit');
 const titlebarCreatePrBtn = document.getElementById('btn-titlebar-create-pr');
@@ -31,6 +33,23 @@ const titlebarSep1 = document.getElementById('titlebar-sep-1');
 const titlebarSep2 = document.getElementById('titlebar-sep-2');
 
 const sessionPartition = window.appSession.getPartition();
+
+// Cache of wtPath -> boolean so we only scan once per worktree
+const solutionCache = new Map();
+
+async function refreshSolutionBtn(wtPath) {
+  try {
+    const solutions = await window.shellAPI.findSolutions(wtPath);
+    const hasSolutions = solutions.length > 0;
+    solutionCache.set(wtPath, hasSolutions);
+    const currentWs = getActive();
+    if (currentWs && currentWs.tabEl._wtPath === wtPath) {
+      titlebarOpenSolutionBtn.classList.toggle('visible', hasSolutions);
+    }
+  } catch {
+    solutionCache.set(wtPath, false);
+  }
+}
 
 // Shared handler for URLs that VS Code tries to open in a new window.
 // Used by both the (legacy) new-window webview event and the main-process setWindowOpenHandler.
@@ -116,7 +135,7 @@ const serverReady = new Promise((resolve) => {
   });
 });
 
-const allTitlebarActionBtns = [titlebarOpenExplorerBtn, titlebarGitAppBtn, titlebarSwitchBtn, titlebarCommitBtn, titlebarCreatePrBtn, titlebarCompletePrBtn, titlebarOpenPipelineBtn, titlebarResolveTaskBtn, titlebarSetTaskBtn, titlebarOpenTaskBtn, titlebarOpenPrBtn, titlebarOpenMergedPrBtn, titlebarRemoveBtn];
+const allTitlebarActionBtns = [titlebarOpenExplorerBtn, titlebarGitAppBtn, titlebarOpenPowershellBtn, titlebarOpenSolutionBtn, titlebarSwitchBtn, titlebarCommitBtn, titlebarCreatePrBtn, titlebarCompletePrBtn, titlebarOpenPipelineBtn, titlebarResolveTaskBtn, titlebarSetTaskBtn, titlebarOpenTaskBtn, titlebarOpenPrBtn, titlebarOpenMergedPrBtn, titlebarRemoveBtn];
 
 function updateTitlebarActions(hasActive) {
   if (!hasActive) {
@@ -157,6 +176,12 @@ function syncTitlebarToTab() {
   titlebarSep2.style.display = '';
   titlebarOpenExplorerBtn.classList.toggle('visible', true);
   titlebarGitAppBtn.classList.toggle('visible', true);
+  titlebarOpenPowershellBtn.classList.toggle('visible', true);
+  const hasSolutions = solutionCache.get(tabEl._wtPath) ?? false;
+  titlebarOpenSolutionBtn.classList.toggle('visible', hasSolutions);
+  if (!solutionCache.has(tabEl._wtPath)) {
+    refreshSolutionBtn(tabEl._wtPath);
+  }
   titlebarSwitchBtn.classList.toggle('visible', true);
   titlebarCommitBtn.classList.toggle('visible', hasChanges);
   titlebarCreatePrBtn.classList.toggle('visible', showCreatePr);

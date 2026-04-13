@@ -29,6 +29,8 @@
     <div class="titlebar-actions">
       <button class="titlebar-action-btn" id="btn-titlebar-open-explorer" title="Open in Explorer"></button>
       <button class="titlebar-action-btn" id="btn-titlebar-git-app" title="Open in Git App"></button>
+      <button class="titlebar-action-btn" id="btn-titlebar-open-powershell" title="Open in PowerShell"></button>
+      <button class="titlebar-action-btn" id="btn-titlebar-open-solution" title="Open Solution"></button>
       <span class="titlebar-sep" id="titlebar-sep-1" style="display:none"></span>
       <button class="titlebar-action-btn" id="btn-titlebar-commit" title="Sync Changes"></button>
       <button class="titlebar-action-btn" id="btn-titlebar-create-pr" title="Create Pull Request"></button>
@@ -498,6 +500,8 @@
   <div id="wt-context-menu" class="context-menu">
     <button class="context-menu-item" data-action="open-explorer">Open in Explorer</button>
     <button class="context-menu-item" data-action="open-git-app">Open in Git App</button>
+    <button class="context-menu-item" data-action="open-powershell">Open in PowerShell</button>
+    <button class="context-menu-item" data-action="open-solution">Open Solution</button>
     <hr class="context-menu-separator">
     <button class="context-menu-item" data-action="commit-push">Sync Changes</button>
     <button class="context-menu-item" data-action="create-pr">Create Pull Request</button>
@@ -519,6 +523,24 @@
     <button class="context-menu-item" data-action="add-worktree">Add Worktree<span class="context-menu-shortcut">Alt+N</span></button>
     <hr class="context-menu-separator">
     <button class="context-menu-item context-menu-item-danger" data-action="delete-project">Delete Project</button>
+  </div>
+
+  <!-- Open Solution dialog -->
+  <div id="open-solution-dialog-overlay" class="dialog-overlay">
+    <div class="dialog-box">
+      <h3 class="dialog-title">Open Solution</h3>
+      <p class="dialog-desc">Multiple solution files found. Select one to open.</p>
+      <label class="dialog-label">Solution</label>
+      <div class="combobox" id="open-solution-combobox">
+        <input id="open-solution-search" type="text" class="dialog-input combobox-input" placeholder="Search solutions..." spellcheck="false" autocomplete="off" />
+        <span class="combobox-arrow" tabindex="-1">&#x25BC;</span>
+        <div id="open-solution-list" class="combobox-list" tabindex="-1"></div>
+      </div>
+      <div class="dialog-buttons">
+        <button id="open-solution-cancel-btn" class="dialog-btn dialog-btn-cancel" tabindex="-1">Cancel</button>
+        <button id="open-solution-confirm-btn" class="dialog-btn dialog-btn-confirm" disabled>Open</button>
+      </div>
+    </div>
   </div>
 
   <!-- Terminal context menu -->

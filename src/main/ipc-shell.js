@@ -26,6 +26,41 @@ function register(mainWindow, getServerPort) {
     return shell.openExternal(url);
   });
 
+  ipcMain.handle('shell:openInPowerShell', (event, folderPath) => {
+    const escapedPath = folderPath.replace(/'/g, "''");
+    spawn('cmd.exe', [
+      '/c', 'start', '', 'powershell.exe',
+      '-NoExit', '-NoProfile',
+      '-Command', `Set-Location '${escapedPath}'`
+    ], { detached: true, stdio: 'ignore' }).unref();
+  });
+
+  ipcMain.handle('shell:findSolutions', (event, folderPath) => {
+    const results = [];
+    function scan(dir, depth) {
+      if (depth > 4) return;
+      let entries;
+      try {
+        entries = fs.readdirSync(dir, { withFileTypes: true });
+      } catch {
+        return;
+      }
+      for (const entry of entries) {
+        if (entry.isFile() && (entry.name.endsWith('.sln') || entry.name.endsWith('.slnf'))) {
+          results.push(path.join(dir, entry.name));
+        } else if (entry.isDirectory() && !entry.name.startsWith('.') && entry.name !== 'node_modules') {
+          scan(path.join(dir, entry.name), depth + 1);
+        }
+      }
+    }
+    scan(folderPath, 0);
+    return results;
+  });
+
+  ipcMain.handle('shell:openSolution', (event, slnPath) => {
+    return shell.openPath(slnPath);
+  });
+
   ipcMain.handle('shell:openInGitApp', (event, repoPath) => {
     const localAppData = process.env.LOCALAPPDATA || '';
 

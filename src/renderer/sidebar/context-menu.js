@@ -3,6 +3,7 @@ import { toast } from '../toast.js';
 import { pr } from '../pr-service.js';
 import { pipeline } from '../pipeline-service.js';
 import { getWtState } from '../worktree-state.js';
+import { openSolution } from '../dialogs/dialog-open-solution.js';
 
 const contextMenu = document.getElementById('wt-context-menu');
 const projectContextMenu = document.getElementById('project-context-menu');
@@ -74,6 +75,10 @@ contextMenu.addEventListener('click', (e) => {
     window.shellAPI.openInGitApp(tabEl._wtPath).then(result => {
       if (!result || !result.app) toast.error('No Git app found (Fork, SourceTree, GitKraken, Git Bash)');
     });
+  } else if (action === 'open-powershell') {
+    window.shellAPI.openInPowerShell(tabEl._wtPath);
+  } else if (action === 'open-solution') {
+    openSolution(tabEl._wtPath);
   } else if (action === 'open-task') {
     const taskId = tabEl._wtTaskId;
     if (taskId) {

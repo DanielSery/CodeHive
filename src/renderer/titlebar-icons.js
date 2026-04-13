@@ -4,6 +4,7 @@ import {
   DOT_SET_TASK_SVG, DOT_OPEN_MERGED_PR_SVG, BIN_ICON_SVG,
   OPEN_DIRECTORY_SVG, OPEN_EXPLORER_SVG, CLONE_REPO_SVG, AZURE_PAT_SVG,
   GIT_APP_SVG, THEME_DARK_SVG, THEME_LIGHT_SVG, TERMINAL_SVG, UPDATE_SVG, PUBLISH_SVG,
+  POWERSHELL_SVG, OPEN_SOLUTION_SVG,
 } from './sidebar/worktree-tab-icons.js';
 
 const BUTTON_ICONS = {
@@ -23,6 +24,8 @@ const BUTTON_ICONS = {
   'btn-titlebar-set-task': DOT_SET_TASK_SVG,
 'btn-titlebar-open-merged-pr': DOT_OPEN_MERGED_PR_SVG,
   'btn-titlebar-git-app': GIT_APP_SVG,
+  'btn-titlebar-open-powershell': POWERSHELL_SVG,
+  'btn-titlebar-open-solution': OPEN_SOLUTION_SVG,
   'btn-titlebar-switch': DOT_SWITCH_SVG,
   'btn-theme': THEME_DARK_SVG + THEME_LIGHT_SVG,
   'collapsed-terminal-btn': TERMINAL_SVG,
