@@ -375,6 +375,32 @@ export async function fetchLatestBuildNumber(org, project, auth, branchName, min
 }
 
 /**
+ * Remove the 'waiting_for_dod' tag from a work item if present.
+ */
+export async function removeWaitingForDodTag(ctx, id) {
+  try {
+    const resp = await fetch(
+      `${ctx.apiBase}/wit/workitems/${id}?fields=System.Tags&api-version=7.0`,
+      { headers: { Authorization: `Basic ${ctx.auth}` } }
+    );
+    if (!resp.ok) return;
+    const data = await resp.json();
+    const currentTags = data.fields?.['System.Tags'] || '';
+    const updatedTags = currentTags.split(';').map(t => t.trim()).filter(t => t && t.toLowerCase() !== 'waiting_for_dod').join('; ');
+    if (updatedTags === currentTags.trim()) return;
+    console.log('[removeWaitingForDodTag] removing tag, new value:', updatedTags);
+    await fetch(
+      `${ctx.apiBase}/wit/workitems/${id}?api-version=7.0`,
+      {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json-patch+json', Authorization: `Basic ${ctx.auth}` },
+        body: JSON.stringify([{ op: 'add', path: '/fields/System.Tags', value: updatedTags }])
+      }
+    );
+  } catch (err) { console.warn('[removeWaitingForDodTag] error:', err); }
+}
+
+/**
  * Resolve a work item: set state to Resolved and optionally set Integrated in Build and Release Note fields.
  * Also removes the 'waiting_for_dod' tag if present.
  */

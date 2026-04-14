@@ -1,5 +1,5 @@
 import { syncTitlebarToTab } from '../workspace-manager.js';
-import { parseAzureRemoteUrl, fetchPolicyEvaluations, fetchPrUnresolvedThreadCount, fetchWorkItemById, fetchLatestBuild, fetchActivePrsForBranch, fetchLatestCompletedPrForBranch } from '../azure-api.js';
+import { parseAzureRemoteUrl, fetchPolicyEvaluations, fetchPrUnresolvedThreadCount, fetchWorkItemById, fetchLatestBuild, fetchActivePrsForBranch, fetchLatestCompletedPrForBranch, removeWaitingForDodTag } from '../azure-api.js';
 import { pipeline } from '../pipeline-service.js';
 import { PIPELINE_STATUS_CLASSES, PR_STATUS_CLASSES, DOT_SWITCH_SVG, DOT_SYNC_SVG, DOT_RESOLVE_TASK_SVG, DOT_COMPLETE_TASK_RUNNING_SVG } from './worktree-tab-icons.js';
 import { updateDotState } from './worktree-tab-dot-state.js';
@@ -84,7 +84,7 @@ function applyActionButtonVisibility(tabEl, { statusClass, switchBtn }) {
   } else {
     ws.canCompletePr = false;
     if (completePrBtn) completePrBtn.style.display = 'none';
-    if (!ws.hasUncommittedChanges && ws.hasPushedCommits) {
+    if (!ws.hasUncommittedChanges) {
       if (openPrBtn) openPrBtn.style.display = 'inline-flex';
       actionShown = true;
     } else {
@@ -334,6 +334,7 @@ async function _refreshTabStatusInner(tabEl) {
             ws.taskResolved = true;
             ws.canResolveTask = false;
             saveTaskResolved(tabEl._wtPath, true);
+            removeWaitingForDodTag(taskCtx, tabEl._wtTaskId);
             if (completePrBtn) completePrBtn.style.display = 'none';
             if (resolveTaskBtn) resolveTaskBtn.style.display = 'none';
             if (createPrBtn) createPrBtn.style.display = 'none';
@@ -365,6 +366,7 @@ async function _refreshTabStatusInner(tabEl) {
         if (wi && ['Resolved', 'Closed', 'Done', 'Removed'].includes(wi.state)) {
           ws.taskResolved = true;
           saveTaskResolved(tabEl._wtPath, true);
+          removeWaitingForDodTag(taskCtx, tabEl._wtTaskId);
         }
       } catch {}
     }
