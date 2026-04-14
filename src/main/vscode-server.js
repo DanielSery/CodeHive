@@ -9,6 +9,7 @@ const REQUIRED_EXTENSIONS = [
   'Catppuccin.catppuccin-vsc',
   'Catppuccin.catppuccin-vsc-icons',
   'anthropic.claude-code',
+  'ms-dotnettools.csharp',
   'ms-dotnettools.csdevkit',
   'ms-vscode.vs-keybindings'
 ];
@@ -158,6 +159,17 @@ function isVSCodeInstalled() {
   return false;
 }
 
+function getMissingExtensions(extensionsDir) {
+  if (!fs.existsSync(extensionsDir)) return REQUIRED_EXTENSIONS;
+  const installedFolders = fs.readdirSync(extensionsDir);
+  return REQUIRED_EXTENSIONS.filter(extensionId => {
+    const prefix = extensionId.toLowerCase() + '-';
+    return !installedFolders.some(folder => folder.toLowerCase().startsWith(prefix));
+  });
+}
+
+
+
 function installExtensions(sendStatus) {
   const cmd = findCodeCmd();
   const env = { ...process.env };
@@ -165,8 +177,16 @@ function installExtensions(sendStatus) {
   delete env.ELECTRON_NO_ASAR;
   const extensionsDir = path.join(getServerDataDir(), 'extensions');
 
-  // Run as awaitable — spawn a single shell with all installs chained and resolve when done
-  const cmds = REQUIRED_EXTENSIONS.map(ext =>
+  const missingExtensions = getMissingExtensions(extensionsDir);
+  if (missingExtensions.length === 0) {
+    console.log('[extensions] All extensions already installed, skipping.');
+    return Promise.resolve();
+  }
+
+  console.log('[extensions] Installing missing extensions:', missingExtensions);
+
+  // Install in order so dependencies precede dependents
+  const cmds = missingExtensions.map(ext =>
     `"${cmd}" --install-extension ${ext} --extensions-dir "${extensionsDir}"`
   ).join(' && ');
 
@@ -181,7 +201,6 @@ function installExtensions(sendStatus) {
     proc.stdout.on('data', (data) => {
       const msg = data.toString().trim();
       console.log('[extensions]', msg);
-      // Show which extension is being installed
       const match = msg.match(/Installing extensions?:\s*(.+)/i);
       if (match && sendStatus) sendStatus(`Installing extension: ${match[1]}`);
     });
@@ -227,6 +246,7 @@ function waitForServer(port, timeoutMs = 30000) {
   });
 }
 
+
 function startServer(port) {
   return new Promise((resolve, reject) => {
     const cmd = findCodeCmd();
@@ -237,14 +257,14 @@ function startServer(port) {
       '--host', '127.0.0.1',
       '--connection-token-file', path.join(getServerDataDir(), 'connection-token'),
       '--accept-server-license-terms',
-      '--server-data-dir', getServerDataDir()
+      '--server-data-dir', getServerDataDir(),
     ];
-
     const env = { ...process.env };
     delete env.ELECTRON_RUN_AS_NODE;
     delete env.ELECTRON_NO_ASAR;
 
     const proc = spawn(`"${cmd}"`, args, {
+      cwd: path.dirname(cmd),
       env,
       stdio: ['pipe', 'pipe', 'pipe'],
       shell: true

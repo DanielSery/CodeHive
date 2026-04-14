@@ -51,6 +51,13 @@ async function startClone() {
   }
   const repoName = parseRepoName(url);
 
+  const alreadyExists = await window.reposAPI.repoExists(reposDir, repoName);
+  if (alreadyExists) {
+    toast.error(`Repository "${repoName}" already exists in this directory`);
+    showCloneDialog();
+    return;
+  }
+
   terminal.show(`Cloning ${repoName}...`);
 
   const disposeData = runPty(window.cloneAPI, {

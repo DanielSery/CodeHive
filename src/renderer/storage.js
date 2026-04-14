@@ -120,6 +120,18 @@ export function getPipelineInstalled(wtPath) {
 }
 
 
+export function saveSelectedSolution(wtPath, slnPath) {
+  const state = getState();
+  if (!state.selectedSolution) state.selectedSolution = {};
+  state.selectedSolution[normalizePath(wtPath)] = slnPath;
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+}
+
+export function getSelectedSolution(wtPath) {
+  const state = getState();
+  return (state.selectedSolution && state.selectedSolution[normalizePath(wtPath)]) || null;
+}
+
 export function clearWorktreeStorage(wtPath) {
   const state = getState();
   const key = normalizePath(wtPath);
@@ -127,6 +139,7 @@ export function clearWorktreeStorage(wtPath) {
   if (state.taskIds) delete state.taskIds[key];
   if (state.taskResolved) delete state.taskResolved[key];
   if (state.pipelineInstalled) delete state.pipelineInstalled[key];
+  if (state.selectedSolution) delete state.selectedSolution[key];
   localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
 }
 

@@ -381,6 +381,7 @@ export async function fetchLatestBuildNumber(org, project, auth, branchName, min
 export async function resolveWorkItem(ctx, id, { integrationBuild, releaseNote } = {}) {
   console.log('[resolveWorkItem] start', { id, org: ctx.org, project: ctx.project });
   let resolvedStateName = 'Resolved';
+  let currentTags = '';
   try {
     const wiResp = await fetch(
       `${ctx.apiBase}/wit/workitems/${id}?fields=System.Tags,System.WorkItemType&api-version=7.0`,
@@ -390,6 +391,7 @@ export async function resolveWorkItem(ctx, id, { integrationBuild, releaseNote }
     if (wiResp.ok) {
       const wiData = await wiResp.json();
       console.log('[resolveWorkItem] fields:', JSON.stringify(wiData.fields));
+      currentTags = wiData.fields?.['System.Tags'] || '';
       const workItemType = wiData.fields?.['System.WorkItemType'];
       if (workItemType) {
         const statesResp = await fetch(
@@ -408,9 +410,14 @@ export async function resolveWorkItem(ctx, id, { integrationBuild, releaseNote }
     }
   } catch (err) { console.warn('[resolveWorkItem] pre-fetch error:', err); }
 
+  const updatedTags = currentTags.split(';').map(t => t.trim()).filter(t => t && t.toLowerCase() !== 'waiting_for_dod').join('; ');
   const ops = [{ op: 'add', path: '/fields/System.State', value: resolvedStateName }];
   if (integrationBuild) ops.push({ op: 'add', path: '/fields/Microsoft.VSTS.Build.IntegrationBuild', value: integrationBuild });
   if (releaseNote) ops.push({ op: 'add', path: '/fields/Custom.Releasenote', value: releaseNote });
+  if (updatedTags !== currentTags.trim()) {
+    console.log('[resolveWorkItem] removing waiting_for_dod tag, new value:', updatedTags);
+    ops.push({ op: 'add', path: '/fields/System.Tags', value: updatedTags });
+  }
   console.log('[resolveWorkItem] PATCH ops:', JSON.stringify(ops));
   try {
     const resp = await fetch(
@@ -431,34 +438,6 @@ export async function resolveWorkItem(ctx, id, { integrationBuild, releaseNote }
     console.error('[resolveWorkItem] PATCH error:', err);
     return false;
   }
-
-  // Separate PATCH to remove waiting_for_dod tag, so a tag failure doesn't block the resolve result
-  try {
-    const tagsResp = await fetch(
-      `${ctx.apiBase}/wit/workitems/${id}?fields=System.Tags&api-version=7.0`,
-      { headers: { Authorization: `Basic ${ctx.auth}` } }
-    );
-    if (tagsResp.ok) {
-      const tagsData = await tagsResp.json();
-      const currentTags = tagsData.fields?.['System.Tags'] || '';
-      console.log('[resolveWorkItem] currentTags after resolve:', currentTags);
-      const updatedTags = currentTags.split(';').map(t => t.trim()).filter(t => t && t.toLowerCase() !== 'waiting_for_dod').join('; ');
-      if (updatedTags !== currentTags.trim()) {
-        console.log('[resolveWorkItem] removing waiting_for_dod tag, new value:', updatedTags);
-        const tagResp = await fetch(
-          `${ctx.apiBase}/wit/workitems/${id}?api-version=7.0`,
-          {
-            method: 'PATCH',
-            headers: { 'Content-Type': 'application/json-patch+json', 'Authorization': `Basic ${ctx.auth}` },
-            body: JSON.stringify([{ op: 'add', path: '/fields/System.Tags', value: updatedTags }])
-          }
-        );
-        console.log('[resolveWorkItem] tag PATCH status:', tagResp.status);
-      } else {
-        console.log('[resolveWorkItem] no waiting_for_dod tag found, skipping tag PATCH');
-      }
-    }
-  } catch (err) { console.warn('[resolveWorkItem] tag removal error:', err); }
 
   return true;
 }

@@ -2,6 +2,21 @@ import { getState, saveDirectories, resetDirectories, STORAGE_KEY } from './stor
 import { getRepoOrder, getWorktreeOrders, addRepoGroup } from './sidebar/index.js';
 import { setCloneReposDir } from './dialogs/index.js';
 
+const noDirEl = document.getElementById('placeholder-no-dir');
+const hasDirEl = document.getElementById('placeholder-has-dir');
+const dirPathEl = document.getElementById('placeholder-dir-path');
+
+function setPlaceholderDirectory(dirPath) {
+  if (dirPath) {
+    noDirEl.style.display = 'none';
+    hasDirEl.style.display = '';
+    dirPathEl.textContent = dirPath;
+  } else {
+    noDirEl.style.display = '';
+    hasDirEl.style.display = 'none';
+  }
+}
+
 export function saveState() {
   const prev = getState();
   const state = {
@@ -27,6 +42,7 @@ export async function restoreState() {
   if (!state.directories || state.directories.length === 0) return;
 
   setCloneReposDir(state.directories[0]);
+  setPlaceholderDirectory(state.directories[0]);
 
   const allRepos = [];
   for (const dir of state.directories) {
@@ -70,6 +86,7 @@ export function onOpenDirectory(clearAllGroups) {
     clearAllGroups();
     resetDirectories(dirPath);
     setCloneReposDir(dirPath);
+    setPlaceholderDirectory(dirPath);
 
     const repos = await window.reposAPI.scanDirectory(dirPath);
     for (const repo of repos) {

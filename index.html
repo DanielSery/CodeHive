@@ -78,11 +78,17 @@
           <div id="clone-terminal-xterm"></div>
         </div>
         <div id="editor-placeholder">
-          <div class="placeholder-content">
+          <div class="placeholder-content" id="placeholder-no-dir">
             <h2>CodeHive</h2>
             <p>Click <strong>Open</strong> to scan a directory for repositories</p>
             <p class="placeholder-hint">Bare repos with worktrees will appear in the sidebar</p>
             <p id="startup-status" class="startup-status"></p>
+          </div>
+          <div class="placeholder-content" id="placeholder-has-dir" style="display:none">
+            <h2>CodeHive</h2>
+            <p id="placeholder-dir-path" class="placeholder-hint"></p>
+            <p style="margin-top:0.8rem">Clone a repository to get started</p>
+            <button id="btn-placeholder-clone" class="placeholder-clone-btn">Clone Repository</button>
           </div>
         </div>
       </div>

@@ -42,6 +42,7 @@ registerOnCloneComplete((reposDir) => {
 const openDirectory = onOpenDirectory(clearAllGroups);
 document.getElementById('btn-open-directory').addEventListener('click', openDirectory);
 document.getElementById('btn-clone-repo').addEventListener('click', showCloneDialog);
+document.getElementById('btn-placeholder-clone').addEventListener('click', showCloneDialog);
 
 
 document.getElementById('btn-titlebar-open-explorer').addEventListener('click', () => {

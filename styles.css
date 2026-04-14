@@ -899,6 +899,22 @@ html, body {
   opacity: 0.6;
 }
 
+.placeholder-clone-btn {
+  margin-top: 1rem;
+  padding: 6px 16px;
+  background: var(--accent);
+  color: #1e1e2e;
+  border: none;
+  border-radius: 4px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.placeholder-clone-btn:hover {
+  filter: brightness(1.1);
+}
+
 .startup-status {
   font-size: 0.8rem !important;
   opacity: 0.5;

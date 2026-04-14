@@ -1,10 +1,16 @@
 const { ipcMain } = require('electron');
+const fs = require('fs');
+const path = require('path');
 const { scanDirectory, checkClaudeActive, getCachedBranches, fetchAndListBranches, getGitUser, getRemoteUrl, getLaunchConfigs, gitDiffStat, gitFileDiff, gitBranchDiffStat, gitBranchFileDiff, gitRevertLines, getFirstBranchCommit, hasUncommittedChanges, hasPushedCommits, gitRevertFile, getRebaseCommits, getCherryPickCommits, gitGetFileLines, getSyncStatus, getCommitsAhead, getCommitsBehind } = require('./repo-scanner');
 const { watchClaude, unwatchClaude } = require('./claude-status');
 
 function register(mainWindow) {
   ipcMain.handle('repos:scanDirectory', async (event, dirPath) => {
     return scanDirectory(dirPath);
+  });
+
+  ipcMain.handle('repos:repoExists', (event, { reposDir, repoName }) => {
+    return fs.existsSync(path.join(reposDir, repoName));
   });
 
   ipcMain.handle('repos:claudeActive', (event, wtPath) => {

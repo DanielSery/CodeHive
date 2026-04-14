@@ -1,5 +1,6 @@
 import { createCombobox } from './combobox.js';
 import { toast } from '../toast.js';
+import { saveSelectedSolution, getSelectedSolution } from '../storage.js';
 
 const overlay = document.getElementById('open-solution-dialog-overlay');
 const searchInput = document.getElementById('open-solution-search');
@@ -7,6 +8,7 @@ const listEl = document.getElementById('open-solution-list');
 const confirmBtn = document.getElementById('open-solution-confirm-btn');
 
 let _selectedSln = null;
+let _currentWtPath = null;
 
 function getRelativePath(wtPath, slnPath) {
   const normalizedWt = wtPath.replace(/\\/g, '/').replace(/\/$/, '');
@@ -64,9 +66,13 @@ export async function openSolution(wtPath) {
     label: getRelativePath(wtPath, slnPath),
   }));
 
-  _selectedSln = null;
-  searchInput.value = '';
-  confirmBtn.disabled = true;
+  const cachedSlnPath = getSelectedSolution(wtPath);
+  const cachedItem = cachedSlnPath ? items.find(item => item.slnPath === cachedSlnPath) : null;
+
+  _selectedSln = cachedItem || null;
+  searchInput.value = cachedItem ? cachedItem.label : '';
+  confirmBtn.disabled = !cachedItem;
+  _currentWtPath = wtPath;
 
   solutionCombobox.setItems(items);
   solutionCombobox.render('');
@@ -79,10 +85,14 @@ function hideOpenSolutionDialog() {
   overlay.classList.remove('visible');
   solutionCombobox.close();
   _selectedSln = null;
+  _currentWtPath = null;
 }
 
 function confirmOpenSolution() {
   if (!_selectedSln) return;
+  if (_currentWtPath) {
+    saveSelectedSolution(_currentWtPath, _selectedSln.slnPath);
+  }
   window.shellAPI.openSolution(_selectedSln.slnPath);
   hideOpenSolutionDialog();
 }
