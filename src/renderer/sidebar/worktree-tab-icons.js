@@ -34,6 +34,7 @@ export const WORK_ITEM_TYPE_ICON_SVGS = {
 };
 
 export const DOT_SET_TASK_SVG = '<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2 4.5h7l5 3.5-5 3.5H2V4.5z"/><circle cx="5.5" cy="8" r="1"/></svg>';
+export const DOT_DISCONNECT_SVG = '<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2 4.5h7l5 3.5-5 3.5H2V4.5z"/><line x1="4.5" y1="6.5" x2="8.5" y2="9.5"/><line x1="8.5" y1="6.5" x2="4.5" y2="9.5"/></svg>';
 export const DOT_OPEN_MERGED_PR_SVG = '<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="4" cy="4" r="2"/><circle cx="4" cy="12" r="2"/><path d="M4 6v4"/><path d="M7 4h3a2 2 0 012 2v2.5"/><path d="M11 11.5l1.5 1.5-1.5 1.5M13 13H9"/></svg>';
 
 export const UPDATE_SVG = '<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="6"/><path d="M8 5.5v4"/><path d="M5.5 7.5L8 10l2.5-2.5"/></svg>';

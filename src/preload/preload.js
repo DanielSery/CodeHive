@@ -33,6 +33,7 @@ contextBridge.exposeInMainWorld('reposAPI', {
   rebaseCommits: (wtPath, sourceBranch) => ipcRenderer.invoke('repos:rebaseCommits', { wtPath, sourceBranch }),
   cherryPickCommits: (sourceWtPath, targetBranch) => ipcRenderer.invoke('repos:cherryPickCommits', { sourceWtPath, targetBranch }),
   repoExists: (reposDir, repoName) => ipcRenderer.invoke('repos:repoExists', { reposDir, repoName }),
+  checkoutIdle: (wtPath) => ipcRenderer.invoke('repos:checkoutIdle', wtPath),
 });
 
 // Helper: returns a disposer function. Exit uses `once` (auto-removes); data uses `on` with returned disposer.

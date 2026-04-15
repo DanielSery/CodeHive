@@ -2,6 +2,7 @@ import { getWorkspace, getActive, getActiveId, setActiveId, nextId, addWorkspace
 import { setTabStatus, startClaudePoll, stopClaudePoll } from './claude-poll.js';
 import { hideTerminal, deactivateTerminalTab } from './terminal-panel.js';
 import { getWtState } from './worktree-state.js';
+import { _showPlaceholder } from './sidebar/registers.js';
 import { DOT_SWITCH_SVG, DOT_DONE_SWITCH_SVG, DOT_SYNC_SVG } from './sidebar/worktree-tab-icons.js';
 
 let _showTabCloseButton = null;
@@ -28,6 +29,7 @@ const titlebarSetTaskBtn = document.getElementById('btn-titlebar-set-task');
 const titlebarOpenTaskBtn = document.getElementById('btn-titlebar-open-task');
 const titlebarOpenPrBtn = document.getElementById('btn-titlebar-open-pr');
 const titlebarOpenMergedPrBtn = document.getElementById('btn-titlebar-open-merged-pr');
+const titlebarDisconnectBtn = document.getElementById('btn-titlebar-disconnect');
 const titlebarRemoveBtn = document.getElementById('btn-titlebar-remove');
 const titlebarSep1 = document.getElementById('titlebar-sep-1');
 const titlebarSep2 = document.getElementById('titlebar-sep-2');
@@ -135,7 +137,7 @@ const serverReady = new Promise((resolve) => {
   });
 });
 
-const allTitlebarActionBtns = [titlebarOpenExplorerBtn, titlebarGitAppBtn, titlebarOpenPowershellBtn, titlebarOpenSolutionBtn, titlebarSwitchBtn, titlebarCommitBtn, titlebarCreatePrBtn, titlebarCompletePrBtn, titlebarOpenPipelineBtn, titlebarResolveTaskBtn, titlebarSetTaskBtn, titlebarOpenTaskBtn, titlebarOpenPrBtn, titlebarOpenMergedPrBtn, titlebarRemoveBtn];
+const allTitlebarActionBtns = [titlebarOpenExplorerBtn, titlebarGitAppBtn, titlebarOpenPowershellBtn, titlebarOpenSolutionBtn, titlebarSwitchBtn, titlebarCommitBtn, titlebarCreatePrBtn, titlebarCompletePrBtn, titlebarOpenPipelineBtn, titlebarResolveTaskBtn, titlebarSetTaskBtn, titlebarOpenTaskBtn, titlebarOpenPrBtn, titlebarOpenMergedPrBtn, titlebarDisconnectBtn, titlebarRemoveBtn];
 
 function updateTitlebarActions(hasActive) {
   if (!hasActive) {
@@ -194,6 +196,7 @@ titlebarOpenTaskBtn.classList.toggle('visible', hasTask);
   titlebarOpenPrBtn.classList.toggle('visible', hasPr);
 
   titlebarOpenMergedPrBtn.classList.toggle('visible', hasMergedPr);
+  titlebarDisconnectBtn.classList.toggle('visible', true);
   titlebarRemoveBtn.classList.toggle('visible', true);
 }
 
@@ -374,6 +377,7 @@ function closeWorkspace(id) {
       switchWorkspace(remaining[remaining.length - 1]);
     } else {
       placeholder.style.display = 'flex';
+      if (_showPlaceholder) _showPlaceholder();
       document.querySelector('.titlebar-title').textContent = 'CodeHive';
       updateTitlebarActions(false);
     }

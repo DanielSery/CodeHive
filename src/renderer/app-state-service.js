@@ -4,16 +4,23 @@ import { setCloneReposDir } from './dialogs/index.js';
 
 const noDirEl = document.getElementById('placeholder-no-dir');
 const hasDirEl = document.getElementById('placeholder-has-dir');
+const hasReposEl = document.getElementById('placeholder-has-repos');
 const dirPathEl = document.getElementById('placeholder-dir-path');
 
-function setPlaceholderDirectory(dirPath) {
-  if (dirPath) {
-    noDirEl.style.display = 'none';
-    hasDirEl.style.display = '';
-    dirPathEl.textContent = dirPath;
+function setActivePlaceholder(panel) {
+  noDirEl.style.display = panel === 'no-dir' ? '' : 'none';
+  hasDirEl.style.display = panel === 'has-dir' ? '' : 'none';
+  hasReposEl.style.display = panel === 'has-repos' ? '' : 'none';
+}
+
+export function showPlaceholder() {
+  const repoGroups = document.getElementById('repo-groups');
+  if (repoGroups && repoGroups.children.length > 0) {
+    setActivePlaceholder('has-repos');
+  } else if (dirPathEl.textContent) {
+    setActivePlaceholder('has-dir');
   } else {
-    noDirEl.style.display = '';
-    hasDirEl.style.display = 'none';
+    setActivePlaceholder('no-dir');
   }
 }
 
@@ -42,7 +49,8 @@ export async function restoreState() {
   if (!state.directories || state.directories.length === 0) return;
 
   setCloneReposDir(state.directories[0]);
-  setPlaceholderDirectory(state.directories[0]);
+  dirPathEl.textContent = state.directories[0];
+  setActivePlaceholder('has-dir');
 
   const allRepos = [];
   for (const dir of state.directories) {
@@ -76,6 +84,7 @@ export async function restoreState() {
     }
     addRepoGroup(repo);
   }
+  setActivePlaceholder('has-repos');
 }
 
 export function onOpenDirectory(clearAllGroups) {
@@ -86,11 +95,15 @@ export function onOpenDirectory(clearAllGroups) {
     clearAllGroups();
     resetDirectories(dirPath);
     setCloneReposDir(dirPath);
-    setPlaceholderDirectory(dirPath);
+    dirPathEl.textContent = dirPath;
+    setActivePlaceholder('has-dir');
 
     const repos = await window.reposAPI.scanDirectory(dirPath);
     for (const repo of repos) {
       addRepoGroup(repo);
+    }
+    if (repos.length > 0) {
+      setActivePlaceholder('has-repos');
     }
 
     saveState();

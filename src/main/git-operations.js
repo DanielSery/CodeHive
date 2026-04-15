@@ -459,4 +459,15 @@ function getCherryPickCommits(sourceWtPath, targetBranch) {
   }
 }
 
-module.exports = { getCachedBranches, fetchAndListBranches, getGitUser, getRemoteUrl, getLaunchConfigs, gitDiffStat, gitFileDiff, gitBranchDiffStat, gitBranchFileDiff, gitRevertLines, getFirstBranchCommit, hasUncommittedChanges, hasPushedCommits, gitRevertFile, getRebaseCommits, getCherryPickCommits, gitGetFileLines, getSyncStatus, getCommitsAhead, getCommitsBehind };
+function checkoutIdle(wtPath) {
+  try {
+    const dirName = require('path').basename(wtPath);
+    const idleBranch = `codehive/idle/${dirName}`;
+    execSync(`git checkout -B ${idleBranch}`, { cwd: wtPath, encoding: 'utf8', timeout: 10000 });
+    return { success: true, branch: idleBranch };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+}
+
+module.exports = { getCachedBranches, fetchAndListBranches, getGitUser, getRemoteUrl, getLaunchConfigs, gitDiffStat, gitFileDiff, gitBranchDiffStat, gitBranchFileDiff, gitRevertLines, getFirstBranchCommit, hasUncommittedChanges, hasPushedCommits, gitRevertFile, getRebaseCommits, getCherryPickCommits, gitGetFileLines, getSyncStatus, getCommitsAhead, getCommitsBehind, checkoutIdle };

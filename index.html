@@ -43,6 +43,7 @@
       <span class="titlebar-sep" id="titlebar-sep-2" style="display:none"></span>
       <button class="titlebar-action-btn" id="btn-titlebar-set-task" title="Set Task"></button>
       <button class="titlebar-action-btn" id="btn-titlebar-open-task" title="Open Task"></button>
+      <button class="titlebar-action-btn" id="btn-titlebar-disconnect" title="Disconnect Worktree"></button>
       <button class="titlebar-action-btn" id="btn-titlebar-remove" title="Remove Worktree"></button>
     </div>
     <div class="titlebar-controls">
@@ -80,8 +81,8 @@
         <div id="editor-placeholder">
           <div class="placeholder-content" id="placeholder-no-dir">
             <h2>CodeHive</h2>
-            <p>Click <strong>Open</strong> to scan a directory for repositories</p>
-            <p class="placeholder-hint">Bare repos with worktrees will appear in the sidebar</p>
+            <p>Open a directory to scan for repositories</p>
+            <button id="btn-placeholder-open-dir" class="placeholder-clone-btn">Open Directory</button>
             <p id="startup-status" class="startup-status"></p>
           </div>
           <div class="placeholder-content" id="placeholder-has-dir" style="display:none">
@@ -89,6 +90,11 @@
             <p id="placeholder-dir-path" class="placeholder-hint"></p>
             <p style="margin-top:0.8rem">Clone a repository to get started</p>
             <button id="btn-placeholder-clone" class="placeholder-clone-btn">Clone Repository</button>
+          </div>
+          <div class="placeholder-content" id="placeholder-has-repos" style="display:none">
+            <h2>CodeHive</h2>
+            <p>Select a worktree from the sidebar to open it</p>
+            <p class="placeholder-hint">Right-click a repository to clone or add a new worktree</p>
           </div>
         </div>
       </div>
@@ -232,6 +238,19 @@
         <button id="wt-switch-cancel-btn" class="dialog-btn dialog-btn-cancel" tabindex="-1">Cancel</button>
         <button id="wt-switch-skip-task-btn" class="dialog-btn dialog-btn-secondary" tabindex="-1" style="display:none">Skip Task</button>
         <button id="wt-switch-confirm-btn" class="dialog-btn dialog-btn-confirm">Switch</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Worktree disconnect confirmation dialog -->
+  <div id="wt-disconnect-dialog-overlay" class="dialog-overlay">
+    <div class="dialog-box">
+      <h3 class="dialog-title">Disconnect Worktree</h3>
+      <p class="dialog-desc">This will remove the task association, reset all state, and checkout an idle branch.</p>
+      <p id="wt-disconnect-dialog-branch" class="dialog-preview" style="margin-bottom: 12px;"></p>
+      <div class="dialog-buttons">
+        <button id="wt-disconnect-cancel-btn" class="dialog-btn dialog-btn-cancel" tabindex="-1">Cancel</button>
+        <button id="wt-disconnect-confirm-btn" class="dialog-btn">Disconnect</button>
       </div>
     </div>
   </div>
@@ -520,6 +539,7 @@
     <hr class="context-menu-separator">
     <button class="context-menu-item" data-action="set-task">Set Task</button>
     <button class="context-menu-item" data-action="open-task">Open Task</button>
+    <button class="context-menu-item" data-action="disconnect">Disconnect Worktree</button>
     <button class="context-menu-item context-menu-item-danger" data-action="remove">Remove Worktree</button>
   </div>
 

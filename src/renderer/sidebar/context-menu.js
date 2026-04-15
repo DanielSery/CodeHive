@@ -1,4 +1,4 @@
-import { _showWorktreeSwitchDialog, _showWorktreeRemoveDialog, _showCommitPushDialog, _showCreatePrDialog, _showWorktreeDialog, _showDeleteDialog, _showSetTaskDialog } from './registers.js';
+import { _showWorktreeSwitchDialog, _showWorktreeRemoveDialog, _showWorktreeDisconnectDialog, _showCommitPushDialog, _showCreatePrDialog, _showWorktreeDialog, _showDeleteDialog, _showSetTaskDialog } from './registers.js';
 import { toast } from '../toast.js';
 import { pr } from '../pr-service.js';
 import { pipeline } from '../pipeline-service.js';
@@ -34,6 +34,7 @@ export function showContextMenu(x, y, tabEl) {
   contextMenu.querySelector('[data-action="resolve-task"]').style.display = !hasChanges && canResolve ? '' : 'none';
   contextMenu.querySelector('[data-action="set-task"]').style.display = !hasTask ? '' : 'none';
   contextMenu.querySelector('[data-action="open-task"]').style.display = hasTask ? '' : 'none';
+  contextMenu.querySelector('[data-action="disconnect"]').style.display = '';
   contextMenu.querySelector('[data-action="open-pr"]').style.display = hasPr ? '' : 'none';
   contextMenu.querySelector('[data-action="open-merged-pr"]').style.display = hasMergedPr ? '' : 'none';
 
@@ -111,6 +112,10 @@ contextMenu.addEventListener('click', (e) => {
     if (_showWorktreeSwitchDialog) {
       const groupEl = tabEl.closest('.repo-group');
       _showWorktreeSwitchDialog(tabEl, groupEl);
+    }
+  } else if (action === 'disconnect') {
+    if (_showWorktreeDisconnectDialog) {
+      _showWorktreeDisconnectDialog(tabEl);
     }
   } else if (action === 'remove') {
     if (_showWorktreeRemoveDialog) {

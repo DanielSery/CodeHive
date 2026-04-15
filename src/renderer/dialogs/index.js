@@ -3,6 +3,7 @@ export { showWorktreeSwitchDialog, hideWorktreeSwitchDialog, registerSwitchSideb
 export { showCloneDialog, setCloneReposDir, registerCloneSidebarFns, registerOnCloneComplete } from './dialog-clone.js';
 export { showDeleteDialog, registerRemoveRepoGroup } from './dialog-delete.js';
 export { showWorktreeRemoveDialog } from './dialog-wt-remove.js';
+export { showWorktreeDisconnectDialog } from './dialog-wt-disconnect.js';
 export { showCommitPushDialog } from './dialog-commit-push.js';
 export { showCreatePrDialog } from './dialog-create-pr.js';
 export { showResolveTaskDialog } from './dialog-resolve.js';
