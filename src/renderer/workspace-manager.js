@@ -174,7 +174,8 @@ function syncTitlebarToTab() {
   titlebarCommitBtn.innerHTML = DOT_SYNC_SVG;
   titlebarCommitBtn.style.color = '';
 
-  titlebarSep1.style.display = '';
+  const hasAnyGitAction = hasChanges || showCreatePr || (!hasChanges && canComplete) || (!hasChanges && canOpenPipeline) || (!hasChanges && canResolve) || hasPr || hasMergedPr;
+  titlebarSep1.style.display = hasAnyGitAction ? '' : 'none';
   titlebarSep2.style.display = '';
   titlebarOpenExplorerBtn.classList.toggle('visible', true);
   titlebarGitAppBtn.classList.toggle('visible', true);

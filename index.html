@@ -39,8 +39,8 @@
       <button class="titlebar-action-btn" id="btn-titlebar-resolve-task" title="Resolve Azure Task"></button>
       <button class="titlebar-action-btn" id="btn-titlebar-open-pr" title="View Pull Request"></button>
       <button class="titlebar-action-btn" id="btn-titlebar-open-merged-pr" title="View Merged PR"></button>
-      <button class="titlebar-action-btn" id="btn-titlebar-switch" title="Switch Worktree (Alt+R)"></button>
       <span class="titlebar-sep" id="titlebar-sep-2" style="display:none"></span>
+      <button class="titlebar-action-btn" id="btn-titlebar-switch" title="Switch Worktree (Alt+R)"></button>
       <button class="titlebar-action-btn" id="btn-titlebar-set-task" title="Set Task"></button>
       <button class="titlebar-action-btn" id="btn-titlebar-open-task" title="Open Task"></button>
       <button class="titlebar-action-btn" id="btn-titlebar-disconnect" title="Disconnect Worktree"></button>
@@ -527,7 +527,7 @@
     <button class="context-menu-item" data-action="open-git-app">Open in Git App</button>
     <button class="context-menu-item" data-action="open-powershell">Open in PowerShell</button>
     <button class="context-menu-item" data-action="open-solution">Open Solution</button>
-    <hr class="context-menu-separator">
+    <hr class="context-menu-separator" id="context-menu-sep-git">
     <button class="context-menu-item" data-action="commit-push">Sync Changes</button>
     <button class="context-menu-item" data-action="create-pr">Create Pull Request</button>
     <button class="context-menu-item" data-action="complete-pr">Complete Pull Request</button>
@@ -535,11 +535,12 @@
     <button class="context-menu-item" data-action="resolve-task">Resolve Task</button>
     <button class="context-menu-item" data-action="open-pr">Open Pull Request</button>
     <button class="context-menu-item" data-action="open-merged-pr">View Merged PR</button>
-    <button class="context-menu-item" data-action="switch">Switch Worktree<span class="context-menu-shortcut">Alt+R</span></button>
     <hr class="context-menu-separator">
+    <button class="context-menu-item" data-action="switch">Switch Worktree<span class="context-menu-shortcut">Alt+R</span></button>
     <button class="context-menu-item" data-action="set-task">Set Task</button>
     <button class="context-menu-item" data-action="open-task">Open Task</button>
     <button class="context-menu-item" data-action="disconnect">Disconnect Worktree</button>
+    <hr class="context-menu-separator">
     <button class="context-menu-item context-menu-item-danger" data-action="remove">Remove Worktree</button>
   </div>
 

@@ -26,17 +26,19 @@ export function showContextMenu(x, y, tabEl) {
   // Create PR only when no uncommitted changes, pushed commits exist, no active PR or completion state
   const showCreatePr = !hasChanges && hasPushed && !hasPr && !canComplete && !canResolve;
 
-  contextMenu.querySelector('[data-action="switch"]').style.display = '';
+  const hasAnyGitAction = hasChanges || showCreatePr || (!hasChanges && canComplete) || (!hasChanges && canOpenPipeline) || (!hasChanges && canResolve) || hasPr || hasMergedPr;
+  contextMenu.querySelector('#context-menu-sep-git').style.display = hasAnyGitAction ? '' : 'none';
   contextMenu.querySelector('[data-action="commit-push"]').style.display = hasChanges ? '' : 'none';
   contextMenu.querySelector('[data-action="create-pr"]').style.display = showCreatePr ? '' : 'none';
   contextMenu.querySelector('[data-action="complete-pr"]').style.display = !hasChanges && canComplete ? '' : 'none';
   contextMenu.querySelector('[data-action="open-pipeline"]').style.display = !hasChanges && canOpenPipeline ? '' : 'none';
   contextMenu.querySelector('[data-action="resolve-task"]').style.display = !hasChanges && canResolve ? '' : 'none';
+  contextMenu.querySelector('[data-action="open-pr"]').style.display = hasPr ? '' : 'none';
+  contextMenu.querySelector('[data-action="open-merged-pr"]').style.display = hasMergedPr ? '' : 'none';
+  contextMenu.querySelector('[data-action="switch"]').style.display = '';
   contextMenu.querySelector('[data-action="set-task"]').style.display = !hasTask ? '' : 'none';
   contextMenu.querySelector('[data-action="open-task"]').style.display = hasTask ? '' : 'none';
   contextMenu.querySelector('[data-action="disconnect"]').style.display = '';
-  contextMenu.querySelector('[data-action="open-pr"]').style.display = hasPr ? '' : 'none';
-  contextMenu.querySelector('[data-action="open-merged-pr"]').style.display = hasMergedPr ? '' : 'none';
 
   contextMenu.style.left = x + 'px';
   contextMenu.style.top = y + 'px';
