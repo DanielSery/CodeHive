@@ -1,4 +1,4 @@
-import { resolveWorkItem, fetchLatestBuildNumber, addWorkItemComment, fetchBuildArtifacts, fetchContainerItems, fetchBuildsForDefinition } from '../azure-api.js';
+import { resolveWorkItem, fetchLatestBuildNumber, addWorkItemComment, fetchBuildArtifacts, fetchContainerItems, fetchBuildsForDefinition, removeWaitingForDodTag } from '../azure-api.js';
 import { terminal, registerPtyApi } from '../terminal-panel.js';
 import { runPty } from './pty-runner.js';
 
@@ -155,8 +155,11 @@ async function confirm() {
   confirmBtn.disabled = true;
   commentBtn.disabled = true;
   const ok = await resolveWorkItem(_ctx, _taskId, { integrationBuild, releaseNote });
-  if (ok && comment) {
-    await addWorkItemComment(_ctx, _taskId, comment);
+  if (ok) {
+    await removeWaitingForDodTag(_ctx, _taskId);
+    if (comment) {
+      await addWorkItemComment(_ctx, _taskId, comment);
+    }
   }
   confirmBtn.disabled = false;
   commentBtn.disabled = false;
