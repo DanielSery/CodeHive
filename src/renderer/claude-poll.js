@@ -15,6 +15,7 @@ function startClaudePoll(id) {
   if (!ws) return;
   pathToId.set(ws.folderPath, id);
   window.reposAPI.watchClaude(ws.folderPath);
+  window.reposAPI.watchGit(ws.folderPath);
 }
 
 function stopClaudePoll(id) {
@@ -22,6 +23,7 @@ function stopClaudePoll(id) {
   if (!ws) return;
   pathToId.delete(ws.folderPath);
   window.reposAPI.unwatchClaude(ws.folderPath);
+  window.reposAPI.unwatchGit(ws.folderPath);
 }
 
 // Listen for pushed status updates from the main process
@@ -48,6 +50,14 @@ window.reposAPI.onClaudeStatus((wtPath, status) => {
     // Refresh git state and button visibility after Claude finishes
     if (_refreshTabStatus) _refreshTabStatus(ws.tabEl);
   }
+});
+
+window.reposAPI.onGitChanged((wtPath) => {
+  const id = pathToId.get(wtPath);
+  if (id == null) return;
+  const ws = getWorkspace(id);
+  if (!ws || ws.tabEl._workspaceId === null) return;
+  if (_refreshTabStatus) _refreshTabStatus(ws.tabEl);
 });
 
 export { setTabStatus, startClaudePoll, stopClaudePoll };

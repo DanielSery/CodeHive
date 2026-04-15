@@ -3,6 +3,7 @@ const fs = require('fs');
 const path = require('path');
 const { scanDirectory, checkClaudeActive, getCachedBranches, fetchAndListBranches, getGitUser, getRemoteUrl, getLaunchConfigs, gitDiffStat, gitFileDiff, gitBranchDiffStat, gitBranchFileDiff, gitRevertLines, getFirstBranchCommit, hasUncommittedChanges, hasPushedCommits, gitRevertFile, getRebaseCommits, getCherryPickCommits, gitGetFileLines, getSyncStatus, getCommitsAhead, getCommitsBehind, checkoutIdle } = require('./repo-scanner');
 const { watchClaude, unwatchClaude } = require('./claude-status');
+const { watchGit, unwatchGit } = require('./git-watcher');
 
 function register(mainWindow) {
   ipcMain.handle('repos:scanDirectory', async (event, dirPath) => {
@@ -27,6 +28,18 @@ function register(mainWindow) {
 
   ipcMain.on('claude:unwatch', (event, wtPath) => {
     unwatchClaude(wtPath);
+  });
+
+  ipcMain.on('git:watch', (event, wtPath) => {
+    watchGit(wtPath, (watchedPath) => {
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send('git:changed', watchedPath);
+      }
+    });
+  });
+
+  ipcMain.on('git:unwatch', (event, wtPath) => {
+    unwatchGit(wtPath);
   });
 
   ipcMain.handle('repos:cachedBranches', (event, barePath) => {

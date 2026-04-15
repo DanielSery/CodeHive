@@ -197,9 +197,10 @@ async function renderDialogForState(state, tabEl) {
     show(syncUncommittedSection);
     show(syncStandardButtons);
 
-    syncTitleInput.value = '';
+    const taskPrefix = tabEl._wtTaskId ? `${tabEl._wtTaskId}: ` : '';
+    syncTitleInput.value = taskPrefix;
     syncDescInput.value  = '';
-    setTimeout(() => { syncTitleInput.focus(); }, 50);
+    setTimeout(() => { syncTitleInput.focus(); syncTitleInput.setSelectionRange(taskPrefix.length, taskPrefix.length); }, 50);
 
     const files = await window.reposAPI.gitDiffStat(wtPath);
     if (!syncDialogOverlay.classList.contains('visible')) return;
