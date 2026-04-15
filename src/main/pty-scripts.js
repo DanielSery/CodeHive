@@ -323,7 +323,10 @@ function buildPrCreateScript(wtPath, { sourceBranch, targetBranch, title, descri
     lines.push('echo "=== PULL REQUEST CREATED ==="');
   }
 
-  fs.writeFileSync(scriptPath, lines.join('\r\n'), { encoding: 'utf8' });
+  // Write with UTF-8 BOM so PowerShell 5.x (Windows default) reads the file as UTF-8
+  // instead of the system ANSI code page, which would corrupt non-ASCII characters.
+  const bom = isWin ? '\uFEFF' : '';
+  fs.writeFileSync(scriptPath, bom + lines.join('\r\n'), { encoding: 'utf8' });
 
   // PAT passed via environment variable (not written to script file on disk)
   const env = pat ? { AZURE_DEVOPS_EXT_PAT: pat } : undefined;
