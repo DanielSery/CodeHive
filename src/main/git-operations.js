@@ -216,6 +216,17 @@ async function hasPushedCommits(wtPath, branch, sourceBranch) {
   try {
     assertSafeRef(branch);
     assertSafeRef(sourceBranch);
+    // Fetch the branch ref to ensure we're not using stale cached refs. If the remote branch
+    // was deleted (e.g. auto-deleted after PR merge), the fetch fails and there's nothing to push.
+    let remoteBranchExists = true;
+    try {
+      await execAsync(`git fetch origin ${shellQuote(branch)} --no-tags --quiet`, { cwd: wtPath, encoding: 'utf8', timeout: 8000 });
+    } catch {
+      remoteBranchExists = false;
+    }
+    if (!remoteBranchExists) {
+      return { value: false, error: false };
+    }
     const { stdout } = await execAsync(`git rev-list --count origin/${sourceBranch}..origin/${branch}`, {
       cwd: wtPath,
       encoding: 'utf8',
