@@ -3,7 +3,7 @@
   "workbench.startupEditor": "newUntitledFile",
   "workbench.colorTheme": "Catppuccin Mocha",
   "workbench.iconTheme": "catppuccin-mocha",
-  "workbench.startupViewActivity": "claude-sidebar",
+  "workbench.startupViewActivity": "workbench.view.explorer",
   "chat.enabled": false,
   "github.copilot.enable": false,
   "git.enableSmartCommit": true,

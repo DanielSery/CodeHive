@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>CodeHive</title>
+  <title>MUCHA</title>
   <link rel="stylesheet" href="styles.css">
   <link rel="stylesheet" href="node_modules/@xterm/xterm/css/xterm.css">
   <script>
@@ -24,7 +24,7 @@
       <button class="titlebar-action-btn visible" id="btn-check-updates" title="Check for Updates"></button>
     </div>
     <div class="titlebar-drag">
-      <span class="titlebar-title">CodeHive</span>
+      <span class="titlebar-title">MUCHA</span>
     </div>
     <div class="titlebar-actions">
       <button class="titlebar-action-btn" id="btn-titlebar-open-explorer" title="Open in Explorer"></button>
@@ -80,19 +80,19 @@
         </div>
         <div id="editor-placeholder">
           <div class="placeholder-content" id="placeholder-no-dir">
-            <h2>CodeHive</h2>
+            <h2>MUCHA</h2>
             <p>Open a directory to scan for repositories</p>
             <button id="btn-placeholder-open-dir" class="placeholder-clone-btn">Open Directory</button>
             <p id="startup-status" class="startup-status"></p>
           </div>
           <div class="placeholder-content" id="placeholder-has-dir" style="display:none">
-            <h2>CodeHive</h2>
+            <h2>MUCHA</h2>
             <p id="placeholder-dir-path" class="placeholder-hint"></p>
             <p style="margin-top:0.8rem">Clone a repository to get started</p>
             <button id="btn-placeholder-clone" class="placeholder-clone-btn">Clone Repository</button>
           </div>
           <div class="placeholder-content" id="placeholder-has-repos" style="display:none">
-            <h2>CodeHive</h2>
+            <h2>MUCHA</h2>
             <p>Select a worktree from the sidebar to open it</p>
             <p class="placeholder-hint">Right-click a repository to clone or add a new worktree</p>
           </div>
@@ -415,6 +415,8 @@
       <p class="dialog-desc">The app will close and publish.ps1 will run in a terminal.</p>
       <label class="dialog-label">Version</label>
       <input id="publish-version-input" type="text" class="dialog-input" spellcheck="false" autocomplete="off" />
+      <label class="dialog-label">Release Notes <span style="color: var(--text-muted); font-weight: 400;">(optional)</span></label>
+      <textarea id="publish-release-notes" class="dialog-input" placeholder="What's new in this release..." spellcheck="false" rows="4" style="resize:vertical;min-height:72px;font-family:inherit"></textarea>
       <div class="dialog-buttons">
         <button id="publish-cancel-btn" class="dialog-btn dialog-btn-cancel" tabindex="-1">Cancel</button>
         <button id="publish-confirm-btn" class="dialog-btn dialog-btn-confirm">Publish</button>

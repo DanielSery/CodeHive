@@ -1,7 +1,7 @@
 {
   "name": "codehive",
-  "version": "0.3.17",
-  "description": "CodeHive - VS Code workspace manager with bare repo/worktree workflow",
+  "version": "0.3.21",
+  "description": "MUCHA - VS Code workspace manager with bare repo/worktree workflow",
   "main": "src/main/main.js",
   "scripts": {
     "start": "electron .",
@@ -12,7 +12,8 @@
   },
   "build": {
     "appId": "com.codehive.app",
-    "productName": "CodeHive",
+    "productName": "MUCHA",
+    "afterPack": "./scripts/afterPack.js",
     "directories": {
       "output": "dist"
     },
@@ -22,13 +23,13 @@
       "styles.css",
       "node_modules/**/*",
       "vscode-data/**/*",
-      "CodeHive.ico"
+      "MUCHA.ico"
     ],
     "win": {
       "target": [
         "dir"
       ],
-      "icon": "CodeHive.ico",
+      "icon": "MUCHA.ico",
       "electronLanguages": [
         "en-US"
       ]

@@ -113,16 +113,18 @@ function register(mainWindow, getServerPort) {
 
   ipcMain.handle('updater:getVersion', () => app.getVersion());
   ipcMain.handle('updater:isPackaged', () => app.isPackaged);
-  ipcMain.handle('updater:publish', (event, version) => {
+  ipcMain.handle('updater:publish', (event, version, releaseNotes) => {
     const scriptPath = path.join(__dirname, '..', '..', 'publish.ps1');
-    spawn('cmd.exe', [
+    const args = [
       '/c', 'start', '', '/normal',
       'powershell.exe',
       '-ExecutionPolicy', 'Bypass',
       '-NoExit',
       '-File', scriptPath,
       '-Version', version
-    ], { detached: true, stdio: 'ignore' }).unref();
+    ];
+    if (releaseNotes) { args.push('-ReleaseNotes', releaseNotes); }
+    spawn('cmd.exe', args, { detached: true, stdio: 'ignore' }).unref();
     app.quit();
   });
   ipcMain.handle('updater:check', () => updater.checkForUpdates());

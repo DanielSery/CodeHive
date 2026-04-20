@@ -350,7 +350,7 @@ function switchWorkspace(id) {
     if (status !== 'working' && status !== 'waiting' && status !== 'error') {
       setTabStatus(ws.tabEl, 'open');
     }
-    document.querySelector('.titlebar-title').textContent = `CodeHive — ${ws.name}`;
+    document.querySelector('.titlebar-title').textContent = `MUCHA — ${ws.name}`;
     updateTitlebarActions(true);
   }
 }
@@ -379,7 +379,7 @@ function closeWorkspace(id) {
     } else {
       placeholder.style.display = 'flex';
       if (_showPlaceholder) _showPlaceholder();
-      document.querySelector('.titlebar-title').textContent = 'CodeHive';
+      document.querySelector('.titlebar-title').textContent = 'MUCHA';
       updateTitlebarActions(false);
     }
   }

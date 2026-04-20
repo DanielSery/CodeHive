@@ -1,5 +1,6 @@
 param(
-    [string]$Version = ''
+    [string]$Version = '',
+    [string]$ReleaseNotes = ''
 )
 
 $ErrorActionPreference = 'Stop'
@@ -33,10 +34,10 @@ if ($Version -ne $packageJson.version) {
 }
 
 $tag = "v$Version"
-$zipName = "CodeHive-$tag-win.zip"
+$zipName = "MUCHA-$tag-win.zip"
 $zipPath = "dist\win-unpacked\$zipName"
 
-Write-Host "Publishing CodeHive $tag" -ForegroundColor Cyan
+Write-Host "Publishing MUCHA $tag" -ForegroundColor Cyan
 
 # --- Check the tag doesn't already exist ---
 $ErrorActionPreference = 'Continue'
@@ -63,9 +64,20 @@ Write-Host "Created $zipName ($([Math]::Round((Get-Item $zipPath).Length / 1MB, 
 
 # --- Create GitHub release ---
 Write-Host "`nCreating GitHub release $tag..." -ForegroundColor Yellow
-gh release create $tag $zipPath `
-    --repo DanielSery/CodeHive `
-    --title "CodeHive $tag" `
-    --generate-notes
+if ($ReleaseNotes -ne '') {
+    gh release create $tag $zipPath `
+        --repo DanielSery/MUCHA `
+        --title "MUCHA $tag" `
+        --notes $ReleaseNotes
+} else {
+    gh release create $tag $zipPath `
+        --repo DanielSery/MUCHA `
+        --title "MUCHA $tag" `
+        --generate-notes
+}
 
-Write-Host "`nDone. https://github.com/DanielSery/CodeHive/releases/tag/$tag" -ForegroundColor Green
+Write-Host "`nDone. https://github.com/DanielSery/MUCHA/releases/tag/$tag" -ForegroundColor Green
+
+# --- Restart app ---
+Write-Host "`nRestarting MUCHA..." -ForegroundColor Cyan
+Start-Process -FilePath 'cmd.exe' -ArgumentList '/c', 'npm', 'start' -WorkingDirectory $PSScriptRoot

@@ -197,7 +197,7 @@ async function renderDialogForState(state, tabEl) {
     show(syncUncommittedSection);
     show(syncStandardButtons);
 
-    const taskPrefix = tabEl._wtTaskId ? `${tabEl._wtTaskId}: ` : '';
+    const taskPrefix = tabEl._wtTaskId ? `#${tabEl._wtTaskId}: ` : '';
     syncTitleInput.value = taskPrefix;
     syncDescInput.value  = '';
     setTimeout(() => { syncTitleInput.focus(); syncTitleInput.setSelectionRange(taskPrefix.length, taskPrefix.length); }, 50);
@@ -250,7 +250,7 @@ async function renderDialogForState(state, tabEl) {
 
     if (_hasUncommitted) {
       // Two-phase flow: start at Phase 1 (commit form)
-      const prefix = tabEl._wtTaskId ? `${tabEl._wtTaskId}: ` : '';
+      const prefix = tabEl._wtTaskId ? `#${tabEl._wtTaskId}: ` : '';
       syncTitleInput.value = prefix;
       syncDescInput.value  = '';
       const files = await window.reposAPI.gitDiffStat(wtPath);

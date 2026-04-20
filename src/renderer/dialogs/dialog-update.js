@@ -30,7 +30,7 @@ function setState(state, data = {}) {
   if (state === 'updateAvailable') {
     titleEl.textContent = 'Update Available';
     const name = data.releaseName ? ` \u2014 ${escHtml(data.releaseName)}` : '';
-    let html = `A new version of CodeHive is available.<br><br><strong>${escHtml(data.latestVersion)}</strong>${name}`;
+    let html = `A new version of MUCHA is available.<br><br><strong>${escHtml(data.latestVersion)}</strong>${name}`;
     if (data.releaseNotes) {
       html += `<div style="margin-top:10px;max-height:180px;overflow-y:auto;background:var(--bg);border:1px solid var(--border);border-radius:4px;padding:8px;font-size:11px;white-space:pre-wrap;color:var(--text-muted)">${escHtml(data.releaseNotes)}</div>`;
     }
@@ -101,7 +101,7 @@ export async function showUpdateDialog(autoCheck = false) {
   }
 
   if (!result.hasUpdate) {
-    if (!autoCheck) toast.info(`CodeHive ${result.currentVersion} is up to date`);
+    if (!autoCheck) toast.info(`MUCHA ${result.currentVersion} is up to date`);
     return;
   }
 

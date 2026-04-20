@@ -5,7 +5,7 @@ const { spawn } = require('child_process');
 const os = require('os');
 
 const GITHUB_OWNER = 'DanielSery';
-const GITHUB_REPO = 'CodeHive';
+const GITHUB_REPO = 'MUCHA';
 
 function compareVersions(current, latest) {
   const parse = v => v.replace(/^v/, '').split('.').map(n => parseInt(n) || 0);
@@ -98,7 +98,7 @@ function installUpdate(zipPath) {
     '$items = Get-ChildItem $extractDir',
     'if ($items.Count -eq 1 -and $items[0].PSIsContainer) { $srcDir = $items[0].FullName } else { $srcDir = $extractDir }',
     'Copy-Item -Path "$srcDir\\*" -Destination $appDir -Recurse -Force',
-    'Write-Host "Update complete. Launching CodeHive..."',
+    'Write-Host "Update complete. Launching MUCHA..."',
     'Start-Process -FilePath $exePath',
   ].join("\r\n");
 

@@ -82,7 +82,7 @@ app.whenReady().then(async () => {
       type: 'error',
       title: 'VS Code Not Found',
       message: 'Visual Studio Code is not installed or not in PATH.',
-      detail: 'CodeHive requires VS Code to run the embedded editor. Please install it and restart the app.',
+      detail: 'MUCHA requires VS Code to run the embedded editor. Please install it and restart the app.',
       buttons: ['Download VS Code', 'Close'],
       defaultId: 0,
       cancelId: 1

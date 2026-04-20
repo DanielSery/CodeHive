@@ -194,8 +194,8 @@ updaterAPI.isPackaged().then(isPackaged => {
   } else {
     updateButton.title = 'Publish Update';
     updateButton.addEventListener('click', async () => {
-      const version = await showPublishDialog();
-      if (version) { updaterAPI.publish(version); }
+      const result = await showPublishDialog();
+      if (result) { updaterAPI.publish(result.version, result.releaseNotes); }
     });
   }
 });

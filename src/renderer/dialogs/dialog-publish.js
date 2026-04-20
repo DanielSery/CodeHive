@@ -1,5 +1,6 @@
 const publishDialogOverlay = document.getElementById('publish-dialog-overlay');
 const publishVersionInput = document.getElementById('publish-version-input');
+const publishReleaseNotesInput = document.getElementById('publish-release-notes');
 let publishDialogResolve = null;
 
 export async function showPublishDialog() {
@@ -7,6 +8,7 @@ export async function showPublishDialog() {
   const parts = currentVersion.split('.');
   parts[2] = String(parseInt(parts[2]) + 1);
   publishVersionInput.value = parts.join('.');
+  publishReleaseNotesInput.value = '';
 
   return new Promise((resolve) => {
     publishDialogResolve = resolve;
@@ -19,8 +21,9 @@ export async function showPublishDialog() {
 function confirm() {
   const version = publishVersionInput.value.trim();
   if (!version) { return; }
+  const releaseNotes = publishReleaseNotesInput.value.trim();
   publishDialogOverlay.classList.remove('visible');
-  if (publishDialogResolve) { publishDialogResolve(version); publishDialogResolve = null; }
+  if (publishDialogResolve) { publishDialogResolve({ version, releaseNotes }); publishDialogResolve = null; }
 }
 
 function cancel() {
@@ -32,5 +35,8 @@ document.getElementById('publish-confirm-btn').addEventListener('click', confirm
 document.getElementById('publish-cancel-btn').addEventListener('click', cancel);
 publishVersionInput.addEventListener('keydown', (e) => {
   if (e.key === 'Enter') { confirm(); }
+  if (e.key === 'Escape') { cancel(); }
+});
+publishReleaseNotesInput.addEventListener('keydown', (e) => {
   if (e.key === 'Escape') { cancel(); }
 });
