@@ -39,7 +39,9 @@ window.reposAPI.onClaudeStatus((wtPath, status) => {
     setTabStatus(ws.tabEl, 'working');
     wtState.wasWorking = true;
   } else if (status === 'waiting') {
-    setTabStatus(ws.tabEl, 'waiting');
+    if (id !== getActiveId()) {
+      setTabStatus(ws.tabEl, 'waiting');
+    }
     wtState.wasWorking = true;
   } else if (status === 'error') {
     setTabStatus(ws.tabEl, 'error');

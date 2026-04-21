@@ -286,7 +286,7 @@ function buildCommitPushScript(wtPath, { title, description, branch, files }) {
   return { cmd, cwd: wtPath, scriptPath };
 }
 
-function buildPrCreateScript(wtPath, { sourceBranch, targetBranch, title, description, pat, workItemId }) {
+function buildPrCreateScript(wtPath, { sourceBranch, targetBranch, title, description, draft, pat, workItemId }) {
   assertSafeRef(sourceBranch);
   assertSafeRef(targetBranch);
   if (workItemId && !/^\d+$/.test(String(workItemId))) {
@@ -303,6 +303,7 @@ function buildPrCreateScript(wtPath, { sourceBranch, targetBranch, title, descri
     const psQuote = (s) => `'${String(s).replace(/'/g, "''")}'`;
     let azPrCmd = `az repos pr create --source-branch ${psQuote(sourceBranch)} --target-branch ${psQuote(targetBranch)} --title ${psQuote(title)}`;
     if (description) azPrCmd += ` --description ${psQuote(description)}`;
+    if (draft) azPrCmd += ` --draft true`;
     if (workItemId) azPrCmd += ` --work-items ${workItemId}`;
     lines.push(`Write-Host "Creating pull request: ${sourceBranch} -> ${targetBranch}"`);
     lines.push('Write-Host ""');
@@ -313,6 +314,7 @@ function buildPrCreateScript(wtPath, { sourceBranch, targetBranch, title, descri
   } else {
     let azPrCmd = `az repos pr create --source-branch ${shellQuote(sourceBranch)} --target-branch ${shellQuote(targetBranch)} --title ${shellQuote(title)}`;
     if (description) azPrCmd += ` --description ${shellQuote(description)}`;
+    if (draft) azPrCmd += ` --draft true`;
     if (workItemId) azPrCmd += ` --work-items ${workItemId}`;
     lines.push('#!/bin/sh');
     lines.push('set -e');

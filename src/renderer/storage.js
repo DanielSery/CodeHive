@@ -124,12 +124,15 @@ export function saveSelectedSolution(wtPath, slnPath) {
   const state = getState();
   if (!state.selectedSolution) state.selectedSolution = {};
   state.selectedSolution[normalizePath(wtPath)] = slnPath;
+  state.selectedSolutionGlobal = slnPath;
   localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
 }
 
 export function getSelectedSolution(wtPath) {
   const state = getState();
-  return (state.selectedSolution && state.selectedSolution[normalizePath(wtPath)]) || null;
+  return (state.selectedSolution && state.selectedSolution[normalizePath(wtPath)])
+    || state.selectedSolutionGlobal
+    || null;
 }
 
 export function clearWorktreeStorage(wtPath) {

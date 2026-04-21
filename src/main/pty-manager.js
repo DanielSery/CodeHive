@@ -136,8 +136,8 @@ function createCommitPushPty(mainWindow, { wtPath, title, description, branch, f
   return { proc };
 }
 
-function createPrCreatePty(mainWindow, { wtPath, sourceBranch, targetBranch, title, description, pat, workItemId }) {
-  const { cmd, cwd, scriptPath, env } = buildPrCreateScript(wtPath, { sourceBranch, targetBranch, title, description, pat, workItemId });
+function createPrCreatePty(mainWindow, { wtPath, sourceBranch, targetBranch, title, description, draft, pat, workItemId }) {
+  const { cmd, cwd, scriptPath, env } = buildPrCreateScript(wtPath, { sourceBranch, targetBranch, title, description, draft, pat, workItemId });
   const proc = spawnProc(cmd, cwd, env);
 
   proc.onData((data) => {

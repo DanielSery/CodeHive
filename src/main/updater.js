@@ -5,7 +5,7 @@ const { spawn } = require('child_process');
 const os = require('os');
 
 const GITHUB_OWNER = 'DanielSery';
-const GITHUB_REPO = 'MUCHA';
+const GITHUB_REPO = 'CodeHive';
 
 function compareVersions(current, latest) {
   const parse = v => v.replace(/^v/, '').split('.').map(n => parseInt(n) || 0);

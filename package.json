@@ -1,6 +1,6 @@
 {
   "name": "codehive",
-  "version": "0.3.21",
+  "version": "0.3.24",
   "description": "MUCHA - VS Code workspace manager with bare repo/worktree workflow",
   "main": "src/main/main.js",
   "scripts": {

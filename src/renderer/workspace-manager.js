@@ -347,7 +347,7 @@ function switchWorkspace(id) {
     setActiveId(id);
     placeholder.style.display = 'none';
     const status = ws.tabEl.dataset.status;
-    if (status !== 'working' && status !== 'waiting' && status !== 'error') {
+    if (status !== 'working' && status !== 'error') {
       setTabStatus(ws.tabEl, 'open');
     }
     document.querySelector('.titlebar-title').textContent = `MUCHA — ${ws.name}`;

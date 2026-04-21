@@ -15,6 +15,7 @@ const prBranchSearch = document.getElementById('pr-branch-search');
 const prBranchList = document.getElementById('pr-branch-list');
 const prTitleInput = document.getElementById('pr-title-input');
 const prDescInput = document.getElementById('pr-desc-input');
+const prDraftBtn = document.getElementById('pr-draft-btn');
 const prConfirmBtn = document.getElementById('pr-confirm-btn');
 const prFileList = document.getElementById('pr-file-list');
 
@@ -51,7 +52,9 @@ const branchCombobox = createCombobox({
 });
 
 function updateConfirmState() {
-  prConfirmBtn.disabled = !prSelectedBranch || !prTitleInput.value.trim();
+  const enabled = !!prSelectedBranch && !!prTitleInput.value.trim();
+  prConfirmBtn.disabled = !enabled;
+  prDraftBtn.disabled = !enabled;
 }
 
 async function loadPrDiff(targetBranch) {
@@ -182,7 +185,7 @@ function hideCreatePrDialog() {
   _prAutoTitle = null;
 }
 
-async function confirmCreatePr() {
+async function confirmCreatePr(draft = false) {
   const title = prTitleInput.value.trim();
   if (!title || !prSelectedBranch || !_prTabEl) return;
 
@@ -212,7 +215,7 @@ async function confirmCreatePr() {
   });
 
   try {
-    await window.prCreateAPI.start({ wtPath, sourceBranch, targetBranch, title, description: desc, pat, workItemId });
+    await window.prCreateAPI.start({ wtPath, sourceBranch, targetBranch, title, description: desc, draft, pat, workItemId });
     window.prCreateAPI.ready();
   } catch (err) {
     disposeData();
@@ -234,4 +237,5 @@ prDescInput.addEventListener('keydown', (e) => {
 });
 
 document.getElementById('pr-cancel-btn').addEventListener('click', hideCreatePrDialog);
-prConfirmBtn.addEventListener('click', confirmCreatePr);
+prDraftBtn.addEventListener('click', () => confirmCreatePr(true));
+prConfirmBtn.addEventListener('click', () => confirmCreatePr(false));

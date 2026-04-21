@@ -39,6 +39,9 @@ const solutionCombobox = createCombobox({
     solutionCombobox.close();
     confirmOpenSolution();
   },
+  onEnterNoMatch: () => {
+    if (_selectedSln) confirmOpenSolution();
+  },
   openOnFocus: true,
 });
 
