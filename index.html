@@ -153,6 +153,10 @@
         <div id="wt-target-list" class="combobox-list" tabindex="-1"></div>
       </div>
       <div id="wt-preview" class="dialog-preview"></div>
+      <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text-muted);margin-bottom:12px;cursor:pointer">
+        <input type="checkbox" id="wt-activate-task" checked />
+        Activate task and assign to me
+      </label>
       <div class="dialog-buttons">
         <button id="wt-cancel-btn" class="dialog-btn dialog-btn-cancel" tabindex="-1">Cancel</button>
         <button id="wt-skip-task-btn" class="dialog-btn dialog-btn-secondary" tabindex="-1" style="display:none">Skip Task</button>
@@ -230,9 +234,13 @@
         <div id="wt-switch-target-list" class="combobox-list" tabindex="-1"></div>
       </div>
       <div id="wt-switch-preview" class="dialog-preview"></div>
-      <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text-muted);margin-bottom:12px;cursor:pointer">
+      <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text-muted);margin-bottom:6px;cursor:pointer">
         <input type="checkbox" id="wt-switch-delete-branch" />
         Delete old local branch
+      </label>
+      <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text-muted);margin-bottom:12px;cursor:pointer">
+        <input type="checkbox" id="wt-switch-activate-task" checked />
+        Activate task and assign to me
       </label>
       <div class="dialog-buttons">
         <button id="wt-switch-cancel-btn" class="dialog-btn dialog-btn-cancel" tabindex="-1">Cancel</button>

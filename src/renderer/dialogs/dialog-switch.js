@@ -434,7 +434,8 @@ export async function confirmSwitchWorktree() {
     } catch (err) { toast.error(`Failed to create task: ${err.message}`); return; }
   }
 
-  if (wtSwitchSelectedTask && wtSwitchAzureContext) {
+  const activateTask = document.getElementById('wt-switch-activate-task').checked;
+  if (wtSwitchSelectedTask && wtSwitchAzureContext && activateTask) {
     updateWorkItemState(wtSwitchAzureContext, wtSwitchSelectedTask.id, 'Active');
   }
 
