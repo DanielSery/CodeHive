@@ -123,7 +123,17 @@ function gitFileDiff(wtPath, filePath, context = 3) {
     const ctx = Math.min(Math.max(0, parseInt(context, 10) || 3), 9999);
     const escaped = filePath.replace(/"/g, '\\"');
     const out = execSync(`git diff HEAD -U${ctx} -- "${escaped}"`, { cwd: wtPath, encoding: 'utf8', timeout: 5000 });
-    return { ok: true, diff: out };
+    if (out.trim()) {
+      return { ok: true, diff: out };
+    }
+    // No diff output — file is likely untracked; synthesize a full-add diff
+    const abs = path.join(wtPath, filePath);
+    const content = fs.readFileSync(abs, 'utf8');
+    const lines = content.split('\n');
+    if (lines[lines.length - 1] === '') lines.pop();
+    const header = `--- /dev/null\n+++ b/${filePath}\n@@ -0,0 +1,${lines.length} @@\n`;
+    const body = lines.map(line => `+${line}`).join('\n') + '\n';
+    return { ok: true, diff: header + body };
   } catch {
     return { ok: false, diff: '' };
   }

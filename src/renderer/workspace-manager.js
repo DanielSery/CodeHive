@@ -261,7 +261,12 @@ async function openWorktree(tabEl, wt) {
   // F11 is "step into" in VS Code — prevent Chromium from using it for fullscreen
   const onEnterFullScreen = () => webview.getWebContents().exitFullScreen();
 
+  const onDidNavigate = (e) => {
+    console.log('[openWorktree] webview did-navigate to:', e.url);
+  };
+
   const onFinishLoad = () => {
+    console.log('[openWorktree] webview did-finish-load, src:', webview.src);
     webview.insertCSS(`
       .activitybar .actions-container .action-item {
         display: none !important;
@@ -286,6 +291,7 @@ async function openWorktree(tabEl, wt) {
   webview.addEventListener('did-fail-load', onFailLoad);
   webview.addEventListener('new-window', onNewWindow);
   webview.addEventListener('did-finish-load', onFinishLoad);
+  webview.addEventListener('did-navigate', onDidNavigate);
   webview.addEventListener('enter-html-full-screen', onEnterFullScreen);
 
   // Store cleanup function for use when closing the workspace
@@ -294,6 +300,7 @@ async function openWorktree(tabEl, wt) {
     webview.removeEventListener('did-fail-load', onFailLoad);
     webview.removeEventListener('new-window', onNewWindow);
     webview.removeEventListener('did-finish-load', onFinishLoad);
+    webview.removeEventListener('did-navigate', onDidNavigate);
     webview.removeEventListener('enter-html-full-screen', onEnterFullScreen);
   };
 

@@ -299,10 +299,16 @@ function startServer(port) {
 
 function buildFolderUrl(port, folderPath) {
   let normalized = folderPath.replace(/\\/g, '/');
-  if (/^[A-Za-z]:/.test(normalized)) normalized = '/' + normalized;
+  console.log('[buildFolderUrl] input:', folderPath, '| os.platform:', os.platform());
+  const isDriveLetterPath = /^[A-Za-z]:/.test(normalized);
+  if (isDriveLetterPath) normalized = '/' + normalized;
+  console.log('[buildFolderUrl] normalized:', normalized, '| isDriveLetterPath:', isDriveLetterPath);
   const folderUri = `vscode-remote://localhost:${port}${normalized}`;
+  console.log('[buildFolderUrl] folderUri:', folderUri);
   const token = getOrCreateConnectionToken();
-  return `http://127.0.0.1:${port}/?tkn=${encodeURIComponent(token)}&folder=${encodeURIComponent(folderUri)}`;
+  const url = `http://127.0.0.1:${port}/?tkn=${encodeURIComponent(token)}&folder=${encodeURIComponent(folderUri)}`;
+  console.log('[buildFolderUrl] final URL:', url);
+  return url;
 }
 
 // Kill all processes listening on a port (needed to clear orphan servers on Windows).

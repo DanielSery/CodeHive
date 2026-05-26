@@ -344,13 +344,9 @@ export function renderCommitFileList(container, rawFiles, wtPath, { toolbar, sho
 
   // Load all diffs in parallel with concurrency cap
   const CONCURRENCY = 6;
-  const nonNew = allEntries.filter(e => !e.f.isNew);
-  allEntries.filter(e => e.f.isNew).forEach(e => {
-    e.diffPanel.innerHTML = '<div class="commit-diff-empty">New untracked file — no diff available</div>';
-  });
   (async () => {
-    for (let i = 0; i < nonNew.length; i += CONCURRENCY) {
-      await Promise.all(nonNew.slice(i, i + CONCURRENCY).map(e => e.loadDiff()));
+    for (let i = 0; i < allEntries.length; i += CONCURRENCY) {
+      await Promise.all(allEntries.slice(i, i + CONCURRENCY).map(e => e.loadDiff()));
     }
   })();
 

@@ -58,17 +58,32 @@ function buildWorktreeCmd(barePath, { repoDir, branchName, sourceBranch }) {
 
   const dirName = nextWorktreeId(repoDir);
   const wtPath = path.join(repoDir, dirName).replace(/\\/g, '/');
-  const startPoint = `refs/remotes/origin/${sourceBranch}`;
 
-  let branchExists = false;
+  let localBranchExists = false;
   try {
     execSync(`git rev-parse --verify refs/heads/${branchName}`, { cwd: barePath, encoding: 'utf8', stdio: 'pipe' });
-    branchExists = true;
+    localBranchExists = true;
   } catch {}
 
-  const cmd = branchExists
-    ? `git worktree add ${shellQuote(wtPath)} ${shellQuote(branchName)}`
-    : `git worktree add --no-track ${shellQuote(wtPath)} -b ${shellQuote(branchName)} ${shellQuote(startPoint)}`;
+  let remoteBranchExists = false;
+  try {
+    execSync(`git rev-parse --verify refs/remotes/origin/${branchName}`, { cwd: barePath, encoding: 'utf8', stdio: 'pipe' });
+    remoteBranchExists = true;
+  } catch {}
+
+  let cmd;
+  if (localBranchExists) {
+    cmd = `git worktree add ${shellQuote(wtPath)} ${shellQuote(branchName)}`;
+  } else if (remoteBranchExists) {
+    // Branch exists on origin but not locally — create a local branch from origin/<branchName>
+    // and set it up to track origin/<branchName>.
+    cmd = `git worktree add --track ${shellQuote(wtPath)} -b ${shellQuote(branchName)} ${shellQuote(`refs/remotes/origin/${branchName}`)}`;
+  } else {
+    // Brand new branch — base on origin/<sourceBranch>, immediately push to origin
+    // and set upstream so the branch tracks origin/<branchName> from the start.
+    const startPoint = `refs/remotes/origin/${sourceBranch}`;
+    cmd = `git worktree add --no-track ${shellQuote(wtPath)} -b ${shellQuote(branchName)} ${shellQuote(startPoint)} && git push -u origin ${shellQuote(branchName)}`;
+  }
 
   return { cmd, cwd: barePath, wtPath, dirName };
 }

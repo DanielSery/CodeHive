@@ -6,7 +6,13 @@ const vscode = require('./vscode-server');
 
 function register(mainWindow, getServerPort) {
   ipcMain.handle('codeserver:openFolder', (event, folderPath) => {
-    return vscode.buildFolderUrl(getServerPort(), folderPath);
+    const port = getServerPort();
+    console.log('[codeserver:openFolder] folderPath:', folderPath, '| port:', port);
+    const exists = (() => { try { return fs.statSync(folderPath).isDirectory(); } catch { return false; } })();
+    console.log('[codeserver:openFolder] path exists on disk:', exists);
+    const url = vscode.buildFolderUrl(port, folderPath);
+    console.log('[codeserver:openFolder] built URL:', url);
+    return url;
   });
 
   ipcMain.handle('dialog:openDirectory', async () => {
