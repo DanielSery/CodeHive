@@ -349,4 +349,29 @@ function killServer(proc) {
   }
 }
 
-module.exports = { resolvePort, installExtensions, seedDefaultSettings, startServer, buildFolderUrl, killServer, killServerOnPort, isVSCodeInstalled };
+function setTheme(theme) {
+  const isLight = theme === 'light';
+  const colorTheme = isLight ? 'Catppuccin Latte' : 'Catppuccin Mocha';
+  const iconTheme = isLight ? 'catppuccin-latte' : 'catppuccin-mocha';
+
+  const settingsFile = path.join(getServerDataDir(), 'data', 'Machine', 'settings.json');
+  if (!fs.existsSync(settingsFile)) {
+    return;
+  }
+  let content = fs.readFileSync(settingsFile, 'utf8');
+  const colorRegex = /("workbench\.colorTheme"\s*:\s*)"[^"]*"/;
+  const iconRegex = /("workbench\.iconTheme"\s*:\s*)"[^"]*"/;
+  if (colorRegex.test(content)) {
+    content = content.replace(colorRegex, `$1"${colorTheme}"`);
+  } else {
+    content = content.replace(/^\{/, `{\n  "workbench.colorTheme": "${colorTheme}",`);
+  }
+  if (iconRegex.test(content)) {
+    content = content.replace(iconRegex, `$1"${iconTheme}"`);
+  } else {
+    content = content.replace(/^\{/, `{\n  "workbench.iconTheme": "${iconTheme}",`);
+  }
+  fs.writeFileSync(settingsFile, content, 'utf8');
+}
+
+module.exports = { resolvePort, installExtensions, seedDefaultSettings, startServer, buildFolderUrl, killServer, killServerOnPort, isVSCodeInstalled, setTheme };

@@ -6,8 +6,11 @@ import { updateDotState } from './worktree-tab-dot-state.js';
 import { getWtState } from '../worktree-state.js';
 import { saveTaskResolved } from '../storage.js';
 
-function computeSyncState({ uncommitted, localAhead, localBehind, conflict }) {
+function computeSyncState({ uncommitted, localAhead, localBehind, conflict, remoteGone }) {
   if (conflict) return 'conflict';
+  // Remote branch was deleted (e.g. after a completed PR) — the worktree is done; don't
+  // prompt to commit/push, which would only recreate the deleted branch.
+  if (remoteGone) return 'clean';
   if ((localAhead > 0 || uncommitted) && localBehind > 0) return 'diverged';
   if (uncommitted) return 'uncommitted';
   if (localAhead > 0) return 'ahead';

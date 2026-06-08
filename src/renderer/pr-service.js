@@ -20,7 +20,7 @@ export const pr = {
     const d = ws.prData;
     const confirmed = await showCompletePrDialog(d.title, d.targetRefName, ws.existingPrUrl);
     if (!confirmed) return null;
-    const result = await completePullRequest(d.org, d.project, d.auth, d.repoId, d.id, d.lastCommitId);
+    const result = await completePullRequest(d.org, d.project, d.auth, d.repoId, d.id, d.lastCommitId, confirmed.strategy);
     if (result) {
       ws.canCompletePr = false;
       if (tabEl._wtTaskId) {

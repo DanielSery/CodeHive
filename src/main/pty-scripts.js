@@ -229,6 +229,9 @@ function buildWorktreeSwitchScript(cwd, { branchName, sourceBranch, oldBranch })
   if (isWin) {
     lines.push('@echo off');
     lines.push(`echo Switching to ${branchName}...`);
+    lines.push('echo Discarding local changes...');
+    lines.push('git reset --hard');
+    lines.push('git clean -fd');
     lines.push(`git checkout -B ${shellQuote(branchName)} ${shellQuote(startPoint)}`);
     lines.push('if %errorlevel% neq 0 exit /b %errorlevel%');
     lines.push(`echo Deleting old branch: ${oldBranch}`);
@@ -239,6 +242,9 @@ function buildWorktreeSwitchScript(cwd, { branchName, sourceBranch, oldBranch })
     lines.push('#!/bin/sh');
     lines.push('set -e');
     lines.push(`echo "Switching to ${branchName}..."`);
+    lines.push('echo "Discarding local changes..."');
+    lines.push('git reset --hard');
+    lines.push('git clean -fd');
     lines.push(`git checkout -B ${shellQuote(branchName)} ${shellQuote(startPoint)}`);
     lines.push(`echo "Deleting old branch: ${oldBranch}"`);
     lines.push(`git branch -D ${shellQuote(oldBranch)}`);

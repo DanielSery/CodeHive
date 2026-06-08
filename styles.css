@@ -303,6 +303,12 @@ html, body {
 
 .collapsed-dot.active {
   background: var(--tab-active-bg);
+  color: var(--text) !important;
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 45%, transparent);
+}
+
+.collapsed-dot.active svg {
+  filter: drop-shadow(0 0 4px color-mix(in srgb, var(--accent) 60%, transparent));
 }
 
 .collapsed-dot svg {
@@ -329,6 +335,40 @@ html, body {
 .collapsed-dot[data-status="error"] {
   background: color-mix(in srgb, var(--red) 25%, transparent);
   animation: tab-pulse-error 1.5s ease-in-out infinite;
+}
+
+.collapsed-dot.active[data-status="open"] {
+  background: color-mix(in srgb, var(--accent) 20%, var(--tab-active-bg));
+}
+
+.collapsed-dot.active[data-status="working"] {
+  background: color-mix(in srgb, var(--yellow) 35%, var(--tab-active-bg));
+}
+
+.collapsed-dot.active[data-status="done"] {
+  background: color-mix(in srgb, var(--green) 35%, var(--tab-active-bg));
+}
+
+.collapsed-dot.active[data-status="waiting"] {
+  background: color-mix(in srgb, var(--peach) 35%, var(--tab-active-bg));
+  animation: tab-pulse-waiting-active 1.5s ease-in-out infinite;
+}
+
+.collapsed-dot.active[data-status="error"] {
+  background: color-mix(in srgb, var(--red) 35%, var(--tab-active-bg));
+  animation: tab-pulse-error-active 1.5s ease-in-out infinite;
+}
+
+.collapsed-dot.active::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 6px;
+  bottom: 6px;
+  width: 3px;
+  border-radius: 0 3px 3px 0;
+  background: var(--accent);
+  box-shadow: 0 0 6px color-mix(in srgb, var(--accent) 70%, transparent);
 }
 
 

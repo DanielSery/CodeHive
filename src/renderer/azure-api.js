@@ -289,7 +289,7 @@ export async function fetchPolicyEvaluations(org, project, auth, projectId, prId
 /**
  * Complete a pull request (merge it) and delete the source branch.
  */
-export async function completePullRequest(org, project, auth, repositoryId, prId, lastCommitId) {
+export async function completePullRequest(org, project, auth, repositoryId, prId, lastCommitId, mergeStrategy = 'noFastForward') {
   const url = `https://dev.azure.com/${encodeURIComponent(org)}/${encodeURIComponent(project)}/_apis/git/repositories/${encodeURIComponent(repositoryId)}/pullRequests/${prId}?api-version=7.0`;
   try {
     const resp = await fetch(url, {
@@ -298,7 +298,7 @@ export async function completePullRequest(org, project, auth, repositoryId, prId
       body: JSON.stringify({
         status: 'completed',
         lastMergeSourceCommit: { commitId: lastCommitId },
-        completionOptions: { deleteSourceBranch: true }
+        completionOptions: { deleteSourceBranch: true, mergeStrategy }
       })
     });
     if (!resp.ok) return null;

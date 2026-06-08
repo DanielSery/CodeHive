@@ -2,7 +2,20 @@ const overlay = document.getElementById('complete-pr-dialog-overlay');
 const titleEl = document.getElementById('complete-pr-dialog-title');
 const branchEl = document.getElementById('complete-pr-dialog-branch');
 const prLink = document.getElementById('complete-pr-link');
+const strategySelect = document.getElementById('complete-pr-strategy-select');
+const STRATEGY_KEY = 'codehive-complete-pr-strategy';
+const VALID_STRATEGIES = ['noFastForward', 'squash', 'rebase', 'rebaseMerge'];
 let _resolve = null;
+
+function loadStrategy() {
+  const stored = localStorage.getItem(STRATEGY_KEY);
+  return VALID_STRATEGIES.includes(stored) ? stored : 'noFastForward';
+}
+
+strategySelect.value = loadStrategy();
+strategySelect.addEventListener('change', () => {
+  localStorage.setItem(STRATEGY_KEY, strategySelect.value);
+});
 
 export function showCompletePrDialog(prTitle, targetRefName, prUrl) {
   titleEl.textContent = prTitle || '';
@@ -14,13 +27,18 @@ export function showCompletePrDialog(prTitle, targetRefName, prUrl) {
   } else {
     prLink.style.display = 'none';
   }
+  strategySelect.value = loadStrategy();
   overlay.classList.add('visible');
   return new Promise(resolve => { _resolve = resolve; });
 }
 
-function hide(result) {
+function hide(confirmed) {
   overlay.classList.remove('visible');
-  if (_resolve) { _resolve(result); _resolve = null; }
+  if (_resolve) {
+    const result = confirmed ? { strategy: strategySelect.value } : null;
+    _resolve(result);
+    _resolve = null;
+  }
 }
 
 prLink.addEventListener('click', (e) => { e.preventDefault(); window.shellAPI.openExternal(prLink.href); });

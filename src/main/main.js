@@ -129,6 +129,14 @@ app.whenReady().then(async () => {
     sendStatus('VS Code server failed to start');
   }
 
+  ipcMain.handle('codeserver:setTheme', (_, theme) => {
+    try {
+      vscode.setTheme(theme);
+    } catch (err) {
+      console.warn('[codeserver:setTheme] Failed:', err.message);
+    }
+  });
+
   ipcMain.handle('codeserver:restart', async () => {
     vscode.killServer(serverProcess);
     serverProcess = null;

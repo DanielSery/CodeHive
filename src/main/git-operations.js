@@ -104,7 +104,10 @@ function gitDiffStat(wtPath) {
   } catch {}
 
   try {
-    const statusOut = execSync('git status --porcelain', { cwd: wtPath, encoding: 'utf8', timeout: 5000 });
+    // --untracked-files=all lists each new file individually; without it git collapses
+    // untracked files inside a new directory into a single "?? newdir/" entry, which
+    // breaks the file tree (empty-named leaf) and hides the actual new files.
+    const statusOut = execSync('git status --porcelain --untracked-files=all', { cwd: wtPath, encoding: 'utf8', timeout: 5000 });
     for (const line of statusOut.trim().split('\n').filter(Boolean)) {
       if (line.startsWith('?? ')) {
         const filePath = line.substring(3).trim();
@@ -290,16 +293,47 @@ async function getSyncStatus(wtPath, branch, sourceBranch) {
       conflict = true;
     } catch {}
     if (!conflict) {
+      // An in-progress rebase is indicated by the rebase-merge / rebase-apply state dirs.
+      // Do NOT use REBASE_HEAD — git leaves that ref behind after a rebase completes, which
+      // would falsely flag the worktree as conflicted and make commit & push open the git app.
       try {
-        await execAsync('git rev-parse --verify REBASE_HEAD', { cwd: wtPath, encoding: 'utf8', timeout: 3000 });
-        conflict = true;
+        for (const stateDir of ['rebase-merge', 'rebase-apply']) {
+          const { stdout } = await execAsync(`git rev-parse --git-path ${stateDir}`, { cwd: wtPath, encoding: 'utf8', timeout: 3000 });
+          if (fs.existsSync(path.resolve(wtPath, stdout.trim()))) {
+            conflict = true;
+            break;
+          }
+        }
       } catch {}
     }
 
+    // `git status --porcelain` over-reports files that are stat-dirty or differ only by
+    // line-ending/filter normalization — shown as "modified" with no actual diff content
+    // (e.g. in Fork). Mirror gitDiffStat instead: a real, committable change requires either
+    // tracked content differences (git diff HEAD) or an untracked file. This keeps the
+    // commit & push icon in sync with the dialog's file list.
     let uncommitted = false;
     try {
-      const { stdout } = await execAsync('git status --porcelain', { cwd: wtPath, encoding: 'utf8', timeout: 5000 });
-      uncommitted = stdout.trim().length > 0;
+      const { stdout: diffOut } = await execAsync('git diff --numstat HEAD', { cwd: wtPath, encoding: 'utf8', timeout: 5000 });
+      uncommitted = diffOut.trim().length > 0;
+      if (!uncommitted) {
+        const { stdout: statusOut } = await execAsync('git status --porcelain --untracked-files=all', { cwd: wtPath, encoding: 'utf8', timeout: 5000 });
+        uncommitted = statusOut.split('\n').some(line => line.startsWith('?? '));
+      }
+    } catch {}
+
+    // Detect a deleted remote branch: if this branch tracked origin/<branch> (i.e. it was
+    // pushed) but the branch no longer exists on the remote (e.g. auto-deleted after a PR
+    // merge), the push prompt should be suppressed — pushing would recreate the branch.
+    // ls-remote is the authoritative live check: it returns empty when the branch is absent
+    // and throws on network failure, so transient errors don't false-positive.
+    let remoteGone = false;
+    try {
+      const { stdout: upstreamOut } = await execAsync('git rev-parse --abbrev-ref --symbolic-full-name "@{upstream}"', { cwd: wtPath, encoding: 'utf8', timeout: 3000 });
+      if (upstreamOut.trim() === `origin/${branch}`) {
+        const { stdout: lsOut } = await execAsync(`git ls-remote --heads origin ${shellQuote(branch)}`, { cwd: wtPath, encoding: 'utf8', timeout: 8000 });
+        remoteGone = lsOut.trim().length === 0;
+      }
     } catch {}
 
     let localAhead = 0;
@@ -321,9 +355,9 @@ async function getSyncStatus(wtPath, branch, sourceBranch) {
     }
     // If base is null we have no remote at all — localAhead/localBehind stay 0 (clean)
 
-    return { uncommitted, localAhead, localBehind, conflict, error: false };
+    return { uncommitted, localAhead, localBehind, conflict, remoteGone, error: false };
   } catch (err) {
-    return { uncommitted: false, localAhead: 0, localBehind: 0, error: true, message: err.message };
+    return { uncommitted: false, localAhead: 0, localBehind: 0, remoteGone: false, error: true, message: err.message };
   }
 }
 

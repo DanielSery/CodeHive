@@ -498,6 +498,15 @@
       <p id="complete-pr-dialog-title" class="dialog-preview" style="margin-bottom: 4px;"></p>
       <p id="complete-pr-dialog-branch" class="dialog-desc" style="margin-top:0;color:var(--text-muted);font-size:11px"></p>
       <a id="complete-pr-link" href="#" style="display:none;font-size:12px;margin-bottom:14px">Open Pull Request</a>
+      <div class="verify-build-selector">
+        <label for="complete-pr-strategy-select" class="verify-build-selector-label">Merge strategy:</label>
+        <select id="complete-pr-strategy-select" class="verify-build-select">
+          <option value="noFastForward">Merge (no fast-forward)</option>
+          <option value="squash">Squash</option>
+          <option value="rebase">Rebase</option>
+          <option value="rebaseMerge">Semi-linear merge</option>
+        </select>
+      </div>
       <div class="dialog-buttons">
         <button id="complete-pr-cancel-btn" class="dialog-btn dialog-btn-cancel" tabindex="-1">Cancel</button>
         <button id="complete-pr-confirm-btn" class="dialog-btn dialog-btn-confirm">Complete</button>

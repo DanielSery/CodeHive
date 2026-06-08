@@ -138,6 +138,9 @@ document.getElementById('btn-titlebar-remove').addEventListener('click', () => {
       iconDark.style.display = '';
       iconLight.style.display = 'none';
     }
+    if (window.codeServerAPI && window.codeServerAPI.setTheme) {
+      window.codeServerAPI.setTheme(theme);
+    }
   }
 
   // Sync icon with already-applied theme (set by inline script in <head>)
